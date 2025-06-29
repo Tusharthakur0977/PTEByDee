@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock, User, BookOpen } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import GoogleSignInButton from '../components/GoogleSignInButton';
 
 const Register: React.FC = () => {
   const [name, setName] = useState('');
@@ -39,12 +40,27 @@ const Register: React.FC = () => {
       return;
     }
 
-    const success = await register(name, email, password);
-    if (success) {
-      navigate('/dashboard');
-    } else {
-      setError('Registration failed. Please try again.');
+    try {
+      const success = await register(name, email, password);
+      if (success) {
+        navigate('/dashboard');
+      } else {
+        setError('Registration failed. Please try again.');
+      }
+    } catch (error: any) {
+      setError(
+        error.response?.data?.message ||
+          'Registration failed. Please try again.'
+      );
     }
+  };
+
+  const handleGoogleSuccess = () => {
+    navigate('/dashboard');
+  };
+
+  const handleGoogleError = (error: string) => {
+    setError(error);
   };
 
   return (
@@ -64,6 +80,25 @@ const Register: React.FC = () => {
           <p className='mt-2 text-sm text-gray-600 dark:text-gray-400'>
             Join thousands of students achieving their PTE goals
           </p>
+        </div>
+
+        {/* Google Sign In */}
+        <div className='space-y-4'>
+          <GoogleSignInButton
+            onSuccess={handleGoogleSuccess}
+            onError={handleGoogleError}
+          />
+
+          <div className='relative'>
+            <div className='absolute inset-0 flex items-center'>
+              <div className='w-full border-t border-gray-300 dark:border-gray-600' />
+            </div>
+            <div className='relative flex justify-center text-sm'>
+              <span className='px-2 bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400'>
+                Or create account with email
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* Form */}
