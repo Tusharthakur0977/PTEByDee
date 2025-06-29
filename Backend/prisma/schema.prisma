@@ -1,0 +1,364 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "mongodb"
+    url      = env("DATABASE_URL")
+}
+
+// Enums for better type safety and clarity
+enum UserRole {
+    USER
+    ADMIN
+}
+
+enum PaymentStatus {
+    PENDING
+    SUCCESS
+    FAILED
+    REFUNDED
+}
+
+enum SubscriptionPlan {
+    FREE
+    BASIC
+    PREMIUM
+}
+
+// Enum for PTE Academic Question Types (Crucial for simulation)
+enum PteQuestionTypeName {
+    // Speaking (AI Scored)
+    READ_ALOUD
+    REPEAT_SENT_ENCE
+    DESCRIBE_IMAGE
+    RE_TELL_LECTURE
+    ANSWER_SHORT_QUESTION
+
+    // Writing (AI Scored)
+    SUMMARIZE_WRITTEN_TEXT
+    WRITE_ESSAY
+
+    // Reading
+    READING_WRITING_FILL_IN_THE_BLANKS // Combined skill type
+    MULTIPLE_CHOICE_MULTIPLE_ANSWERS_READING // Specific to Reading
+    RE_ORDER_PARAGRAPHS
+    READING_FILL_IN_THE_BLANKS // Specific to Reading
+    MULTIPLE_CHOICE_SINGLE_ANSWER_READING // Specific to Reading
+
+    // Listening
+    SUMMARIZE_SPOKEN_TEXT // AI Scored
+    MULTIPLE_CHOICE_MULTIPLE_ANSWERS_LISTENING // Specific to Listening
+    LISTENING_FILL_IN_THE_BLANKS // Specific to Listening
+    HIGHLIGHT_CORRECT_SUMMARY
+    MULTIPLE_CHOICE_SINGLE_ANSWER_LISTENING // Specific to Listening
+    SELECT_MISSING_WORD
+    HIGHLIGHT_INCORRECT_WORDS
+    WRITE_FROM_DICTATION
+}
+
+enum AuthProviders {
+    EMAIL_PASSWORD
+    GOOGLE
+    APPLE
+}
+
+// --- CORE USER & SUBSCRIPTION MODELS ---
+model User {
+    id            String         @id @default(auto()) @map("_id") @db.ObjectId
+    name          String
+    email         String         @unique
+    password      String? // Make password optional for OAuth users
+    isVerified    Boolean        @default(false)
+    createdAt     DateTime       @default(now())
+    updatedAt     DateTime       @default(now()) @updatedAt
+    role          UserRole       @default(USER)
+    subscription  Subscription?
+    testAttempts  TestAttempt[]
+    courses       UserCourse[]
+    transactions  Transaction[]
+    notifications Notification[]
+    deletedAt     DateTime? // For soft deletes
+
+    // --- Google OAuth Fields ---
+    googleId           String? @unique
+    googleAccessToken  String?
+    googleRefreshToken String?
+
+    // --- Apple OAuth Fields ---
+    appleId           String? @unique // Unique ID from Apple (subject 'sub' claim)
+    appleRefreshToken String? // Needed to revoke tokens or potentially get new access tokens
+    appleEmail        String? // The email Apple provides (could be relay email)
+    // You might also want to store the family name and given name if provided
+    appleGivenName    String?
+    appleFamilyName   String?
+
+    profilePictureUrl String? // Consolidate profile picture URL for any provider
+    provider          AuthProviders @default(EMAIL_PASSWORD) // Which provider the user last used to login
+}
+
+model Subscription {
+    id             String           @id @default(auto()) @map("_id") @db.ObjectId
+    planName       SubscriptionPlan @default(FREE)
+    price          Float
+    durationInDays Int // e.g., 30 for 30 days
+    features       String[] // List of features, e.g., ["Unlimited Mock Tests", "AI Feedback"]
+    user           User             @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    userId         String           @unique @db.ObjectId // Foreign key
+    startDate      DateTime         @default(now())
+    endDate        DateTime // Calculated based on startDate + durationInDays
+    createdAt      DateTime         @default(now())
+    updatedAt      DateTime         @updatedAt
+}
+
+// --- LEARNING CONTENT MODELS ---
+model Course {
+    id          String          @id @default(auto()) @map("_id") @db.ObjectId
+    title       String
+    description String
+    sections    CourseSection[]
+    userCourses UserCourse[]
+    isFree      Boolean         @default(false)
+    createdAt   DateTime        @default(now())
+    updatedAt   DateTime        @updatedAt // Added updatedAt
+    imageUrl    String? // Optional: Course image URL
+    // categories    Category[]   // If you implement course categories
+    // instructor    User? @relation(fields: [instructorId], references: [id]) // Uncomment if you add an instructor role
+    // instructorId  String? @db.ObjectId
+}
+
+model CourseSection {
+    id          String   @id @default(auto()) @map("_id") @db.ObjectId
+    title       String
+    description String?
+    course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+    courseId    String   @db.ObjectId
+    order       Int // To define the order of sections within a course
+    lessons     Lesson[]
+    createdAt   DateTime @default(now()) // Added createdAt for content
+    updatedAt   DateTime @updatedAt // Added updatedAt for content
+}
+
+model Lesson {
+    id          String        @id @default(auto()) @map("_id") @db.ObjectId
+    title       String
+    description String?
+    videoUrl    String? // URL to the video content
+    textContent String? // Any accompanying text/notes
+    audioUrl    String? // For audio-only lessons
+    section     CourseSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+    sectionId   String        @db.ObjectId
+    order       Int // Order of lessons within a section
+    createdAt   DateTime      @default(now()) // Added createdAt for content
+    updatedAt   DateTime      @updatedAt // Added updatedAt for content
+    // questions     Question[] // If a lesson can contain practice questions directly
+}
+
+model UserCourse {
+    id          String    @id @default(auto()) @map("_id") @db.ObjectId
+    user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+    userId      String    @db.ObjectId
+    course      Course    @relation(fields: [courseId], references: [id])
+    courseId    String    @db.ObjectId
+    progress    Float     @default(0.0) // Percentage of course completed
+    completed   Boolean   @default(false)
+    enrolledAt  DateTime  @default(now())
+    completedAt DateTime? // When the user completed the course
+
+    @@unique([userId, courseId]) // A user can only enroll in a course once
+    @@index([userId])
+    @@index([courseId])
+}
+
+// --- PTE SIMULATION MODELS ---
+
+// Defines the major sections of a PTE Test (e.g., Speaking & Writing, Reading, Listening)
+model PteSection {
+    id              String         @id @default(auto()) @map("_id") @db.ObjectId
+    name            String         @unique // e.g., "Speaking & Writing", "Reading", "Listening"
+    description     String?
+    durationMinutes Int // Expected duration for this section in a real test
+    questionTypes   QuestionType[] // All question types that belong to this section
+}
+
+// Defines a specific type of question (e.g., Read Aloud, Essay, Multiple Choice Single Answer)
+model QuestionType {
+    id                      String              @id @default(auto()) @map("_id") @db.ObjectId
+    name                    PteQuestionTypeName @unique // Using the specific enum for question types
+    description             String? // How this question type works, general instructions
+    pteSection              PteSection          @relation(fields: [pteSectionId], references: [id], onDelete: Cascade)
+    pteSectionId            String              @db.ObjectId
+    expectedTimePerQuestion Int? // Optional: average time for this question type (for guidance)
+    questions               Question[] // All individual questions of this type
+}
+
+// Represents a specific instance of a question that can appear in a Test
+model Question {
+    id             String       @id @default(auto()) @map("_id") @db.ObjectId
+    questionCode   String       @unique // For easy identification/referencing (e.g., "RA_001_Test1")
+    questionType   QuestionType @relation(fields: [questionTypeId], references: [id])
+    questionTypeId String       @db.ObjectId
+    test           Test         @relation(fields: [testId], references: [id]) // Which test this question belongs to
+    testId         String       @db.ObjectId
+    orderInTest    Int // Order of question within a specific test
+
+    // Question content fields - tailored for PTE Academic question types
+    textContent String? // For Read Aloud, Summarize Written Text, Essay, Reading Fill in the Blanks, R&W Fill in the Blanks, Re-order Paragraphs, Highlight Incorrect Words
+    audioUrl    String? // For Repeat Sentence, Re-tell Lecture, Answer Short Question, Summarize Spoken Text, Listening Fill in the Blanks, Highlight Correct Summary, Select Missing Word, Write from Dictation
+    imageUrl    String? // For Describe Image (URL to the image)
+
+    // Answer options/structure for various question types
+    options        Json? // For Multiple Choice (Single/Multiple Answer), Highlight Correct Summary, Select Missing Word
+    // Example for MCQs: [{ text: "Option A", isCorrect: true }, { text: "Option B", isCorrect: false }]
+    correctAnswers Json? // For Fill in the Blanks (array of strings), Write from Dictation (string), Repeat Sentence (string), Re-order Paragraphs (array of strings/IDs in correct order)
+    // Example for Reading Fill in the Blanks (dropdowns): [{ gapId: "gap1", options: ["A", "B"], correctAnswer: "A" }]
+
+    // Specific constraints/metadata for question types
+    wordCountMin           Int? // For Essay, Summarize Written Text, Summarize Spoken Text (min word limit)
+    wordCountMax           Int? // For Essay, Summarize Written Text, Summarize Spoken Text (max word limit)
+    durationMillis         Int? // For audio/video duration, or time limit for recording response (e.g., for Read Aloud preparation time, recording time)
+    // For Highlight Incorrect Words
+    originalTextWithErrors String? // The text shown to the user with errors to highlight
+    incorrectWords         Json? // e.g., ["word1", "word2"] - actual incorrect words in the original text to mark
+
+    createdAt    DateTime       @default(now())
+    updatedAt    DateTime       @updatedAt
+    UserResponse UserResponse[] // Inverse relation: a question can have many user responses across different attempts
+    // Keeping this for now as it's not "non-logical", just potentially large if eager loaded.
+
+    @@index([questionTypeId])
+    @@index([testId])
+}
+
+// Represents a full PTE Mock Test
+model Test {
+    id            String        @id @default(auto()) @map("_id") @db.ObjectId
+    title         String // e.g., "PTE Mock Test 1 (Academic)"
+    description   String?
+    testType      String        @default("ACADEMIC") // Could be "ACADEMIC", "CORE" - helpful for filtering
+    totalDuration Int // Total duration in minutes (e.g., 120 minutes)
+    isFree        Boolean       @default(false) // Whether this test is free or requires subscription/payment
+    questions     Question[] // Questions belonging to this test
+    testAttempts  TestAttempt[]
+    createdAt     DateTime      @default(now())
+    updatedAt     DateTime      @updatedAt
+
+    @@index([isFree])
+    @@index([testType])
+}
+
+// Represents a user's attempt at a specific test
+model TestAttempt {
+    id                 String         @id @default(auto()) @map("_id") @db.ObjectId
+    user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+    userId             String         @db.ObjectId
+    test               Test           @relation(fields: [testId], references: [id])
+    testId             String         @db.ObjectId
+    startedAt          DateTime       @default(now())
+    completedAt        DateTime?
+    overallScore       Int? // Final overall score (10-90)
+    // Communicative skills scores (Keeping these here for easy access/display)
+    speakingScore      Int? // 10-90
+    writingScore       Int? // 10-90
+    readingScore       Int? // 10-90
+    listeningScore     Int? // 10-90
+    // Enabling skills scores (PTE specific)
+    grammarScore       Int? // 10-90
+    oralFluencyScore   Int? // 10-90
+    pronunciationScore Int? // 10-90
+    vocabularyScore    Int? // 10-90
+    discourseScore     Int? // 10-90 (for coherence/cohesion)
+    spellingScore      Int? // 10-90
+    // User's answers/responses for each question
+    responses          UserResponse[]
+    feedback           AIReport? // One-to-one with AIReport
+    rawPteScoreJson    Json? // To store the full detailed PTE score breakdown from AI if available
+    status             String         @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED, REVIEW_PENDING (if human review needed)
+    timeTakenSeconds   Int? // Timer for the overall test/sections
+
+    @@index([userId, testId])
+    @@index([userId, startedAt])
+    @@index([status])
+}
+
+// Stores the user's specific answer for each question within a TestAttempt
+model UserResponse {
+    id            String      @id @default(auto()) @map("_id") @db.ObjectId
+    testAttempt   TestAttempt @relation(fields: [testAttemptId], references: [id], onDelete: Cascade)
+    testAttemptId String      @db.ObjectId
+    question      Question    @relation(fields: [questionId], references: [id])
+    questionId    String      @db.ObjectId
+
+    // User's response data - highly dependent on question type
+    textResponse     String? // For Essay, Summarize Written Text, Fill in the Blanks (typed answer)
+    audioResponseUrl String? // For Read Aloud, Repeat Sentence, Describe Image, Re-tell Lecture, Answer Short Question (URL to user's recorded audio)
+    selectedOptions  String[] // For Multiple Choice (Single/Multiple Answer), Highlight Correct Summary, Select Missing Word (array of selected option IDs or values)
+    orderedItems     String[] // For Re-order Paragraphs (array of paragraph IDs/segments in user's chosen order)
+    highlightedWords String[] // For Highlight Incorrect Words (array of words user highlighted)
+
+    // Scoring specific to this question (can be derived from AIReport, or used for partial scoring)
+    questionScore Int? // Score for this specific question (e.g., out of 1 or 2, depending on question type)
+    isCorrect     Boolean? // For questions with clear correct/incorrect answers
+    aiFeedback    String? // Direct AI feedback for this specific question (e.g., "Pronunciation clear but content slightly off")
+
+    timeTakenSeconds Int? // How long the user spent on this question
+    createdAt        DateTime @default(now())
+    updatedAt        DateTime @updatedAt
+
+    @@unique([testAttemptId, questionId]) // A user can only respond to a question once per attempt
+    @@index([testAttemptId])
+    @@index([questionId])
+}
+
+// AI-generated report for a TestAttempt
+model AIReport {
+    id                  String      @id @default(auto()) @map("_id") @db.ObjectId
+    testAttempt         TestAttempt @relation(fields: [testAttemptId], references: [id], onDelete: Cascade)
+    testAttemptId       String      @unique @db.ObjectId // One-to-one
+    overallSummary      String // Overall summary of performance
+    strengths           String[] // Areas where the user performed well
+    weaknesses          String[] // Areas needing improvement
+    suggestions         String[] // Actionable advice for improvement
+    // Detailed breakdown of scores for specific skills (Keeping these here as a comprehensive AI report)
+    grammarScore        Int?
+    oralFluencyScore    Int?
+    pronunciationScore  Int?
+    vocabularyScore     Int?
+    discourseScore      Int?
+    spellingScore       Int?
+    // Detailed feedback for specific question types or sections
+    sectionWiseFeedback Json? // e.g., { "Speaking & Writing": { fluency: "Good", pronunciation: "Needs improvement in 'th' sounds" } }
+    createdAt           DateTime    @default(now())
+    updatedAt           DateTime    @updatedAt
+}
+
+// --- TRANSACTION & NOTIFICATION MODELS ---
+model Transaction {
+    id            String        @id @default(auto()) @map("_id") @db.ObjectId
+    user          User          @relation(fields: [userId], references: [id])
+    userId        String        @db.ObjectId
+    amount        Float
+    paymentStatus PaymentStatus @default(PENDING)
+    gateway       String // e.g., "Razorpay", "Stripe"
+    transactionId String? // ID from the payment gateway
+    orderId       String? // Your internal order ID if different from transactionId
+    purchasedItem String? // What was purchased (e.g., "Premium Plan", "PTE Mock Test 3")
+    createdAt     DateTime      @default(now())
+
+    @@index([gateway])
+    @@index([paymentStatus])
+    @@index([userId, createdAt])
+}
+
+model Notification {
+    id        String   @id @default(auto()) @map("_id") @db.ObjectId
+    userId    String   @db.ObjectId
+    user      User     @relation(fields: [userId], references: [id])
+    message   String
+    type      String // e.g., "SYSTEM", "COURSE_UPDATE", "TEST_FEEDBACK"
+    read      Boolean  @default(false)
+    createdAt DateTime @default(now())
+
+    @@index([userId, read])
+    @@index([createdAt])
+}
