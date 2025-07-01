@@ -1,6 +1,5 @@
 import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google';
 import { FC } from 'react';
-import { useAuth } from '../contexts/AuthContext';
 
 interface GoogleSignInButtonProps {
   onSuccess?: () => void;
@@ -11,8 +10,6 @@ const GoogleSignInButton: FC<GoogleSignInButtonProps> = ({
   onSuccess,
   onError,
 }) => {
-  const { googleSignIn } = useAuth();
-
   const handleSuccess = async (credentialResponse: { credential?: string }) => {
     try {
       if (credentialResponse.credential) {
@@ -35,8 +32,8 @@ const GoogleSignInButton: FC<GoogleSignInButtonProps> = ({
   };
 
   return (
-    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
-      <div className='w-full flex justify-center'>
+    <div className='w-full flex justify-center'>
+      <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
         <GoogleLogin
           onSuccess={handleSuccess}
           onError={handleError}
@@ -46,8 +43,8 @@ const GoogleSignInButton: FC<GoogleSignInButtonProps> = ({
           text='signin_with'
           shape='rectangular'
         />
-      </div>
-    </GoogleOAuthProvider>
+      </GoogleOAuthProvider>
+    </div>
   );
 };
 

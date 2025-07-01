@@ -37,8 +37,8 @@ export const protect = asyncHandler(
         }
 
         // Remove password from the user object before attaching to request
-        const { password, ...userWithoutPassword } = user;
-        req.user = userWithoutPassword; // Attach user to the request object
+        const User = user;
+        req.user = User; // Attach user to the request object
 
         next();
       } catch (error: any) {
