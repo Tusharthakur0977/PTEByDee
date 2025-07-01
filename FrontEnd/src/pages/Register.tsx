@@ -10,7 +10,7 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { GoogleLogin } from '@react-oauth/google';
+import GoogleSignInButton from '../components/GoogleSignInButton';
 
 const Register: React.FC = () => {
   const [name, setName] = useState('');
@@ -21,7 +21,7 @@ const Register: React.FC = () => {
   const [success, setSuccess] = useState('');
   const [countdown, setCountdown] = useState(0);
   const [acceptTerms, setAcceptTerms] = useState(false);
-  const { sendOtp, verifyOtp, googleLogin, isLoading } = useAuth();
+  const { sendOtp, verifyOtp, isLoading } = useAuth();
   const navigate = useNavigate();
 
   // Countdown timer for resend OTP
@@ -94,15 +94,12 @@ const Register: React.FC = () => {
     }
   };
 
-  const handleGoogleSuccess = async (credentialResponse: any) => {
-    if (credentialResponse.credential) {
-      const success = await googleLogin(credentialResponse.credential);
-      if (success) {
-        navigate('/dashboard');
-      } else {
-        setError('Google registration failed. Please try again.');
-      }
-    }
+  const handleGoogleSuccess = () => {
+    navigate('/dashboard');
+  };
+
+  const handleGoogleError = (error: string) => {
+    setError(error);
   };
 
   const handleBackToDetails = () => {
@@ -138,17 +135,10 @@ const Register: React.FC = () => {
           <>
             {/* Google Registration */}
             <div className='space-y-4'>
-              <div className='flex justify-center'>
-                <GoogleLogin
-                  onSuccess={handleGoogleSuccess}
-                  onError={() => setError('Google registration failed')}
-                  useOneTap={false}
-                  theme='outline'
-                  size='large'
-                  text='signup_with'
-                  shape='rectangular'
-                />
-              </div>
+              <GoogleSignInButton
+                onSuccess={handleGoogleSuccess}
+                onError={handleGoogleError}
+              />
 
               <div className='relative'>
                 <div className='absolute inset-0 flex items-center'>

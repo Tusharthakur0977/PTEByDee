@@ -1,8 +1,8 @@
-import { GoogleLogin } from '@react-oauth/google';
 import { ArrowLeft, BookOpen, Clock, Mail, Shield } from 'lucide-react';
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import GoogleSignInButton from '../components/GoogleSignInButton';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -11,7 +11,7 @@ const Login: React.FC = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [countdown, setCountdown] = useState(0);
-  const { sendOtp, verifyOtp, googleLogin, isLoading } = useAuth();
+  const { sendOtp, verifyOtp, isLoading } = useAuth();
   const navigate = useNavigate();
 
   // Countdown timer for resend OTP
@@ -74,15 +74,12 @@ const Login: React.FC = () => {
     }
   };
 
-  const handleGoogleSuccess = async (credentialResponse: any) => {
-    if (credentialResponse.credential) {
-      const success = await googleLogin(credentialResponse.credential);
-      if (success) {
-        navigate('/dashboard');
-      } else {
-        setError('Google login failed. Please try again.');
-      }
-    }
+  const handleGoogleSuccess = () => {
+    navigate('/dashboard');
+  };
+
+  const handleGoogleError = (error: string) => {
+    setError(error);
   };
 
   const handleBackToEmail = () => {
@@ -118,17 +115,10 @@ const Login: React.FC = () => {
           <>
             {/* Google Login */}
             <div className='space-y-4'>
-              <div className='flex justify-center'>
-                <GoogleLogin
-                  onSuccess={handleGoogleSuccess}
-                  onError={() => setError('Google login failed')}
-                  useOneTap={false}
-                  theme='outline'
-                  size='large'
-                  text='signin_with'
-                  shape='rectangular'
-                />
-              </div>
+              <GoogleSignInButton
+                onSuccess={handleGoogleSuccess}
+                onError={handleGoogleError}
+              />
 
               <div className='relative'>
                 <div className='absolute inset-0 flex items-center'>

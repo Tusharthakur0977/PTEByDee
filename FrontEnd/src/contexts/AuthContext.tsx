@@ -15,8 +15,6 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<boolean>;
-  register: (name: string, email: string, password: string) => Promise<boolean>;
   googleLogin: (credential: string) => Promise<boolean>;
   sendOtp: (
     email: string,
@@ -68,64 +66,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setIsLoading(false);
   }, []);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
-    setIsLoading(true);
-    try {
-      const response = await api.post('/auth/login', { email, password });
-
-      if (response.data.success) {
-        const { token, ...userData } = response.data.data;
-        setUser(userData);
-        localStorage.setItem('user', JSON.stringify(userData));
-        localStorage.setItem('token', token);
-        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        return true;
-      }
-      return false;
-    } catch (error: any) {
-      console.error(
-        'Login error:',
-        error.response?.data?.message || error.message
-      );
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const register = async (
-    name: string,
-    email: string,
-    password: string
-  ): Promise<boolean> => {
-    setIsLoading(true);
-    try {
-      const response = await api.post('/auth/register', {
-        name,
-        email,
-        password,
-      });
-
-      if (response.data.success) {
-        const { token, ...userData } = response.data.data;
-        setUser(userData);
-        localStorage.setItem('user', JSON.stringify(userData));
-        localStorage.setItem('token', token);
-        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        return true;
-      }
-      return false;
-    } catch (error: any) {
-      console.error(
-        'Registration error:',
-        error.response?.data?.message || error.message
-      );
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const googleLogin = async (credential: string): Promise<boolean> => {
     setIsLoading(true);
     try {
@@ -134,7 +74,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       });
 
       if (response.data.success) {
-        const { token, ...userData } = response.data.data;
+        const { User: userData, token } = response.data.data;
         setUser(userData);
         localStorage.setItem('user', JSON.stringify(userData));
         localStorage.setItem('token', token);
@@ -189,7 +129,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const response = await api.post('/auth/verify-otp', payload);
 
       if (response.data.success) {
-        const { token, ...userData } = response.data.data;
+        const { User: userData, token } = response.data.data;
         setUser(userData);
         localStorage.setItem('user', JSON.stringify(userData));
         localStorage.setItem('token', token);
@@ -228,8 +168,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     <AuthContext.Provider
       value={{
         user,
-        login,
-        register,
         googleLogin,
         sendOtp,
         verifyOtp,

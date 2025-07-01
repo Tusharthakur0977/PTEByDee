@@ -1,5 +1,6 @@
 import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google';
 import { FC } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 
 interface GoogleSignInButtonProps {
   onSuccess?: () => void;
@@ -10,10 +11,12 @@ const GoogleSignInButton: FC<GoogleSignInButtonProps> = ({
   onSuccess,
   onError,
 }) => {
+  const { googleLogin } = useAuth();
+
   const handleSuccess = async (credentialResponse: { credential?: string }) => {
     try {
       if (credentialResponse.credential) {
-        const success = await googleSignIn(credentialResponse.credential);
+        const success = await googleLogin(credentialResponse.credential);
         if (success) {
           onSuccess?.();
         } else {
@@ -30,6 +33,12 @@ const GoogleSignInButton: FC<GoogleSignInButtonProps> = ({
   const handleError = () => {
     onError?.('Google sign-in failed. Please try again.');
   };
+
+  // Check if Google Client ID is available
+  if (!import.meta.env.VITE_GOOGLE_CLIENT_ID) {
+    console.warn('Google Client ID not found in environment variables');
+    return null;
+  }
 
   return (
     <div className='w-full flex justify-center'>
