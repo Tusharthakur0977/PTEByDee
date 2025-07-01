@@ -180,6 +180,13 @@
   dependencies:
     undici-types "~7.8.0"
 
+"@types/nodemailer@^6.4.17":
+  version "6.4.17"
+  resolved "https://registry.npmjs.org/@types/nodemailer/-/nodemailer-6.4.17.tgz"
+  integrity sha512-I9CCaIp6DTldEg7vyUTZi8+9Vo0hi1/T8gv3C89yk1rSAAzoKQ8H8ki/jBYJSFoH/BisgLP8tkZMlQ91CIquww==
+  dependencies:
+    "@types/node" "*"
+
 "@types/qs@*":
   version "6.14.0"
   resolved "https://registry.npmjs.org/@types/qs/-/qs-6.14.0.tgz"
@@ -241,7 +248,7 @@ acorn@^8.11.0, acorn@^8.4.1:
 
 agent-base@^7.1.2:
   version "7.1.3"
-  resolved "https://registry.yarnpkg.com/agent-base/-/agent-base-7.1.3.tgz#29435eb821bc4194633a5b89e5bc4703bafc25a1"
+  resolved "https://registry.npmjs.org/agent-base/-/agent-base-7.1.3.tgz"
   integrity sha512-jRR5wdylq8CkOe6hei19GGZnxM6rBGwFl3Bg0YItGDimvjGtAvdZk4Pu6Cl4u4Igsws4a1fd1Vq3ezrhn4KmFw==
 
 anymatch@~3.1.2:
@@ -264,12 +271,12 @@ balanced-match@^1.0.0:
 
 base64-js@^1.3.0:
   version "1.5.1"
-  resolved "https://registry.yarnpkg.com/base64-js/-/base64-js-1.5.1.tgz#1b1b440160a5bf7ad40b650f095963481903930a"
+  resolved "https://registry.npmjs.org/base64-js/-/base64-js-1.5.1.tgz"
   integrity sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==
 
 bcrypt@^6.0.0:
   version "6.0.0"
-  resolved "https://registry.yarnpkg.com/bcrypt/-/bcrypt-6.0.0.tgz#86643fddde9bcd0ad91400b063003fa4b0312835"
+  resolved "https://registry.npmjs.org/bcrypt/-/bcrypt-6.0.0.tgz"
   integrity sha512-cU8v/EGSrnH+HnxV2z0J7/blxH8gq7Xh2JFT6Aroax7UohdmiJJlxApMxtKfuI7z68NvvVcmR78k2LbT6efhRg==
   dependencies:
     node-addon-api "^8.3.0"
@@ -277,7 +284,7 @@ bcrypt@^6.0.0:
 
 bignumber.js@^9.0.0:
   version "9.3.0"
-  resolved "https://registry.yarnpkg.com/bignumber.js/-/bignumber.js-9.3.0.tgz#bdba7e2a4c1a2eba08290e8dcad4f36393c92acd"
+  resolved "https://registry.npmjs.org/bignumber.js/-/bignumber.js-9.3.0.tgz"
   integrity sha512-EM7aMFTXbptt/wZdMlBv2t8IViwQL+h6SLHosp8Yf0dqJMTnY6iL32opnAB6kAdL0SZPuvcAzFr31o0c/R3/RA==
 
 binary-extensions@^2.0.0:
@@ -403,7 +410,7 @@ create-require@^1.1.0:
 
 data-uri-to-buffer@^4.0.0:
   version "4.0.1"
-  resolved "https://registry.yarnpkg.com/data-uri-to-buffer/-/data-uri-to-buffer-4.0.1.tgz#d8feb2b2881e6a4f58c2e08acfd0e2834e26222e"
+  resolved "https://registry.npmjs.org/data-uri-to-buffer/-/data-uri-to-buffer-4.0.1.tgz"
   integrity sha512-0R9ikRb668HB7QDxT1vkpuUBtqc53YyAwMwGeUFKRojY/NWKvdZ+9UYtRfGmhqNbRkTSVpMbmyhXipFFv2cb/A==
 
 debug@4, debug@4.x, debug@^4, debug@^4.3.5, debug@^4.4.0:
@@ -483,7 +490,7 @@ etag@^1.8.1:
 
 express-async-handler@^1.2.0:
   version "1.2.0"
-  resolved "https://registry.yarnpkg.com/express-async-handler/-/express-async-handler-1.2.0.tgz#ffc9896061d90f8d2e71a2d2b8668db5b0934391"
+  resolved "https://registry.npmjs.org/express-async-handler/-/express-async-handler-1.2.0.tgz"
   integrity sha512-rCSVtPXRmQSW8rmik/AIb2P0op6l7r1fMW538yyvTMltCO4xQEWMmobfrIxN2V1/mVrgxB8Az3reYF6yUZw37w==
 
 express@^5.1.0:
@@ -521,12 +528,12 @@ express@^5.1.0:
 
 extend@^3.0.2:
   version "3.0.2"
-  resolved "https://registry.yarnpkg.com/extend/-/extend-3.0.2.tgz#f8b1136b4071fbd8eb140aff858b1019ec2915fa"
+  resolved "https://registry.npmjs.org/extend/-/extend-3.0.2.tgz"
   integrity sha512-fjquC59cD7CyW6urNXK0FBufkZcoiGG80wTuPujX590cB5Ttln20E2UB4S/WARVqhXffZl2LNgS+gQdPIIim/g==
 
 fetch-blob@^3.1.2, fetch-blob@^3.1.4:
   version "3.2.0"
-  resolved "https://registry.yarnpkg.com/fetch-blob/-/fetch-blob-3.2.0.tgz#f09b8d4bbd45adc6f0c20b7e787e793e309dcce9"
+  resolved "https://registry.npmjs.org/fetch-blob/-/fetch-blob-3.2.0.tgz"
   integrity sha512-7yAQpD2UMJzLi1Dqv7qFYnPbaPx7ZfFK6PiIxQ4PfkGPyNyl2Ugx+a/umUonmKqjhM4DnfbMvdX6otXq83soQQ==
   dependencies:
     node-domexception "^1.0.0"
@@ -553,7 +560,7 @@ finalhandler@^2.1.0:
 
 formdata-polyfill@^4.0.10:
   version "4.0.10"
-  resolved "https://registry.yarnpkg.com/formdata-polyfill/-/formdata-polyfill-4.0.10.tgz#24807c31c9d402e002ab3d8c720144ceb8848423"
+  resolved "https://registry.npmjs.org/formdata-polyfill/-/formdata-polyfill-4.0.10.tgz"
   integrity sha512-buewHzMvYL29jdeQTVILecSaZKnt/RJWjoZCF5OW60Z67/GmSLBkOFM7qh1PI3zFNtJbaZL5eQu1vLfazOwj4g==
   dependencies:
     fetch-blob "^3.1.2"
@@ -580,7 +587,7 @@ function-bind@^1.1.2:
 
 gaxios@^7.0.0:
   version "7.1.1"
-  resolved "https://registry.yarnpkg.com/gaxios/-/gaxios-7.1.1.tgz#255b86ce09891e9ed16926443a1ce239c8f9fd51"
+  resolved "https://registry.npmjs.org/gaxios/-/gaxios-7.1.1.tgz"
   integrity sha512-Odju3uBUJyVCkW64nLD4wKLhbh93bh6vIg/ZIXkWiLPBrdgtc65+tls/qml+un3pr6JqYVFDZbbmLDQT68rTOQ==
   dependencies:
     extend "^3.0.2"
@@ -589,7 +596,7 @@ gaxios@^7.0.0:
 
 gcp-metadata@^7.0.0:
   version "7.0.1"
-  resolved "https://registry.yarnpkg.com/gcp-metadata/-/gcp-metadata-7.0.1.tgz#43bb9cd482cf0590629b871ab9133af45b78382d"
+  resolved "https://registry.npmjs.org/gcp-metadata/-/gcp-metadata-7.0.1.tgz"
   integrity sha512-UcO3kefx6dCcZkgcTGgVOTFb7b1LlQ02hY1omMjjrrBzkajRMCFgYOjs7J71WqnuG1k2b+9ppGL7FsOfhZMQKQ==
   dependencies:
     gaxios "^7.0.0"
@@ -629,7 +636,7 @@ glob-parent@~5.1.2:
 
 google-auth-library@^10.1.0:
   version "10.1.0"
-  resolved "https://registry.yarnpkg.com/google-auth-library/-/google-auth-library-10.1.0.tgz#5412fa2b7f2c4fe169c6cc56b9425319137e17e9"
+  resolved "https://registry.npmjs.org/google-auth-library/-/google-auth-library-10.1.0.tgz"
   integrity sha512-GspVjZj1RbyRWpQ9FbAXMKjFGzZwDKnUHi66JJ+tcjcu5/xYAP1pdlWotCuIkMwjfVsxxDvsGZXGLzRt72D0sQ==
   dependencies:
     base64-js "^1.3.0"
@@ -642,7 +649,7 @@ google-auth-library@^10.1.0:
 
 google-logging-utils@^1.0.0:
   version "1.1.1"
-  resolved "https://registry.yarnpkg.com/google-logging-utils/-/google-logging-utils-1.1.1.tgz#4a1f44a69a187eb954629c88c5af89c0dfbca51a"
+  resolved "https://registry.npmjs.org/google-logging-utils/-/google-logging-utils-1.1.1.tgz"
   integrity sha512-rcX58I7nqpu4mbKztFeOAObbomBbHU2oIb/d3tJfF3dizGSApqtSwYJigGCooHdnMyQBIw8BrWyK96w3YXgr6A==
 
 gopd@^1.2.0:
@@ -652,7 +659,7 @@ gopd@^1.2.0:
 
 gtoken@^8.0.0:
   version "8.0.0"
-  resolved "https://registry.yarnpkg.com/gtoken/-/gtoken-8.0.0.tgz#d67a0e346dd441bfb54ad14040ddc3b632886575"
+  resolved "https://registry.npmjs.org/gtoken/-/gtoken-8.0.0.tgz"
   integrity sha512-+CqsMbHPiSTdtSO14O51eMNlrp9N79gmeqmXeouJOhfucAedHw9noVe/n5uJk3tbKE6a+6ZCQg3RPhVhHByAIw==
   dependencies:
     gaxios "^7.0.0"
@@ -688,7 +695,7 @@ http-errors@2.0.0, http-errors@^2.0.0:
 
 https-proxy-agent@^7.0.1:
   version "7.0.6"
-  resolved "https://registry.yarnpkg.com/https-proxy-agent/-/https-proxy-agent-7.0.6.tgz#da8dfeac7da130b05c2ba4b59c9b6cd66611a6b9"
+  resolved "https://registry.npmjs.org/https-proxy-agent/-/https-proxy-agent-7.0.6.tgz"
   integrity sha512-vK9P5/iUfdl95AI+JVyUuIcVtd4ofvtrOr3HNtM2yxC9bnMbEdp3x01OhQNnjb8IJYi38VlTE3mBXwcfvywuSw==
   dependencies:
     agent-base "^7.1.2"
@@ -752,7 +759,7 @@ jiti@2.4.2:
 
 json-bigint@^1.0.0:
   version "1.0.0"
-  resolved "https://registry.yarnpkg.com/json-bigint/-/json-bigint-1.0.0.tgz#ae547823ac0cad8398667f8cd9ef4730f5b01ff1"
+  resolved "https://registry.npmjs.org/json-bigint/-/json-bigint-1.0.0.tgz"
   integrity sha512-SiPv/8VpZuWbvLSMtTDU8hEfrZWg/mH/nV/b4o0CYbSxu1UIQPLdwKOCIyLQX+VIPO5vrLX3i8qtqFyhdPSUSQ==
   dependencies:
     bignumber.js "^9.0.0"
@@ -784,7 +791,7 @@ jwa@^1.4.1:
 
 jwa@^2.0.0:
   version "2.0.1"
-  resolved "https://registry.yarnpkg.com/jwa/-/jwa-2.0.1.tgz#bf8176d1ad0cd72e0f3f58338595a13e110bc804"
+  resolved "https://registry.npmjs.org/jwa/-/jwa-2.0.1.tgz"
   integrity sha512-hRF04fqJIP8Abbkq5NKGN0Bbr3JxlQ+qhZufXVr0DvujKy93ZCbXZMHDL4EOtodSbCWxOqR8MS1tXA5hwqCXDg==
   dependencies:
     buffer-equal-constant-time "^1.0.1"
@@ -801,7 +808,7 @@ jws@^3.2.2:
 
 jws@^4.0.0:
   version "4.0.0"
-  resolved "https://registry.yarnpkg.com/jws/-/jws-4.0.0.tgz#2d4e8cf6a318ffaa12615e9dec7e86e6c97310f4"
+  resolved "https://registry.npmjs.org/jws/-/jws-4.0.0.tgz"
   integrity sha512-KDncfTmOZoOMTFG4mBlG0qUIOlc03fmzH+ru6RgYVZhPkyiy/92Owlt/8UEN+a4TXR1FQetfIpJE8ApdvdVxTg==
   dependencies:
     jwa "^2.0.0"
@@ -950,12 +957,12 @@ node-addon-api@^8.3.0:
 
 node-domexception@^1.0.0:
   version "1.0.0"
-  resolved "https://registry.yarnpkg.com/node-domexception/-/node-domexception-1.0.0.tgz#6888db46a1f71c0b76b3f7555016b63fe64766e5"
+  resolved "https://registry.npmjs.org/node-domexception/-/node-domexception-1.0.0.tgz"
   integrity sha512-/jKZoMpw0F8GRwl4/eLROPA3cfcXtLApP0QzLmUT/HuPCZWyB7IY9ZrMeKw2O/nFIqPQB3PVM9aYm0F312AXDQ==
 
 node-fetch@^3.3.2:
   version "3.3.2"
-  resolved "https://registry.yarnpkg.com/node-fetch/-/node-fetch-3.3.2.tgz#d1e889bacdf733b4ff3b2b243eb7a12866a0b78b"
+  resolved "https://registry.npmjs.org/node-fetch/-/node-fetch-3.3.2.tgz"
   integrity sha512-dRB78srN/l6gqWulah9SrxeYnxeddIG30+GOqK/9OlLVyLg3HPnr6SqOWTWOXKRwC2eGYCkZ59NNuSgvSrpgOA==
   dependencies:
     data-uri-to-buffer "^4.0.0"
@@ -1300,7 +1307,7 @@ vary@^1, vary@^1.1.2:
 
 web-streams-polyfill@^3.0.3:
   version "3.3.3"
-  resolved "https://registry.yarnpkg.com/web-streams-polyfill/-/web-streams-polyfill-3.3.3.tgz#2073b91a2fdb1fbfbd401e7de0ac9f8214cecb4b"
+  resolved "https://registry.npmjs.org/web-streams-polyfill/-/web-streams-polyfill-3.3.3.tgz"
   integrity sha512-d2JWLCivmZYTSIoge9MsgFCZrt571BikcWGYkjC1khllbTeDlGqZ2D8vD8E/lJa8WGWbb7Plm8/XJYV7IJHZZw==
 
 webidl-conversions@^7.0.0:

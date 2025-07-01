@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
+import { CustomRequest } from 'src/types';
 import prisma from '../../config/prismaInstance';
 import { STATUS_CODES } from '../../utils/constants';
 import { sendResponse } from '../../utils/helpers';
-import { CustomRequest } from 'src/types';
 
 /**
  * @desc    Get authenticated user's profile
@@ -29,7 +29,6 @@ const getUserProfile = asyncHandler(
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
       omit: {
-        password: true,
         googleAccessToken: true,
         googleRefreshToken: true,
         appleRefreshToken: true,

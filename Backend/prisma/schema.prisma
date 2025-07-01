@@ -58,9 +58,15 @@ enum PteQuestionTypeName {
 }
 
 enum AuthProviders {
-    EMAIL_PASSWORD
+    EMAIL_OTP
     GOOGLE
     APPLE
+}
+
+enum OtpType {
+    LOGIN
+    REGISTRATION
+    PASSWORD_RESET
 }
 
 // --- CORE USER & SUBSCRIPTION MODELS ---
@@ -68,11 +74,11 @@ model User {
     id            String         @id @default(auto()) @map("_id") @db.ObjectId
     name          String
     email         String         @unique
-    password      String? // Make password optional for OAuth users
     isVerified    Boolean        @default(false)
     createdAt     DateTime       @default(now())
     updatedAt     DateTime       @default(now()) @updatedAt
     role          UserRole       @default(USER)
+    otpCodes      OtpCode[]
     subscription  Subscription?
     testAttempts  TestAttempt[]
     courses       UserCourse[]
@@ -94,7 +100,23 @@ model User {
     appleFamilyName   String?
 
     profilePictureUrl String? // Consolidate profile picture URL for any provider
-    provider          AuthProviders @default(EMAIL_PASSWORD) // Which provider the user last used to login
+    provider          AuthProviders @default(EMAIL_OTP) // Which provider the user last used to login
+}
+
+// New OTP Code model
+model OtpCode {
+    id        String   @id @default(auto()) @map("_id") @db.ObjectId
+    email     String
+    code      String
+    type      OtpType
+    expiresAt DateTime
+    used      Boolean  @default(false)
+    user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+    userId    String?  @db.ObjectId
+    createdAt DateTime @default(now())
+
+    @@index([email, type])
+    @@index([expiresAt])
 }
 
 model Subscription {

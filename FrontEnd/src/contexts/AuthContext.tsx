@@ -1,23 +1,35 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import {
-  User,
-  googleLogin as apiGoogleLogin,
-  loginUser as apiLoginUser,
-  registerUser as apiRegisterUser,
-  getUserProfile,
-} from '../services/auth';
+import api from '../services/api';
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  isVerified: boolean;
+  role: string;
+  provider: string;
+  profilePictureUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<boolean>;
   register: (name: string, email: string, password: string) => Promise<boolean>;
-  googleSignIn: (idToken: string) => Promise<boolean>;
+  googleLogin: (credential: string) => Promise<boolean>;
+  sendOtp: (
+    email: string,
+    type: 'login' | 'registration'
+  ) => Promise<{ success: boolean; message: string }>;
+  verifyOtp: (
+    email: string,
+    otp: string,
+    type: 'login' | 'registration',
+    name?: string
+  ) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
   isLoading: boolean;
-  updateUser: (userData: User) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -37,43 +49,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for stored user session and validate token
-    const initializeAuth = async () => {
-      const token = localStorage.getItem('token');
-      const storedUser = localStorage.getItem('user');
+    // Check for stored user session
+    const storedUser = localStorage.getItem('user');
+    const storedToken = localStorage.getItem('token');
 
-      if (token && storedUser) {
-        try {
-          // Validate token by fetching user profile
-          const response = await getUserProfile();
-          if (response.success) {
-            setUser(response.data);
-          } else {
-            // Token is invalid, clear storage
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-          }
-        } catch (error: any) {
-          // Token is invalid, clear storage
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-        }
+    if (storedUser && storedToken) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+        // Set token in API headers
+        api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+      } catch (error) {
+        console.error('Error parsing stored user:', error);
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
       }
-      setIsLoading(false);
-    };
-
-    initializeAuth();
+    }
+    setIsLoading(false);
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     try {
-      const response = await apiLoginUser(email, password);
-      if (response.success) {
-        const { token, ...userData } = response.data;
+      const response = await api.post('/auth/login', { email, password });
+
+      if (response.data.success) {
+        const { token, ...userData } = response.data.data;
         setUser(userData);
-        localStorage.setItem('token', token);
         localStorage.setItem('user', JSON.stringify(userData));
+        localStorage.setItem('token', token);
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         return true;
       }
       return false;
@@ -95,12 +100,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   ): Promise<boolean> => {
     setIsLoading(true);
     try {
-      const response = await apiRegisterUser(name, email, password);
-      if (response.success) {
-        const { token, ...userData } = response.data;
+      const response = await api.post('/auth/register', {
+        name,
+        email,
+        password,
+      });
+
+      if (response.data.success) {
+        const { token, ...userData } = response.data.data;
         setUser(userData);
-        localStorage.setItem('token', token);
         localStorage.setItem('user', JSON.stringify(userData));
+        localStorage.setItem('token', token);
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         return true;
       }
       return false;
@@ -115,21 +126,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const googleSignIn = async (idToken: string): Promise<boolean> => {
+  const googleLogin = async (credential: string): Promise<boolean> => {
     setIsLoading(true);
     try {
-      const response = await apiGoogleLogin(idToken);
-      if (response.success) {
-        const { token, ...userData } = response.data;
+      const response = await api.post('/auth/google-login', {
+        idToken: credential,
+      });
+
+      if (response.data.success) {
+        const { token, ...userData } = response.data.data;
         setUser(userData);
-        localStorage.setItem('token', token);
         localStorage.setItem('user', JSON.stringify(userData));
+        localStorage.setItem('token', token);
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         return true;
       }
       return false;
     } catch (error: any) {
       console.error(
-        'Google sign-in error:',
+        'Google login error:',
         error.response?.data?.message || error.message
       );
       return false;
@@ -138,15 +153,75 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+  const sendOtp = async (
+    email: string,
+    type: 'login' | 'registration'
+  ): Promise<{ success: boolean; message: string }> => {
+    try {
+      const response = await api.post('/auth/send-otp', { email, type });
+      return {
+        success: response.data.success,
+        message: response.data.message,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message:
+          error.response?.data?.message ||
+          'Failed to send OTP. Please try again.',
+      };
+    }
   };
 
-  const updateUser = (userData: User) => {
-    setUser(userData);
-    localStorage.setItem('user', JSON.stringify(userData));
+  const verifyOtp = async (
+    email: string,
+    otp: string,
+    type: 'login' | 'registration',
+    name?: string
+  ): Promise<{ success: boolean; message: string }> => {
+    setIsLoading(true);
+    try {
+      const payload: any = { email, otp, type };
+      if (type === 'registration' && name) {
+        payload.name = name;
+      }
+
+      const response = await api.post('/auth/verify-otp', payload);
+
+      if (response.data.success) {
+        const { token, ...userData } = response.data.data;
+        setUser(userData);
+        localStorage.setItem('user', JSON.stringify(userData));
+        localStorage.setItem('token', token);
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+        return {
+          success: true,
+          message: response.data.message,
+        };
+      }
+
+      return {
+        success: false,
+        message: response.data.message || 'Verification failed',
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message:
+          error.response?.data?.message ||
+          'Verification failed. Please try again.',
+      };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const logout = () => {
+    setUser(null);
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    delete api.defaults.headers.common['Authorization'];
   };
 
   return (
@@ -155,10 +230,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         user,
         login,
         register,
-        googleSignIn,
+        googleLogin,
+        sendOtp,
+        verifyOtp,
         logout,
         isLoading,
-        updateUser,
       }}
     >
       {children}

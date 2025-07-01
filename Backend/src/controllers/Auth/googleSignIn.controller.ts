@@ -68,7 +68,7 @@ export const googleLogin = asyncHandler(async (req: Request, res: Response) => {
 
     if (user) {
       // User found with this email (potential login or account linking)
-      if (user.provider === AuthProviders.EMAIL_PASSWORD) {
+      if (user.provider === AuthProviders.EMAIL_OTP) {
         // Case A: Existing EMAIL_PASSWORD user is now signing in with Google.
         // Link the Google account to their existing email/password account.
         user = await prisma.user.update({
@@ -125,12 +125,12 @@ export const googleLogin = asyncHandler(async (req: Request, res: Response) => {
     }
 
     // 4. Respond with User Data and Token (after either login or registration)
-    const { password: _, ...userWithoutSensitiveData } = user; // Exclude password from response
+    const User = user; // Exclude password from response
     return sendResponse(
       res,
       STATUS_CODES.OK, // 200 OK
       {
-        ...userWithoutSensitiveData,
+        User,
         token: generateToken({ id: user.id, role: user.role }),
       },
       'Google login successful.'
