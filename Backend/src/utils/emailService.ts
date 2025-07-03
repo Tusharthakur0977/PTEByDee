@@ -1,42 +1,38 @@
 import nodemailer from 'nodemailer';
-// Email service configuration
-const createTransporter = () => {
-  // For development, you can use Gmail with app password
-  // For production, use services like SendGrid, AWS SES, etc.
 
-  if (process.env.NODE_ENV === 'production') {
-    // Production email service (e.g., SendGrid)
-    return nodemailer.createTransport({
-      service: 'SendGrid',
-      auth: {
-        user: process.env.SENDGRID_USERNAME,
-        pass: process.env.SENDGRID_PASSWORD,
-      },
-    });
-  } else {
-    // Development - Gmail with app password
-    return nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_APP_PASSWORD, // Gmail app password
-      },
-    });
-  }
+// Create reusable transporter object using SMTP transport
+const createTransporter = () => {
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: false, // true for 465, false for other ports
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
 };
 
+// Generate 6-digit OTP
+export const generateOTP = (): string => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+// Send OTP email
 export const sendOTPEmail = async (
   email: string,
   otp: string,
-  type: 'login' | 'registration'
-) => {
+  type: 'login' | 'registration' | 'password_reset'
+): Promise<boolean> => {
   try {
     const transporter = createTransporter();
 
     const subject =
       type === 'registration'
         ? 'Welcome to PTEbyDee - Verify Your Email'
-        : 'PTEbyDee - Login Verification Code';
+        : type === 'login'
+        ? 'PTEbyDee - Login Verification Code'
+        : 'PTEbyDee - Password Reset Code';
 
     const html = `
       <!DOCTYPE html>
@@ -48,65 +44,51 @@ export const sendOTPEmail = async (
         <style>
           body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
           .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: linear-gradient(135deg, #2563eb, #7c3aed); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-          .content { background: #f8fafc; padding: 30px; border-radius: 0 0 10px 10px; }
-          .otp-box { background: white; border: 2px solid #2563eb; border-radius: 10px; padding: 20px; text-align: center; margin: 20px 0; }
-          .otp-code { font-size: 32px; font-weight: bold; color: #2563eb; letter-spacing: 5px; }
+          .header { background: linear-gradient(135deg, #3B82F6, #8B5CF6); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .content { background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; }
+          .otp-box { background: white; border: 2px solid #3B82F6; border-radius: 10px; padding: 20px; text-align: center; margin: 20px 0; }
+          .otp-code { font-size: 32px; font-weight: bold; color: #3B82F6; letter-spacing: 5px; margin: 10px 0; }
           .footer { text-align: center; margin-top: 20px; color: #666; font-size: 14px; }
-          .button { display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 10px 0; }
+          .warning { background: #FEF3C7; border-left: 4px solid #F59E0B; padding: 15px; margin: 20px 0; }
         </style>
       </head>
       <body>
         <div class="container">
           <div class="header">
-            <h1>📚 PTEbyDee</h1>
+            <h1>PTEbyDee</h1>
             <p>${
               type === 'registration'
                 ? 'Welcome to your PTE journey!'
-                : 'Secure Login Verification'
+                : 'Verification Required'
             }</p>
           </div>
           <div class="content">
-            <h2>Hello!</h2>
-            <p>${
-              type === 'registration'
-                ? 'Thank you for joining PTEbyDee! To complete your registration, please verify your email address with the code below:'
-                : 'You requested to sign in to your PTEbyDee account. Please use the verification code below:'
-            }</p>
+            <h2>Your Verification Code</h2>
+            <p>
+              ${
+                type === 'registration'
+                  ? 'Thank you for joining PTEbyDee! Please use the verification code below to complete your registration:'
+                  : type === 'login'
+                  ? 'Please use the verification code below to sign in to your account:'
+                  : 'Please use the verification code below to reset your password:'
+              }
+            </p>
             
             <div class="otp-box">
-              <p style="margin: 0; font-size: 16px; color: #666;">Your verification code is:</p>
+              <p>Your verification code is:</p>
               <div class="otp-code">${otp}</div>
-              <p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">This code expires in 10 minutes</p>
+              <p><small>This code expires in 10 minutes</small></p>
             </div>
-            
-            <p><strong>Important:</strong></p>
-            <ul>
-              <li>This code is valid for 10 minutes only</li>
-              <li>Don't share this code with anyone</li>
-              <li>If you didn't request this, please ignore this email</li>
-            </ul>
-            
-            ${
-              type === 'registration'
-                ? `
-              <p>Once verified, you'll have access to:</p>
-              <ul>
-                <li>✅ Expert PTE preparation courses</li>
-                <li>✅ Mock tests and practice materials</li>
-                <li>✅ Personalized study plans</li>
-                <li>✅ Progress tracking and analytics</li>
-              </ul>
-            `
-                : ''
-            }
-            
-            <div class="footer">
-              <p>Best regards,<br>The PTEbyDee Team</p>
-              <p style="font-size: 12px; color: #999;">
-                This is an automated email. Please do not reply to this message.
-              </p>
+
+            <div class="warning">
+              <strong>Security Notice:</strong> Never share this code with anyone. PTEbyDee will never ask for your verification code via phone or email.
             </div>
+
+            <p>If you didn't request this code, please ignore this email or contact our support team.</p>
+          </div>
+          <div class="footer">
+            <p>&copy; 2024 PTEbyDee. All rights reserved.</p>
+            <p>Need help? Contact us at support@ptebydee.com</p>
           </div>
         </div>
       </body>
@@ -114,14 +96,14 @@ export const sendOTPEmail = async (
     `;
 
     const mailOptions = {
-      from: `"PTEbyDee" <${process.env.EMAIL_USER}>`,
+      from: `"PTEbyDee" <${process.env.SMTP_USER}>`,
       to: email,
-      subject: subject,
-      html: html,
+      subject,
+      html,
     };
 
-    const result = await transporter.sendMail(mailOptions);
-    console.log('✅ OTP email sent successfully:', result.messageId);
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ OTP email sent successfully to ${email}`);
     return true;
   } catch (error) {
     console.error('❌ Error sending OTP email:', error);
@@ -129,6 +111,73 @@ export const sendOTPEmail = async (
   }
 };
 
-export const generateOTP = (): string => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+// Send welcome email after successful registration
+export const sendWelcomeEmail = async (
+  email: string,
+  name: string
+): Promise<boolean> => {
+  try {
+    const transporter = createTransporter();
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Welcome to PTEbyDee!</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #3B82F6, #8B5CF6); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .content { background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; }
+          .cta-button { display: inline-block; background: #3B82F6; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+          .features { background: white; padding: 20px; border-radius: 10px; margin: 20px 0; }
+          .feature-item { margin: 15px 0; padding-left: 25px; position: relative; }
+          .feature-item::before { content: "✓"; position: absolute; left: 0; color: #10B981; font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Welcome to PTEbyDee, ${name}! 🎉</h1>
+            <p>Your journey to PTE success starts here</p>
+          </div>
+          <div class="content">
+            <h2>You're all set!</h2>
+            <p>Congratulations on joining thousands of successful PTE students. We're excited to help you achieve your target score!</p>
+            
+            <div class="features">
+              <h3>What's next?</h3>
+              <div class="feature-item">Explore our comprehensive PTE courses</div>
+              <div class="feature-item">Take a free diagnostic test</div>
+              <div class="feature-item">Create your personalized study plan</div>
+              <div class="feature-item">Join our community of learners</div>
+            </div>
+
+            <div style="text-align: center;">
+              <a href="${process.env.FRONTEND_URL}/dashboard" class="cta-button">Start Learning Now</a>
+            </div>
+
+            <p>If you have any questions, our support team is here to help at support@ptebydee.com</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const mailOptions = {
+      from: `"PTEbyDee" <${process.env.SMTP_USER}>`,
+      to: email,
+      subject: "Welcome to PTEbyDee - Let's Get Started!",
+      html,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ Welcome email sent successfully to ${email}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Error sending welcome email:', error);
+    return false;
+  }
 };

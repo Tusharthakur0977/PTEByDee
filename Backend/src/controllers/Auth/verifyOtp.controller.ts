@@ -1,77 +1,39 @@
 import { AuthProviders, OtpType, UserRole } from '@prisma/client';
-import bcrypt from 'bcrypt'; // <--- Import bcrypt for comparing hashed OTP
+import bcrypt from 'bcrypt';
 import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import prisma from '../../config/prismaInstance';
 import { STATUS_CODES } from '../../utils/constants';
+import { sendWelcomeEmail } from '../../utils/emailService';
 import { sendResponse } from '../../utils/helpers';
-import { generateToken } from '../../utils/jwt';
+import { generateRefreshToken, generateToken } from '../../utils/jwt';
 
 /**
  * @desc    Verify OTP and login/register user
  * @route   POST /api/auth/verify-otp
  * @access  Public
- * @param   {Request} req - Express Request object (expects { email, otp, type, name? } in body)
- * @param   {Response} res - Express Response object
  */
-
 export const verifyOtp = asyncHandler(async (req: Request, res: Response) => {
   const { email, otp, type, name } = req.body;
 
-  // 1. Input Validation
-  if (!email || !otp || !type) {
-    return sendResponse(
-      res,
-      STATUS_CODES.BAD_REQUEST,
-      null,
-      'Please provide email, OTP, and type.'
-    );
-  }
-
-  if (!['login', 'registration'].includes(type)) {
-    return sendResponse(
-      res,
-      STATUS_CODES.BAD_REQUEST,
-      null,
-      'Type must be either "login" or "registration".'
-    );
-  }
-
-  if (type === 'registration' && !name) {
-    return sendResponse(
-      res,
-      STATUS_CODES.BAD_REQUEST,
-      null,
-      'Name is required for registration.'
-    );
-  }
-
-  // 2. OTP validation (format only, actual value checked against hash later)
-  if (!/^\d{6}$/.test(otp)) {
-    return sendResponse(
-      res,
-      STATUS_CODES.BAD_REQUEST,
-      null,
-      'OTP must be a 6-digit number.'
-    );
-  }
-
   try {
-    // 3. Find valid OTP record based on email, type, and status
-    // IMPORTANT: We only fetch by email, type, used, and expiry.
-    // We DON'T include `code: otp` in the find query, because `otp` is clear text
-    // and `code` in DB is hashed.
+    // Find valid OTP record
     const otpRecord = await prisma.otpCode.findFirst({
       where: {
         email,
-        type: type === 'login' ? OtpType.LOGIN : OtpType.REGISTRATION,
+        type:
+          type === 'login'
+            ? OtpType.LOGIN
+            : type === 'registration'
+            ? OtpType.REGISTRATION
+            : OtpType.PASSWORD_RESET,
         used: false,
         expiresAt: {
-          gt: new Date(), // Check if OTP is still active
+          gt: new Date(),
         },
       },
       orderBy: {
-        createdAt: 'desc', // Get the most recent valid OTP
+        createdAt: 'desc',
       },
     });
 
@@ -84,12 +46,11 @@ export const verifyOtp = asyncHandler(async (req: Request, res: Response) => {
       );
     }
 
-    // 4. Compare the provided OTP with the hashed OTP from the database
-    // This is the crucial step that was missing.
+    // Verify OTP
     const isOtpValid = await bcrypt.compare(otp, otpRecord.code);
 
     if (!isOtpValid) {
-      // Mark OTP as used to prevent brute-force attempts on incorrect OTPs
+      // Mark OTP as used to prevent brute-force attempts
       await prisma.otpCode.update({
         where: { id: otpRecord.id },
         data: { used: true },
@@ -102,28 +63,23 @@ export const verifyOtp = asyncHandler(async (req: Request, res: Response) => {
       );
     }
 
-    // 5. If OTP is valid, mark it as used
+    // Mark OTP as used
     await prisma.otpCode.update({
       where: { id: otpRecord.id },
       data: { used: true },
     });
 
     let user;
+    let isNewUser = false;
 
     if (type === 'registration') {
-      // Check if user already exists *after* OTP verification, to prevent race conditions
+      // Check if user already exists
       const existingUser = await prisma.user.findUnique({
-        where: { email: email.toLowerCase() },
+        where: { email },
       });
 
       if (existingUser) {
-        // If user already exists, it means another session or concurrent request created it.
-        // We can just log them in instead of throwing an error.
         user = existingUser;
-        console.warn(
-          `Attempted to register existing user ${email} with OTP. Logging in instead.`
-        );
-        // Optionally, ensure isVerified is true if it wasn't already
         if (!user.isVerified) {
           user = await prisma.user.update({
             where: { id: user.id },
@@ -131,27 +87,26 @@ export const verifyOtp = asyncHandler(async (req: Request, res: Response) => {
           });
         }
       } else {
-        // 5a. Registration flow - Create new user
+        // Create new user
         user = await prisma.user.create({
           data: {
-            name: name!.trim(), // 'name' is guaranteed by validation above
-            email: email.toLowerCase(),
-            isVerified: true, // Email is verified through OTP
+            name: name!.trim(),
+            email,
+            isVerified: true,
             role: UserRole.USER,
             provider: AuthProviders.EMAIL_OTP,
           },
         });
+        isNewUser = true;
         console.log(`✅ New user registered via OTP: ${email}`);
       }
     } else {
-      // type === 'login'
-      // 5b. Login flow - Find existing user
+      // Login flow
       user = await prisma.user.findUnique({
-        where: { email: email.toLowerCase() },
+        where: { email },
       });
 
       if (!user) {
-        // This case should ideally be handled by send-otp, but as a fallback:
         return sendResponse(
           res,
           STATUS_CODES.NOT_FOUND,
@@ -160,7 +115,7 @@ export const verifyOtp = asyncHandler(async (req: Request, res: Response) => {
         );
       }
 
-      // Update user verification status if not already verified
+      // Update verification status if needed
       if (!user.isVerified) {
         user = await prisma.user.update({
           where: { id: user.id },
@@ -171,22 +126,19 @@ export const verifyOtp = asyncHandler(async (req: Request, res: Response) => {
       console.log(`✅ User logged in via OTP: ${email}`);
     }
 
-    // 6. Clean up old OTPs for this email (including the one just used and expired ones)
+    // Clean up old OTPs
     await prisma.otpCode.deleteMany({
       where: {
         email,
-        OR: [
-          { used: true }, // Delete the one just used, and any other marked used
-          { expiresAt: { lt: new Date() } }, // Delete any truly expired ones
-        ],
+        OR: [{ used: true }, { expiresAt: { lt: new Date() } }],
       },
     });
 
-    // 7. Generate JWT token
-    const token = generateToken({ id: user.id, role: user.role });
+    // Generate tokens
+    const accessToken = generateToken({ id: user.id, role: user.role });
+    const refreshToken = generateRefreshToken({ id: user.id, role: user.role });
 
-    // 8. Prepare user response (exclude sensitive data)
-    // Destructure to ensure only desired fields are sent
+    // Prepare user response
     const {
       id,
       name: userName,
@@ -195,6 +147,8 @@ export const verifyOtp = asyncHandler(async (req: Request, res: Response) => {
       isVerified,
       provider,
       profilePictureUrl,
+      createdAt,
+      updatedAt,
     } = user;
 
     const userData = {
@@ -205,15 +159,24 @@ export const verifyOtp = asyncHandler(async (req: Request, res: Response) => {
       isVerified,
       provider,
       profilePictureUrl,
+      createdAt,
+      updatedAt,
     };
 
-    // 9. Success response
+    // Send welcome email for new users (async, don't wait)
+    if (isNewUser) {
+      sendWelcomeEmail(email, userName).catch((error) =>
+        console.error('Failed to send welcome email:', error)
+      );
+    }
+
     return sendResponse(
       res,
       STATUS_CODES.OK,
       {
-        User: userData, // Renamed from 'User' to 'userData' for clarity or match frontend expectation
-        token,
+        User: userData,
+        token: accessToken,
+        refreshToken,
       },
       type === 'registration'
         ? 'Account created successfully! Welcome to PTEbyDee.'

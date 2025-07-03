@@ -1,6 +1,7 @@
 import { Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 import Footer from './components/Footer';
 import Navbar from './components/Navbar';
+import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import About from './pages/About';
@@ -36,17 +37,33 @@ function App() {
                   path='/about'
                   element={<About />}
                 />
+
+                {/* Auth routes - redirect to dashboard if already logged in */}
                 <Route
                   path='/login'
-                  element={<Login />}
+                  element={
+                    <ProtectedRoute requireAuth={false}>
+                      <Login />
+                    </ProtectedRoute>
+                  }
                 />
                 <Route
                   path='/register'
-                  element={<Register />}
+                  element={
+                    <ProtectedRoute requireAuth={false}>
+                      <Register />
+                    </ProtectedRoute>
+                  }
                 />
+
+                {/* Protected routes - require authentication */}
                 <Route
                   path='/dashboard'
-                  element={<Dashboard />}
+                  element={
+                    <ProtectedRoute>
+                      <Dashboard />
+                    </ProtectedRoute>
+                  }
                 />
               </Routes>
             </main>

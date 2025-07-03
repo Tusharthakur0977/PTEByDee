@@ -28,6 +28,7 @@ interface AuthContextType {
   ) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
   isLoading: boolean;
+  refreshToken: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -46,24 +47,102 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    // Check for stored user session
-    const storedUser = localStorage.getItem('user');
-    const storedToken = localStorage.getItem('token');
+  // Token refresh function
+  const refreshToken = async (): Promise<boolean> => {
+    try {
+      const storedRefreshToken = localStorage.getItem('refreshToken');
+      if (!storedRefreshToken) return false;
 
-    if (storedUser && storedToken) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-        // Set token in API headers
-        api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
-      } catch (error) {
-        console.error('Error parsing stored user:', error);
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
+      const response = await api.post('/auth/refresh-token', {
+        refreshToken: storedRefreshToken,
+      });
+
+      if (response.data.success) {
+        const { User: userData, token } = response.data.data;
+        setUser(userData);
+        localStorage.setItem('token', token);
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        return true;
       }
+      return false;
+    } catch (error) {
+      console.error('Token refresh failed:', error);
+      return false;
     }
-    setIsLoading(false);
+  };
+
+  // Auto token refresh setup
+  useEffect(() => {
+    const setupTokenRefresh = () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const expirationTime = payload.exp * 1000;
+        const currentTime = Date.now();
+        const timeUntilExpiry = expirationTime - currentTime;
+
+        // Refresh token 5 minutes before expiry
+        const refreshTime = Math.max(timeUntilExpiry - 5 * 60 * 1000, 0);
+
+        setTimeout(async () => {
+          const success = await refreshToken();
+          if (success) {
+            setupTokenRefresh(); // Setup next refresh
+          } else {
+            logout(); // Force logout if refresh fails
+          }
+        }, refreshTime);
+      } catch (error) {
+        console.error('Error setting up token refresh:', error);
+      }
+    };
+
+    setupTokenRefresh();
+  }, [user]);
+
+  useEffect(() => {
+    const initializeAuth = async () => {
+      const storedUser = localStorage.getItem('user');
+      const storedToken = localStorage.getItem('token');
+
+      if (storedUser && storedToken) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+
+          // Check if token is expired
+          const payload = JSON.parse(atob(storedToken.split('.')[1]));
+          const isExpired = payload.exp * 1000 < Date.now();
+
+          if (isExpired) {
+            // Try to refresh token
+            const refreshSuccess = await refreshToken();
+            if (!refreshSuccess) {
+              // Clear invalid session
+              localStorage.removeItem('user');
+              localStorage.removeItem('token');
+              localStorage.removeItem('refreshToken');
+              setIsLoading(false);
+              return;
+            }
+          } else {
+            setUser(parsedUser);
+            api.defaults.headers.common[
+              'Authorization'
+            ] = `Bearer ${storedToken}`;
+          }
+        } catch (error) {
+          console.error('Error parsing stored user:', error);
+          localStorage.removeItem('user');
+          localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
+        }
+      }
+      setIsLoading(false);
+    };
+
+    initializeAuth();
   }, []);
 
   const googleLogin = async (credential: string): Promise<boolean> => {
@@ -74,10 +153,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       });
 
       if (response.data.success) {
-        const { User: userData, token } = response.data.data;
+        const {
+          User: userData,
+          token,
+          refreshToken: newRefreshToken,
+        } = response.data.data;
         setUser(userData);
         localStorage.setItem('user', JSON.stringify(userData));
         localStorage.setItem('token', token);
+        if (newRefreshToken) {
+          localStorage.setItem('refreshToken', newRefreshToken);
+        }
         api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         return true;
       }
@@ -129,10 +215,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const response = await api.post('/auth/verify-otp', payload);
 
       if (response.data.success) {
-        const { User: userData, token } = response.data.data;
+        const {
+          User: userData,
+          token,
+          refreshToken: newRefreshToken,
+        } = response.data.data;
         setUser(userData);
         localStorage.setItem('user', JSON.stringify(userData));
         localStorage.setItem('token', token);
+        if (newRefreshToken) {
+          localStorage.setItem('refreshToken', newRefreshToken);
+        }
         api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
         return {
@@ -161,6 +254,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setUser(null);
     localStorage.removeItem('user');
     localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
     delete api.defaults.headers.common['Authorization'];
   };
 
@@ -173,6 +267,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         verifyOtp,
         logout,
         isLoading,
+        refreshToken,
       }}
     >
       {children}
