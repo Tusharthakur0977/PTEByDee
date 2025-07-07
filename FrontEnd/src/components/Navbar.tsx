@@ -62,6 +62,18 @@ const Navbar: React.FC = () => {
             >
               About
             </Link>
+            {user && (
+              <Link
+                to='/portal'
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
+                  isActive('/portal')
+                    ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                    : 'text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
+                }`}
+              >
+                Portal
+              </Link>
+            )}
           </div>
 
           {/* Right side buttons */}
@@ -162,6 +174,15 @@ const Navbar: React.FC = () => {
               >
                 About
               </Link>
+              {user && (
+                <Link
+                  to='/portal'
+                  className='block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Portal
+                </Link>
+              )}
               {user ? (
                 <>
                   <Link

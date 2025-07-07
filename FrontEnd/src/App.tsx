@@ -10,7 +10,11 @@ import Courses from './pages/Courses';
 import Dashboard from './pages/Dashboard';
 import Home from './pages/Home';
 import Login from './pages/Login';
+import Portal from './pages/Portal';
 import Register from './pages/Register';
+import TestInstructions from './pages/TestInstructions';
+import TestQuestion from './pages/TestQuestion';
+import TestResults from './pages/TestResults';
 
 function App() {
   return (
@@ -62,6 +66,40 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <Dashboard />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Portal routes - require authentication */}
+                <Route
+                  path='/portal'
+                  element={
+                    <ProtectedRoute>
+                      <Portal />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path='/portal/test/:testId/instructions'
+                  element={
+                    <ProtectedRoute>
+                      <TestInstructions />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path='/portal/test/:testId/question/:questionNumber'
+                  element={
+                    <ProtectedRoute>
+                      <TestQuestion />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path='/portal/test/:testId/results'
+                  element={
+                    <ProtectedRoute>
+                      <TestResults />
                     </ProtectedRoute>
                   }
                 />
