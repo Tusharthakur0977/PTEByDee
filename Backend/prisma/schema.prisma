@@ -7,68 +7,6 @@ datasource db {
     url      = env("DATABASE_URL")
 }
 
-// Enums for better type safety and clarity
-enum UserRole {
-    USER
-    ADMIN
-}
-
-enum PaymentStatus {
-    PENDING
-    SUCCESS
-    FAILED
-    REFUNDED
-}
-
-enum SubscriptionPlan {
-    FREE
-    BASIC
-    PREMIUM
-}
-
-// Enum for PTE Academic Question Types (Crucial for simulation)
-enum PteQuestionTypeName {
-    // Speaking (AI Scored)
-    READ_ALOUD
-    REPEAT_SENT_ENCE
-    DESCRIBE_IMAGE
-    RE_TELL_LECTURE
-    ANSWER_SHORT_QUESTION
-
-    // Writing (AI Scored)
-    SUMMARIZE_WRITTEN_TEXT
-    WRITE_ESSAY
-
-    // Reading
-    READING_WRITING_FILL_IN_THE_BLANKS // Combined skill type
-    MULTIPLE_CHOICE_MULTIPLE_ANSWERS_READING // Specific to Reading
-    RE_ORDER_PARAGRAPHS
-    READING_FILL_IN_THE_BLANKS // Specific to Reading
-    MULTIPLE_CHOICE_SINGLE_ANSWER_READING // Specific to Reading
-
-    // Listening
-    SUMMARIZE_SPOKEN_TEXT // AI Scored
-    MULTIPLE_CHOICE_MULTIPLE_ANSWERS_LISTENING // Specific to Listening
-    LISTENING_FILL_IN_THE_BLANKS // Specific to Listening
-    HIGHLIGHT_CORRECT_SUMMARY
-    MULTIPLE_CHOICE_SINGLE_ANSWER_LISTENING // Specific to Listening
-    SELECT_MISSING_WORD
-    HIGHLIGHT_INCORRECT_WORDS
-    WRITE_FROM_DICTATION
-}
-
-enum AuthProviders {
-    EMAIL_OTP
-    GOOGLE
-    APPLE
-}
-
-enum OtpType {
-    LOGIN
-    REGISTRATION
-    PASSWORD_RESET
-}
-
 // --- CORE USER & SUBSCRIPTION MODELS ---
 model User {
     id            String         @id @default(auto()) @map("_id") @db.ObjectId
@@ -99,8 +37,10 @@ model User {
     appleGivenName    String?
     appleFamilyName   String?
 
-    profilePictureUrl String? // Consolidate profile picture URL for any provider
-    provider          AuthProviders @default(EMAIL_OTP) // Which provider the user last used to login
+    profilePictureUrl  String? // Consolidate profile picture URL for any provider
+    provider           AuthProviders        @default(EMAIL_OTP) // Which provider the user last used to login
+    CourseReview       CourseReview[]
+    UserLessonProgress UserLessonProgress[]
 }
 
 // New OTP Code model
@@ -124,27 +64,45 @@ model Subscription {
     planName       SubscriptionPlan @default(FREE)
     price          Float
     durationInDays Int // e.g., 30 for 30 days
-    features       String[] // List of features, e.g., ["Unlimited Mock Tests", "AI Feedback"]
+    features       String[]
     user           User             @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-    userId         String           @unique @db.ObjectId // Foreign key
+    userId         String           @unique @db.ObjectId
     startDate      DateTime         @default(now())
     endDate        DateTime // Calculated based on startDate + durationInDays
     createdAt      DateTime         @default(now())
     updatedAt      DateTime         @updatedAt
+
+    // --- FIELDS FOR FREE TRIAL ---
+    isTrial                 Boolean   @default(false) // True if this subscription record represents a free trial
+    trialStartedAt          DateTime? // When the trial began
+    trialEndsAt             DateTime? // When the trial will automatically expire/convert
+    trialConvertedToPaid    Boolean?  @default(false) // True if the trial successfully converted to a paid plan
+    trialCancellationReason String? // Optional: If user cancels trial, why?
+    // Add a field to link to the actual paid subscription if it converts
+    // convertedToSubscriptionId String? @db.ObjectId // If you create a new Subscription record upon conversion
+    // convertedToSubscription   Subscription? @relation("TrialConversion", fields: [convertedToSubscriptionId], references: [id])
+    // Instead of a separate record, you might just update the existing one (simpler)
 }
 
 // --- LEARNING CONTENT MODELS ---
 model Course {
-    id          String          @id @default(auto()) @map("_id") @db.ObjectId
-    title       String
-    description String
-    sections    CourseSection[]
-    userCourses UserCourse[]
-    isFree      Boolean         @default(false)
-    createdAt   DateTime        @default(now())
-    updatedAt   DateTime        @updatedAt // Added updatedAt
-    imageUrl    String? // Optional: Course image URL
-    // categories    Category[]   // If you implement course categories
+    id                    String          @id @default(auto()) @map("_id") @db.ObjectId
+    title                 String
+    description           String
+    coursePreviewVideoUrl String?
+    sections              CourseSection[]
+    userCourses           UserCourse[]
+    isFree                Boolean         @default(false)
+    createdAt             DateTime        @default(now())
+    updatedAt             DateTime        @updatedAt // Added updatedAt
+    imageUrl              String? // Optional: Course image URL
+    reviews               CourseReview[]
+    averageRating         Float?          @default(0.0) // Can be updated by a trigger/cron job
+    reviewCount           Int?            @default(0) // Can be updated by a trigger/cron job
+    price                 Float? // Price of the course if sold individually
+    currency              String?         @default("INR") // e.g., "USD", "INR"
+
+    categoryIds String[] @db.ObjectId // NEW: Array of category ObjectId references
     // instructor    User? @relation(fields: [instructorId], references: [id]) // Uncomment if you add an instructor role
     // instructorId  String? @db.ObjectId
 }
@@ -153,6 +111,7 @@ model CourseSection {
     id          String   @id @default(auto()) @map("_id") @db.ObjectId
     title       String
     description String?
+    videoUrl    String?
     course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
     courseId    String   @db.ObjectId
     order       Int // To define the order of sections within a course
@@ -162,18 +121,20 @@ model CourseSection {
 }
 
 model Lesson {
-    id          String        @id @default(auto()) @map("_id") @db.ObjectId
-    title       String
-    description String?
-    videoUrl    String? // URL to the video content
-    textContent String? // Any accompanying text/notes
-    audioUrl    String? // For audio-only lessons
-    section     CourseSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-    sectionId   String        @db.ObjectId
-    order       Int // Order of lessons within a section
-    createdAt   DateTime      @default(now()) // Added createdAt for content
-    updatedAt   DateTime      @updatedAt // Added updatedAt for content
+    id                 String               @id @default(auto()) @map("_id") @db.ObjectId
+    title              String
+    description        String?
+    videoUrl           String? // URL to the video content
+    textContent        String? // Any accompanying text/notes
+    audioUrl           String? // For audio-only lessons
+    section            CourseSection        @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+    sectionId          String               @db.ObjectId
+    order              Int // Order of lessons within a section
+    createdAt          DateTime             @default(now()) // Added createdAt for content
+    updatedAt          DateTime             @updatedAt // Added updatedAt for content
     // questions     Question[] // If a lesson can contain practice questions directly
+    UserLessonProgress UserLessonProgress[]
+    LessonResource     LessonResource[]
 }
 
 model UserCourse {
@@ -190,6 +151,56 @@ model UserCourse {
     @@unique([userId, courseId]) // A user can only enroll in a course once
     @@index([userId])
     @@index([courseId])
+}
+
+model Category {
+    id          String   @id @default(auto()) @map("_id") @db.ObjectId
+    name        String   @unique
+    slug        String   @unique // For friendly URLs (e.g., /courses/grammar)
+    description String?
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+    // No direct relation back to Course here
+}
+
+model CourseReview {
+    id        String   @id @default(auto()) @map("_id") @db.ObjectId
+    rating    Int // 1 to 5 stars
+    comment   String?
+    user      User     @relation(fields: [userId], references: [id])
+    userId    String   @db.ObjectId
+    course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+    courseId  String   @db.ObjectId
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@unique([userId, courseId]) // A user can review a course only once
+    @@index([courseId, rating]) // For querying average ratings
+}
+
+model UserLessonProgress {
+    id              String   @id @default(auto()) @map("_id") @db.ObjectId
+    user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    userId          String   @db.ObjectId
+    lesson          Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+    lessonId        String   @db.ObjectId
+    isCompleted     Boolean  @default(false)
+    watchedDuration Float? // For video lessons, how many seconds watched
+    createdAt       DateTime @default(now())
+    updatedAt       DateTime @updatedAt
+
+    @@unique([userId, lessonId]) // User can only have one progress record per lesson
+    @@index([userId, isCompleted])
+}
+
+model LessonResource {
+    id        String   @id @default(auto()) @map("_id") @db.ObjectId
+    name      String
+    fileUrl   String // URL to the hosted file (PDF, DOCX, etc.)
+    fileType  String? // e.g., "pdf", "docx", "zip"
+    lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+    lessonId  String   @db.ObjectId
+    createdAt DateTime @default(now())
 }
 
 // --- PTE SIMULATION MODELS ---
@@ -383,4 +394,66 @@ model Notification {
 
     @@index([userId, read])
     @@index([createdAt])
+}
+
+// Enums for better type safety and clarity
+enum UserRole {
+    USER
+    ADMIN
+}
+
+enum PaymentStatus {
+    PENDING
+    SUCCESS
+    FAILED
+    REFUNDED
+}
+
+enum SubscriptionPlan {
+    FREE
+    BASIC
+    PREMIUM
+}
+
+// Enum for PTE Academic Question Types (Crucial for simulation)
+enum PteQuestionTypeName {
+    // Speaking (AI Scored)
+    READ_ALOUD
+    REPEAT_SENT_ENCE
+    DESCRIBE_IMAGE
+    RE_TELL_LECTURE
+    ANSWER_SHORT_QUESTION
+
+    // Writing (AI Scored)
+    SUMMARIZE_WRITTEN_TEXT
+    WRITE_ESSAY
+
+    // Reading
+    READING_WRITING_FILL_IN_THE_BLANKS // Combined skill type
+    MULTIPLE_CHOICE_MULTIPLE_ANSWERS_READING // Specific to Reading
+    RE_ORDER_PARAGRAPHS
+    READING_FILL_IN_THE_BLANKS // Specific to Reading
+    MULTIPLE_CHOICE_SINGLE_ANSWER_READING // Specific to Reading
+
+    // Listening
+    SUMMARIZE_SPOKEN_TEXT // AI Scored
+    MULTIPLE_CHOICE_MULTIPLE_ANSWERS_LISTENING // Specific to Listening
+    LISTENING_FILL_IN_THE_BLANKS // Specific to Listening
+    HIGHLIGHT_CORRECT_SUMMARY
+    MULTIPLE_CHOICE_SINGLE_ANSWER_LISTENING // Specific to Listening
+    SELECT_MISSING_WORD
+    HIGHLIGHT_INCORRECT_WORDS
+    WRITE_FROM_DICTATION
+}
+
+enum AuthProviders {
+    EMAIL_OTP
+    GOOGLE
+    APPLE
+}
+
+enum OtpType {
+    LOGIN
+    REGISTRATION
+    PASSWORD_RESET
 }

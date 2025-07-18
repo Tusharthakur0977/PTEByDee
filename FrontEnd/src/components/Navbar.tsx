@@ -93,7 +93,11 @@ const Navbar: React.FC = () => {
               <div className='flex items-center space-x-3'>
                 <Link
                   to='/dashboard'
-                  className='flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200'
+                  className={`flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
+                    isActive('/dashboard')
+                      ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                      : 'text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
+                  }`}
                 >
                   <User className='h-4 w-4' />
                   <span>Dashboard</span>
