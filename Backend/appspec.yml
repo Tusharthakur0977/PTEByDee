@@ -1,0 +1,29 @@
+# appspec.yml
+version: 0.0
+os: linux
+files:
+  - source: /
+    destination: /home/ubuntu/ptebydee-server # This is where your app will be deployed on EC2
+permissions:
+  - object: /home/ubuntu/ptebydee-server
+    pattern: '**'
+    owner: ubuntu # Ensure this matches your EC2 user (which is 'ubuntu' for Ubuntu AMIs)
+    group: ubuntu # Ensure this matches your EC2 user
+
+hooks:
+  BeforeInstall:
+    - location: scripts/before_install.sh
+      timeout: 300
+      runas: ubuntu
+  AfterInstall:
+    - location: scripts/after_install.sh
+      timeout: 300
+      runas: ubuntu
+  ApplicationStart:
+    - location: scripts/application_start.sh
+      timeout: 300
+      runas: ubuntu
+  ApplicationStop:
+    - location: scripts/application_stop.sh
+      timeout: 300
+      runas: ubuntu
