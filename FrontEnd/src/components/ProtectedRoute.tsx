@@ -1,16 +1,18 @@
 import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Link, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requireAuth?: boolean;
+  requireAdmin?: boolean;
   redirectTo?: string;
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
   requireAuth = true,
+  requireAdmin = false,
   redirectTo = '/login',
 }) => {
   const { user, isLoading } = useAuth();
@@ -32,6 +34,28 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         state={{ from: location }}
         replace
       />
+    );
+  }
+
+  if (requireAdmin && user && user.role !== 'ADMIN') {
+    // User is authenticated but not an admin
+    return (
+      <div className='min-h-screen flex items-center justify-center'>
+        <div className='text-center'>
+          <h1 className='text-2xl font-bold text-red-600 mb-4'>
+            Access Denied
+          </h1>
+          <p className='text-gray-600 mb-4'>
+            You don't have permission to access this page.
+          </p>
+          <Link
+            to='/dashboard'
+            className='text-blue-600 hover:text-blue-800'
+          >
+            Go to Dashboard
+          </Link>
+        </div>
+      </div>
     );
   }
 

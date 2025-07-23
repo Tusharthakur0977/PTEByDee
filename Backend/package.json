@@ -7,14 +7,18 @@
     "dev": "nodemon",
     "build": "tsc",
     "prisma:generate": "npx prisma generate",
-    "prisma:push": "npx prisma db push"
+    "prisma:push": "npx prisma db push",
+    "test:cloudfront": "npx ts-node scripts/test-cloudfront-setup.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.848.0",
+    "@aws-sdk/cloudfront-signer": "^3.821.0",
     "@prisma/client": "^6.11.1",
+    "@types/multer": "^2.0.0",
     "bcrypt": "^6.0.0",
     "compression": "^1.8.0",
     "cors": "^2.8.5",
@@ -25,6 +29,8 @@
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.16.1",
+    "multer": "^2.0.2",
+    "multer-s3": "^3.0.1",
     "nodemailer": "^7.0.4"
   },
   "devDependencies": {
@@ -34,6 +40,7 @@
     "@types/express": "^5.0.3",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/ms": "^2.1.0",
+    "@types/multer-s3": "^3.0.3",
     "@types/node": "^24.0.7",
     "@types/nodemailer": "^6.4.17",
     "nodemon": "^3.1.10",

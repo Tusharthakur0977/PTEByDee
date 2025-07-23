@@ -111,7 +111,8 @@ model CourseSection {
     id          String   @id @default(auto()) @map("_id") @db.ObjectId
     title       String
     description String?
-    videoUrl    String?
+    videoUrl    String? // Legacy field - for backward compatibility
+    videoKey    String? // S3 key for secure video storage
     course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
     courseId    String   @db.ObjectId
     order       Int // To define the order of sections within a course
@@ -124,7 +125,8 @@ model Lesson {
     id                 String               @id @default(auto()) @map("_id") @db.ObjectId
     title              String
     description        String?
-    videoUrl           String? // URL to the video content
+    videoUrl           String? // Legacy field - for backward compatibility
+    videoKey           String? // S3 key for secure video storage
     textContent        String? // Any accompanying text/notes
     audioUrl           String? // For audio-only lessons
     section            CourseSection        @relation(fields: [sectionId], references: [id], onDelete: Cascade)

@@ -50,6 +50,15 @@ export JWT_REFRESH_SECRET=$(aws ssm get-parameter --name "/ptebydee-server/produ
 echo "Fetching JWT_SECRET from Parameter Store..."
 export JWT_SECRET=$(aws ssm get-parameter --name "/ptebydee-server/production/JWT_SECRET" --with-decryption --query Parameter.Value --output text --region ap-southeast-2)
 
+echo "Fetching AWS_ACCESS_KEY_ID from Parameter Store..."
+export AWS_ACCESS_KEY_ID=$(aws ssm get-parameter --name "/ptebydee-server/production/AWS_ACCESS_KEY_ID" --with-decryption --query Parameter.Value --output text --region ap-southeast-2)
+
+echo "Fetching AWS_SECRET_ACCESS_KEY from Parameter Store..."
+export AWS_SECRET_ACCESS_KEY=$(aws ssm get-parameter --name "/ptebydee-server/production/AWS_SECRET_ACCESS_KEY" --with-decryption --query Parameter.Value --output text --region ap-southeast-2)
+
+echo "Fetching AWS_S3_BUCKET_NAME from Parameter Store..."
+export AWS_S3_BUCKET_NAME=$(aws ssm get-parameter --name "/ptebydee-server/production/AWS_S3_BUCKET_NAME" --with-decryption --query Parameter.Value --output text --region ap-southeast-2)
+
 # --- Set non-sensitive or hardcoded variables ---
 # These variables do not contain sensitive data, so they can be set directly.
 export NODE_ENV=production
@@ -58,6 +67,7 @@ export FRONTEND_URL="https://pte-by-dee.vercel.app/" # <--- IMPORTANT: Update th
 export EMAIL_USER="ptebydee@gmail.com"
 export JWT_EXPIRES_IN="7D"
 export JWT_REFRESH_EXPIRES_IN="7D"
+export AWS_REGION="ap-southeast-2" # AWS region for S3 bucket
 
 # --- Start the application with PM2 ---
 # Assuming your main entry file is index.js as per your typical Node.js setup
