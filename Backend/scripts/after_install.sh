@@ -1,20 +1,21 @@
 #!/bin/bash
-echo "Changing to application directory..."
-APP_DIR="/home/ubuntu/ptebydee-server" # Define app directory variable
-cd $APP_DIR
 
-echo "Installing npm dependencies..."
-npm install --production # Install only production dependencies
+echo "Starting AfterInstall hook..."
 
-echo "Generating Prisma Client..."
-npx prisma generate # Generates the Prisma Client based on your schema
+APP_DIR="/home/ubuntu/ptebydee-server"
+cd "$APP_DIR" || { echo "ERROR: Failed to change to application directory: $APP_DIR"; exit 1; }
 
-# !!! IMPORTANT for MongoDB with Prisma !!!
-# If you are using Prisma's schema push for MongoDB (instead of explicit migrations)
-# and you need schema changes to be applied on deployment, uncomment the line below.
-# Be aware: 'db push' can lead to data loss if not used carefully in production.
-# Consider running this manually or in a more controlled way for production databases.
-# echo "Pushing Prisma schema to MongoDB (if changes detected)..."
-# npx prisma db push --accept-data-loss # --accept-data-loss is needed for non-interactive execution
+echo "Verifying Node.js and npm versions..."
+node -v || { echo "ERROR: Node.js is not found or not in PATH. This should have been handled by BeforeInstall hook."; exit 1; }
+npm -v || { echo "ERROR: npm is not found or not in PATH. This should have been handled by BeforeInstall hook."; exit 1; }
+echo "Node.js $(node -v) and npm $(npm -v) confirmed."
 
-echo "Dependencies installed and Prisma Client generated."
+echo "Installing npm dependencies in production mode..."
+npm ci --production || { echo "ERROR: Failed to install npm dependencies."; exit 1; }
+echo "npm dependencies installed."
+
+echo "Generating Prisma Client based on schema..."
+npx prisma generate || { echo "ERROR: Failed to generate Prisma Client. Check your prisma schema and dependencies."; exit 1; }
+echo "Prisma Client generated."
+
+echo "AfterInstall hook completed successfully."

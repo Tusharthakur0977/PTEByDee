@@ -12,6 +12,7 @@ uploads in the PTE By DEE application.
 Add the following environment variables to your production environment (AWS
 Systems Manager Parameter Store):
 
+
 ### AWS S3 Configuration
 
 ```bash

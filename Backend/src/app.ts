@@ -6,10 +6,13 @@ import helmet from 'helmet';
 import { errorHandler, notFound } from './middlewares/error.middleware';
 import { generalRateLimiter } from './middlewares/rateLimiter.middleware';
 import routes from './routes/index';
+import path from 'path';
 
 dotenv.config();
 
 const app: Application = express();
+
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Security middleware
 app.use(
@@ -27,8 +30,7 @@ app.use(
 
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-    credentials: true,
+    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   })
 );
 
