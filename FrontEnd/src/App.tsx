@@ -20,8 +20,8 @@ import TestResults from './pages/TestResults';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import CourseManagement from './pages/admin/CourseManagement';
 import CreateCourse from './pages/admin/CreateCourse';
-import EditCourse from './pages/admin/EditCourse';
 import AdminCourseDetail from './pages/admin/CourseDetail';
+import EditCourse from './pages/admin/EditCourse';
 
 function App() {
   return (

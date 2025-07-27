@@ -9,10 +9,27 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import CourseCard from '../components/CourseCard';
-import { courses } from '../data/courses';
+import { getFeaturedCourses } from '../services/courses';
+import type { Course } from '../services/courses';
 
 const Home: React.FC = () => {
-  const featuredCourses = courses.slice(0, 3);
+  const [featuredCourses, setFeaturedCourses] = React.useState<Course[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const fetchFeaturedCourses = async () => {
+      try {
+        const courses = await getFeaturedCourses(3);
+        setFeaturedCourses(courses);
+      } catch (error) {
+        console.error('Failed to fetch featured courses:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchFeaturedCourses();
+  }, []);
 
   return (
     <div className='min-h-screen'>
@@ -123,12 +140,31 @@ const Home: React.FC = () => {
             </p>
           </div>
           <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12'>
-            {featuredCourses.map((course) => (
-              <CourseCard
-                key={course.id}
-                course={course}
-              />
-            ))}
+            {isLoading
+              ? // Loading skeleton
+                [...Array(3)].map((_, index) => (
+                  <div
+                    key={index}
+                    className='bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden animate-pulse'
+                  >
+                    <div className='w-full h-48 bg-gray-300 dark:bg-gray-600'></div>
+                    <div className='p-6 space-y-4'>
+                      <div className='h-4 bg-gray-300 dark:bg-gray-600 rounded w-3/4'></div>
+                      <div className='h-3 bg-gray-300 dark:bg-gray-600 rounded w-full'></div>
+                      <div className='h-3 bg-gray-300 dark:bg-gray-600 rounded w-2/3'></div>
+                      <div className='flex justify-between items-center'>
+                        <div className='h-6 bg-gray-300 dark:bg-gray-600 rounded w-16'></div>
+                        <div className='h-8 bg-gray-300 dark:bg-gray-600 rounded w-24'></div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              : featuredCourses.map((course) => (
+                  <CourseCard
+                    key={course.id}
+                    course={course}
+                  />
+                ))}
           </div>
           <div className='text-center'>
             <Link

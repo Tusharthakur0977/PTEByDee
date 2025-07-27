@@ -2,43 +2,27 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Clock, Users, Star, BookOpen } from 'lucide-react';
 import LazyImage from './LazyImage';
-
-interface Course {
-  id: string;
-  title: string;
-  description: string;
-  price: number;
-  originalPrice?: number;
-  duration: string;
-  students: number;
-  rating: number;
-  level: string;
-  image: string;
-  features: string[];
-}
+import type { Course } from '../services/courses';
 
 interface CourseCardProps {
   course: Course;
 }
 
 const CourseCard: React.FC<CourseCardProps> = ({ course }) => {
-  const discount = course.originalPrice
-    ? Math.round(
-        ((course.originalPrice - course.price) / course.originalPrice) * 100
-      )
-    : 0;
-
   return (
     <div className='bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group'>
       <div className='relative overflow-hidden'>
         <LazyImage
-          src={course.image}
+          src={
+            course.imageUrl ||
+            'https://images.pexels.com/photos/5212345/pexels-photo-5212345.jpeg?auto=compress&cs=tinysrgb&w=500'
+          }
           alt={course.title}
           className='w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300'
         />
-        {discount > 0 && (
-          <div className='absolute top-4 left-4 bg-red-500 text-white px-2 py-1 rounded-md text-sm font-semibold'>
-            {discount}% OFF
+        {course.isFree && (
+          <div className='absolute top-4 left-4 bg-green-500 text-white px-2 py-1 rounded-md text-sm font-semibold'>
+            FREE
           </div>
         )}
         <div className='absolute top-4 right-4 bg-blue-600 text-white px-2 py-1 rounded-md text-xs font-medium'>
@@ -76,25 +60,35 @@ const CourseCard: React.FC<CourseCardProps> = ({ course }) => {
 
         <div className='mb-4'>
           <div className='flex flex-wrap gap-2'>
-            {course.features.slice(0, 2).map((feature, index) => (
+            {course.features?.slice(0, 2).map((feature, index) => (
               <span
                 key={index}
                 className='px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs rounded-md'
               >
                 {feature}
               </span>
-            ))}
+            )) || (
+              <>
+                <span className='px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs rounded-md'>
+                  Expert Content
+                </span>
+                <span className='px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs rounded-md'>
+                  Lifetime Access
+                </span>
+              </>
+            )}
           </div>
         </div>
 
         <div className='flex items-center justify-between'>
           <div className='flex items-center space-x-2'>
-            <span className='text-2xl font-bold text-blue-600 dark:text-blue-400'>
-              ${course.price}
-            </span>
-            {course.originalPrice && (
-              <span className='text-lg text-gray-500 dark:text-gray-400 line-through'>
-                ${course.originalPrice}
+            {course.isFree ? (
+              <span className='text-2xl font-bold text-green-600 dark:text-green-400'>
+                Free
+              </span>
+            ) : (
+              <span className='text-2xl font-bold text-blue-600 dark:text-blue-400'>
+                ${course.price}
               </span>
             )}
           </div>
