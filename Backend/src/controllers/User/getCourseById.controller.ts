@@ -47,15 +47,19 @@ export const getCourseById = asyncHandler(
               id: true,
               title: true,
               description: true,
+              videoUrl: true,
+              videoKey: true,
               order: true,
               lessons: {
                 select: {
                   id: true,
                   title: true,
                   description: true,
-                  order: true,
-                  // Only show video URLs for preview lessons or if user is enrolled
                   videoUrl: true,
+                  videoKey: true,
+                  textContent: true,
+                  audioUrl: true,
+                  order: true,
                 },
                 orderBy: { order: 'asc' },
               },
@@ -119,6 +123,7 @@ export const getCourseById = asyncHandler(
             completedAt: true,
           },
         });
+
         isEnrolled = !!userEnrollment;
       }
 
@@ -155,15 +160,24 @@ export const getCourseById = asyncHandler(
           id: section.id,
           title: section.title,
           description: section.description,
+          videoUrl: isEnrolled ? section.videoUrl : null,
+          videoKey: isEnrolled ? section.videoKey : null,
           order: section.order,
           lessons: section.lessons.map((lesson, index) => ({
             id: lesson.id,
             title: lesson.title,
             description: lesson.description,
             order: lesson.order,
-            // Only show video URL if user is enrolled or it's a preview lesson (first lesson)
+            // Show content based on enrollment status and preview availability
             videoUrl: isEnrolled || index === 0 ? lesson.videoUrl : null,
-            type: lesson.videoUrl ? 'video' : 'text',
+            videoKey: isEnrolled || index === 0 ? lesson.videoKey : null,
+            textContent: isEnrolled || index === 0 ? lesson.textContent : null,
+            audioUrl: isEnrolled || index === 0 ? lesson.audioUrl : null,
+            type: lesson.videoUrl
+              ? 'video'
+              : lesson.audioUrl
+              ? 'audio'
+              : 'text',
             isPreview: index === 0, // First lesson is always preview
             duration: '15 min', // Default duration, can be enhanced
           })),
@@ -196,7 +210,11 @@ export const getCourseById = asyncHandler(
             title: lesson.title,
             duration: '15 min',
             videoUrl: isEnrolled || lessonIndex === 0 ? lesson.videoUrl : null,
-            type: lesson.videoUrl ? 'video' : 'text',
+            type: lesson.videoUrl
+              ? 'video'
+              : lesson.audioUrl
+              ? 'audio'
+              : 'text',
             isPreview: lessonIndex === 0,
           })),
         })),

@@ -12,11 +12,13 @@ import {
   FileText,
   HelpCircle,
   PenTool,
+  Headphones,
 } from 'lucide-react';
 import { getCourseById, enrollInCourse } from '../services/courses';
 import type { Course } from '../services/courses';
 import { useAuth } from '../contexts/AuthContext';
 import VideoPlayer from '../components/VideoPlayer';
+import LessonPlayer from '../components/LessonPlayer';
 
 const CourseDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -99,6 +101,144 @@ const CourseDetail: React.FC = () => {
   const isEnrolled = course.isEnrolled || false;
   const discount = 0; // Can be calculated if originalPrice is added to the API
 
+  // If user is enrolled, show the learning interface
+  if (isEnrolled) {
+    return (
+      <div className='min-h-screen py-8'>
+        <div className='container mx-auto px-4'>
+          {/* Back Button */}
+          <Link
+            to='/dashboard'
+            className='inline-flex items-center space-x-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 mb-8'
+          >
+            <ArrowLeft className='h-4 w-4' />
+            <span>Back to Dashboard</span>
+          </Link>
+
+          {/* Course Header */}
+          <div className='bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-8'>
+            <div className='flex items-start justify-between'>
+              <div className='flex-1'>
+                <h1 className='text-3xl font-bold text-gray-900 dark:text-white mb-4'>
+                  {course.title}
+                </h1>
+                <p className='text-gray-600 dark:text-gray-300 mb-4'>
+                  {course.description}
+                </p>
+
+                {/* Progress Bar */}
+                {course.userEnrollment && (
+                  <div className='mb-4'>
+                    <div className='flex justify-between items-center mb-2'>
+                      <span className='text-sm font-medium text-gray-700 dark:text-gray-300'>
+                        Course Progress
+                      </span>
+                      <span className='text-sm font-bold text-gray-900 dark:text-white'>
+                        {Math.round(course.userEnrollment.progress || 0)}%
+                      </span>
+                    </div>
+                    <div className='w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3'>
+                      <div
+                        className='bg-blue-600 h-3 rounded-full transition-all duration-500'
+                        style={{
+                          width: `${course.userEnrollment.progress || 0}%`,
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Course Stats */}
+              <div className='ml-8 text-right'>
+                <div className='flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400'>
+                  <div className='flex items-center space-x-1'>
+                    <BookOpen className='h-4 w-4' />
+                    <span>{course.sectionCount} sections</span>
+                  </div>
+                  <div className='flex items-center space-x-1'>
+                    <Star className='h-4 w-4 fill-current text-yellow-400' />
+                    <span>{course.rating}</span>
+                  </div>
+                </div>
+                {course.userEnrollment?.completed && (
+                  <div className='mt-2 inline-flex items-center space-x-1 text-green-600 dark:text-green-400'>
+                    <CheckCircle className='h-4 w-4' />
+                    <span className='text-sm font-medium'>Completed</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Course Content - Learning Interface */}
+          <div className='space-y-6'>
+            {course.sections?.map((section, sectionIndex) => (
+              <div
+                key={section.id}
+                className='bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden'
+              >
+                <div className='bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 px-6 py-4 border-b dark:border-gray-700'>
+                  <div className='flex items-center justify-between'>
+                    <h3 className='text-xl font-bold text-gray-900 dark:text-white'>
+                      Section {sectionIndex + 1}: {section.title}
+                    </h3>
+                    <span className='text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 px-3 py-1 rounded-full'>
+                      {section.lessons.length} lessons
+                    </span>
+                  </div>
+                  {section.description && (
+                    <p className='text-gray-600 dark:text-gray-300 mt-2'>
+                      {section.description}
+                    </p>
+                  )}
+                </div>
+
+                {/* Section Video */}
+                {(section.videoUrl || section.videoKey) && (
+                  <div className='p-6 border-b dark:border-gray-700'>
+                    <h4 className='text-lg font-semibold text-gray-900 dark:text-white mb-4'>
+                      Section Overview
+                    </h4>
+                    <VideoPlayer
+                      videoUrl={section.videoUrl}
+                      videoKey={section.videoKey}
+                      courseId={course.id}
+                      title={`${section.title} - Overview`}
+                      isPreview={false}
+                      isEnrolled={true}
+                    />
+                  </div>
+                )}
+
+                {/* Lessons */}
+                <div className='p-6'>
+                  <h4 className='text-lg font-semibold text-gray-900 dark:text-white mb-4'>
+                    Lessons
+                  </h4>
+                  <div className='space-y-4'>
+                    {section.lessons.map((lesson) => (
+                      <LessonPlayer
+                        key={lesson.id}
+                        lesson={lesson}
+                        courseId={course.id}
+                        isEnrolled={true}
+                        onComplete={(lessonId) => {
+                          console.log(`Lesson completed: ${lessonId}`);
+                          // Here you can add logic to track lesson completion
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const getTypeIcon = (type: string) => {
     switch (type) {
       case 'video':
@@ -176,6 +316,7 @@ const CourseDetail: React.FC = () => {
                     course.coursePreviewVideoUrl ||
                     course.curriculum?.[0]?.lessons[0]?.videoUrl
                   }
+                  courseId={course.id}
                   title={
                     course.curriculum?.[0]?.lessons[0]?.title ||
                     'Course Introduction'
@@ -184,6 +325,97 @@ const CourseDetail: React.FC = () => {
                   isPreview={true}
                   isEnrolled={isEnrolled}
                 />
+              </div>
+            )}
+
+            {/* Course Content Preview for Enrolled Users */}
+            {isEnrolled && course.sections && course.sections.length > 0 && (
+              <div>
+                <h2 className='text-2xl font-bold text-gray-900 dark:text-white mb-6'>
+                  Course Content
+                </h2>
+                <div className='space-y-4'>
+                  {course.sections.map((section, sectionIndex) => (
+                    <div
+                      key={section.id}
+                      className='bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden border border-gray-200 dark:border-gray-700'
+                    >
+                      <div className='bg-gray-50 dark:bg-gray-700 px-6 py-4 border-b dark:border-gray-600'>
+                        <div className='flex items-center justify-between'>
+                          <h3 className='text-lg font-semibold text-gray-900 dark:text-white'>
+                            Section {sectionIndex + 1}: {section.title}
+                          </h3>
+                          <span className='text-sm text-gray-500 dark:text-gray-400'>
+                            {section.lessons.length} lessons
+                          </span>
+                        </div>
+                        {section.description && (
+                          <p className='text-sm text-gray-600 dark:text-gray-300 mt-2'>
+                            {section.description}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Section Video */}
+                      {(section.videoUrl || section.videoKey) && (
+                        <div className='p-6 border-b dark:border-gray-600'>
+                          <VideoPlayer
+                            videoUrl={section.videoUrl}
+                            videoKey={section.videoKey}
+                            courseId={course.id}
+                            title={`${section.title} - Overview`}
+                            isPreview={false}
+                            isEnrolled={isEnrolled}
+                          />
+                        </div>
+                      )}
+
+                      {/* Lessons */}
+                      <div className='p-6'>
+                        <div className='space-y-3'>
+                          {section.lessons.map((lesson, lessonIndex) => (
+                            <div
+                              key={lesson.id}
+                              className='flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-200'
+                            >
+                              <div className='flex items-center space-x-3'>
+                                <div className='text-gray-400'>
+                                  {lesson.type === 'video' ? (
+                                    <Video className='h-5 w-5' />
+                                  ) : lesson.type === 'audio' ? (
+                                    <Headphones className='h-5 w-5' />
+                                  ) : (
+                                    <FileText className='h-5 w-5' />
+                                  )}
+                                </div>
+                                <div className='flex-1'>
+                                  <h4 className='text-sm font-medium text-gray-900 dark:text-white'>
+                                    {lesson.title}
+                                  </h4>
+                                  {lesson.description && (
+                                    <p className='text-xs text-gray-500 dark:text-gray-400 mt-1'>
+                                      {lesson.description}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              <div className='flex items-center space-x-3'>
+                                <span className='text-xs text-gray-500 dark:text-gray-400'>
+                                  {lesson.duration || '15 min'}
+                                </span>
+                                {lesson.videoUrl && (
+                                  <button className='p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors duration-200'>
+                                    <Play className='h-4 w-4' />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 

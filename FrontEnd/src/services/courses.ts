@@ -49,6 +49,8 @@ export interface CourseSection {
   id: string;
   title: string;
   description?: string;
+  videoUrl?: string;
+  videoKey?: string; // S3 key for secure video storage
   order: number;
   lessons: CourseLesson[];
 }
@@ -59,7 +61,9 @@ export interface CourseLesson {
   description?: string;
   order: number;
   videoUrl?: string;
-  type: 'video' | 'text' | 'quiz' | 'assignment';
+  audioUrl?: string;
+  textContent?: string;
+  type: 'video' | 'audio' | 'text' | 'quiz' | 'assignment';
   isPreview?: boolean;
   duration?: string;
 }
@@ -70,7 +74,8 @@ export interface CourseCurriculum {
     title: string;
     duration?: string;
     videoUrl?: string;
-    type: 'video' | 'text' | 'quiz' | 'assignment';
+    audioUrl?: string;
+    type: 'video' | 'audio' | 'text' | 'quiz' | 'assignment';
     isPreview?: boolean;
   }[];
 }
@@ -152,6 +157,38 @@ export const getCourseById = async (id: string): Promise<Course> => {
 // Enroll in a course
 export const enrollInCourse = async (courseId: string) => {
   const response = await api.post(`/user/courses/${courseId}/enroll`);
+  return response.data;
+};
+
+// Get user's enrolled courses
+export const getEnrolledCourses = async (): Promise<{
+  courses: Course[];
+  totalEnrolled: number;
+}> => {
+  const response = await api.get('/user/enrolled-courses');
+  return response.data.data;
+};
+
+// Get secure video URL for enrolled users
+export const getSecureVideoUrl = async (
+  videoKey: string,
+  courseId: string
+): Promise<{
+  videoKey: string;
+  secureUrl: string;
+  expiresAt: string;
+  expirationHours: number;
+}> => {
+  const response = await api.post('/user/secure-video-url', {
+    videoKey,
+    courseId,
+  });
+  return response.data.data;
+};
+
+// Test enrollment endpoint for debugging
+export const testEnrollment = async () => {
+  const response = await api.get('/user/test-enrollment');
   return response.data;
 };
 

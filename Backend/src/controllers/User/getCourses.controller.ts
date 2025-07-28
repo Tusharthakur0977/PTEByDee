@@ -3,14 +3,17 @@ import asyncHandler from 'express-async-handler';
 import prisma from '../../config/prismaInstance';
 import { STATUS_CODES } from '../../utils/constants';
 import { sendResponse } from '../../utils/helpers';
+import { CustomRequest } from '../../types';
 
 /**
  * @desc    Get all courses for users (public access)
  * @route   GET /api/user/courses
  * @access  Public
  */
-export const getCourses = asyncHandler(async (req: Request, res: Response) => {
+export const getCourses = asyncHandler(async (req: CustomRequest, res: Response) => {
   try {
+    const userId = req.user?.id; // Get user ID if authenticated
+
     const {
       page = '1',
       limit = '12',
@@ -108,6 +111,21 @@ export const getCourses = asyncHandler(async (req: Request, res: Response) => {
           orderBy: { createdAt: 'desc' },
           take: 3,
         },
+        // Get user enrollment if authenticated
+        userCourses: userId
+          ? {
+              where: {
+                userId: userId,
+              },
+              select: {
+                id: true,
+                progress: true,
+                completed: true,
+                enrolledAt: true,
+                completedAt: true,
+              },
+            }
+          : false,
       },
       orderBy,
       skip,
@@ -135,6 +153,14 @@ export const getCourses = asyncHandler(async (req: Request, res: Response) => {
       rating: course.averageRating || 0,
       level: 'All Levels', // Default level, can be enhanced later
       duration: `${course._count.sections} sections`, // Basic duration info
+      // User enrollment status
+      isEnrolled: userId
+        ? course.userCourses && course.userCourses.length > 0
+        : false,
+      userEnrollment:
+        userId && course.userCourses && course.userCourses.length > 0
+          ? course.userCourses[0]
+          : null,
     }));
 
     // Calculate pagination info

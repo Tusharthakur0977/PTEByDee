@@ -7,12 +7,22 @@ import { errorHandler, notFound } from './middlewares/error.middleware';
 import { generalRateLimiter } from './middlewares/rateLimiter.middleware';
 import routes from './routes/index';
 import path from 'path';
+import favicon from 'serve-favicon';
 
 dotenv.config();
 
 const app: Application = express();
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(
+  cors({
+    origin: 'https://www.ptebydee.com.au', // Your frontend domain
+    methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed HTTP methods
+    allowedHeaders: ['Content-Type', 'Authorization'], // Allowed headers
+    credentials: true, // If you're sending cookies/auth headers
+  })
+);
+
+app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
 
 // Security middleware
 app.use(
@@ -25,12 +35,6 @@ app.use(
         imgSrc: ["'self'", 'data:', 'https:'],
       },
     },
-  })
-);
-
-app.use(
-  cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   })
 );
 
