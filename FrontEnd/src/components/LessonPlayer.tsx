@@ -8,6 +8,7 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import VideoPlayer from './VideoPlayer';
+import { useProgress } from '../hooks/useProgress';
 
 interface Lesson {
   id: string;
@@ -26,6 +27,7 @@ interface LessonPlayerProps {
   lesson: Lesson;
   courseId: string;
   isEnrolled: boolean;
+  isCompleted?: boolean;
   onComplete?: (lessonId: string) => void;
   className?: string;
 }
@@ -34,17 +36,41 @@ const LessonPlayer: React.FC<LessonPlayerProps> = ({
   lesson,
   courseId,
   isEnrolled,
+  isCompleted: initialCompleted = false,
   onComplete,
   className = '',
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isCompleted, setIsCompleted] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(initialCompleted);
+  const { updateProgress } = useProgress();
 
   console.log(lesson);
 
-  const handleComplete = () => {
-    setIsCompleted(true);
-    onComplete?.(lesson.id);
+  const handleComplete = async () => {
+    try {
+      await updateProgress(lesson.id, { isCompleted: true });
+      setIsCompleted(true);
+      onComplete?.(lesson.id);
+    } catch (error) {
+      console.error('Failed to mark lesson as completed:', error);
+    }
+  };
+
+  const handleVideoProgress = async (watchedDuration: number) => {
+    try {
+      await updateProgress(lesson.id, { watchedDuration });
+    } catch (error) {
+      console.error('Failed to update video progress:', error);
+    }
+  };
+
+  const handleMarkIncomplete = async () => {
+    try {
+      await updateProgress(lesson.id, { isCompleted: false });
+      setIsCompleted(false);
+    } catch (error) {
+      console.error('Failed to mark lesson as incomplete:', error);
+    }
   };
 
   const getTypeIcon = () => {
@@ -141,6 +167,7 @@ const LessonPlayer: React.FC<LessonPlayerProps> = ({
                 isPreview={false}
                 isEnrolled={isEnrolled}
                 onPlay={() => console.log(`Playing lesson: ${lesson.title}`)}
+                onProgress={handleVideoProgress}
               />
             </div>
           )}
@@ -192,14 +219,29 @@ const LessonPlayer: React.FC<LessonPlayerProps> = ({
               <div className='text-sm text-gray-600 dark:text-gray-300'>
                 Lesson {lesson.order}
               </div>
-              {!isCompleted && (
-                <button
-                  onClick={handleComplete}
-                  className='bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200'
-                >
-                  Mark as Complete
-                </button>
-              )}
+              <div className='flex items-center space-x-2'>
+                {isCompleted ? (
+                  <>
+                    <div className='flex items-center space-x-1 text-green-600 dark:text-green-400 text-sm'>
+                      <CheckCircle className='h-4 w-4' />
+                      <span>Completed</span>
+                    </div>
+                    <button
+                      onClick={handleMarkIncomplete}
+                      className='bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-xs font-medium transition-colors duration-200'
+                    >
+                      Mark Incomplete
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={handleComplete}
+                    className='bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200'
+                  >
+                    Mark as Complete
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>

@@ -8,6 +8,11 @@ import { getEnrolledCourses } from '../controllers/User/getEnrolledCourses.contr
 import { getSecureVideoUrl } from '../controllers/User/getSecureVideoUrl.controller';
 import { testEnrollment } from '../controllers/User/testEnrollment.controller';
 import { getCategories } from '../controllers/User/getCategories.controller';
+import { updateLessonProgress } from '../controllers/User/updateLessonProgress.controller';
+import {
+  getUserProgress,
+  getUserProgressOverview,
+} from '../controllers/User/getUserProgress.controller';
 
 import { protect } from '../middlewares/authenticate.middleware';
 
@@ -27,6 +32,11 @@ router
 // Course enrollment and enrolled courses (requires authentication)
 router.post('/courses/:id/enroll', protect, enrollCourse);
 router.get('/enrolled-courses', protect, getEnrolledCourses);
+
+// Progress tracking routes
+router.post('/lessons/:lessonId/progress', protect, updateLessonProgress);
+router.get('/courses/:courseId/progress', protect, getUserProgress);
+router.get('/progress/overview', protect, getUserProgressOverview);
 
 // Secure video URL generation for enrolled users
 router.post('/secure-video-url', protect, getSecureVideoUrl);

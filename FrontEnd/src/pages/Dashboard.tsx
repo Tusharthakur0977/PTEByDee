@@ -1,28 +1,26 @@
+import {
+  ArrowRight,
+  Award,
+  BookOpen,
+  CheckCircle,
+  Clock,
+  Play,
+  Star,
+  Target,
+  TrendingUp,
+  Trophy,
+  Video,
+} from 'lucide-react';
 import React from 'react';
 import { Link } from 'react-router-dom';
-import {
-  BookOpen,
-  Clock,
-  Star,
-  Trophy,
-  Target,
-  Calendar,
-  Play,
-  CheckCircle,
-  ArrowRight,
-  Video,
-  FileText,
-  Headphones,
-  Award,
-  TrendingUp,
-} from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useProgressOverview } from '../hooks/useProgress';
+import type { Course } from '../services/courses';
 import {
   getCourses,
   getEnrolledCourses,
   testEnrollment,
 } from '../services/courses';
-import type { Course } from '../services/courses';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
@@ -32,6 +30,7 @@ const Dashboard: React.FC = () => {
   );
   const [isLoading, setIsLoading] = React.useState(true);
   const [recentActivity, setRecentActivity] = React.useState<any[]>([]);
+  const { overview: progressOverview } = useProgressOverview();
 
   React.useEffect(() => {
     if (user) {
@@ -435,43 +434,83 @@ const Dashboard: React.FC = () => {
                 <h2 className='text-2xl font-bold text-gray-900 dark:text-white mb-6'>
                   Learning Progress
                 </h2>
-                <div className='grid grid-cols-1 md:grid-cols-3 gap-6'>
-                  <div className='text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg'>
-                    <div className='text-3xl font-bold text-blue-600 dark:text-blue-400 mb-2'>
-                      {enrolledCourses.length}
+                {progressOverview ? (
+                  <div className='grid grid-cols-1 md:grid-cols-4 gap-6'>
+                    <div className='text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg'>
+                      <div className='text-3xl font-bold text-blue-600 dark:text-blue-400 mb-2'>
+                        {progressOverview.statistics.totalCourses}
+                      </div>
+                      <div className='text-sm text-gray-600 dark:text-gray-300'>
+                        Enrolled Courses
+                      </div>
                     </div>
-                    <div className='text-sm text-gray-600 dark:text-gray-300'>
-                      Enrolled Courses
+                    <div className='text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg'>
+                      <div className='text-3xl font-bold text-green-600 dark:text-green-400 mb-2'>
+                        {progressOverview.statistics.completedCourses}
+                      </div>
+                      <div className='text-sm text-gray-600 dark:text-gray-300'>
+                        Completed
+                      </div>
+                    </div>
+                    <div className='text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg'>
+                      <div className='text-3xl font-bold text-purple-600 dark:text-purple-400 mb-2'>
+                        {Math.round(
+                          progressOverview.statistics.averageProgress
+                        )}
+                        %
+                      </div>
+                      <div className='text-sm text-gray-600 dark:text-gray-300'>
+                        Average Progress
+                      </div>
+                    </div>
+                    <div className='text-center p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg'>
+                      <div className='text-3xl font-bold text-orange-600 dark:text-orange-400 mb-2'>
+                        {progressOverview.statistics.totalTimeSpent}m
+                      </div>
+                      <div className='text-sm text-gray-600 dark:text-gray-300'>
+                        Time Spent
+                      </div>
                     </div>
                   </div>
-                  <div className='text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg'>
-                    <div className='text-3xl font-bold text-green-600 dark:text-green-400 mb-2'>
-                      {
-                        enrolledCourses.filter(
-                          (c) => c.userEnrollment?.completed
-                        ).length
-                      }
+                ) : (
+                  <div className='grid grid-cols-1 md:grid-cols-3 gap-6'>
+                    <div className='text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg'>
+                      <div className='text-3xl font-bold text-blue-600 dark:text-blue-400 mb-2'>
+                        {enrolledCourses.length}
+                      </div>
+                      <div className='text-sm text-gray-600 dark:text-gray-300'>
+                        Enrolled Courses
+                      </div>
                     </div>
-                    <div className='text-sm text-gray-600 dark:text-gray-300'>
-                      Completed
+                    <div className='text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg'>
+                      <div className='text-3xl font-bold text-green-600 dark:text-green-400 mb-2'>
+                        {
+                          enrolledCourses.filter(
+                            (c) => c.userEnrollment?.completed
+                          ).length
+                        }
+                      </div>
+                      <div className='text-sm text-gray-600 dark:text-gray-300'>
+                        Completed
+                      </div>
+                    </div>
+                    <div className='text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg'>
+                      <div className='text-3xl font-bold text-purple-600 dark:text-purple-400 mb-2'>
+                        {Math.round(
+                          enrolledCourses.reduce(
+                            (sum, course) =>
+                              sum + (course.userEnrollment?.progress || 0),
+                            0
+                          ) / enrolledCourses.length
+                        )}
+                        %
+                      </div>
+                      <div className='text-sm text-gray-600 dark:text-gray-300'>
+                        Average Progress
+                      </div>
                     </div>
                   </div>
-                  <div className='text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg'>
-                    <div className='text-3xl font-bold text-purple-600 dark:text-purple-400 mb-2'>
-                      {Math.round(
-                        enrolledCourses.reduce(
-                          (sum, course) =>
-                            sum + (course.userEnrollment?.progress || 0),
-                          0
-                        ) / enrolledCourses.length
-                      )}
-                      %
-                    </div>
-                    <div className='text-sm text-gray-600 dark:text-gray-300'>
-                      Average Progress
-                    </div>
-                  </div>
-                </div>
+                )}
               </div>
             )}
 
@@ -481,46 +520,67 @@ const Dashboard: React.FC = () => {
                 Recent Activity
               </h2>
               <div className='space-y-4'>
-                {recentActivity.map((activity) => {
-                  const IconComponent = activity.icon;
-                  return (
-                    <div
-                      key={activity.id}
-                      className='flex items-start space-x-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-200'
-                    >
+                {(progressOverview?.recentActivity || recentActivity)
+                  .slice(0, 5)
+                  .map((activity) => {
+                    const IconComponent = activity.icon;
+                    return (
                       <div
-                        className={`p-2 rounded-full ${
-                          activity.color === 'green'
-                            ? 'bg-green-100 dark:bg-green-900/30'
-                            : activity.color === 'blue'
-                            ? 'bg-blue-100 dark:bg-blue-900/30'
-                            : 'bg-purple-100 dark:bg-purple-900/30'
-                        }`}
+                        key={activity.id}
+                        className='flex items-start space-x-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-200'
                       >
-                        <IconComponent
-                          className={`h-5 w-5 ${
-                            activity.color === 'green'
-                              ? 'text-green-600 dark:text-green-400'
+                        <div
+                          className={`p-2 rounded-full ${
+                            activity.isCompleted || activity.color === 'green'
+                              ? 'bg-green-100 dark:bg-green-900/30'
                               : activity.color === 'blue'
-                              ? 'text-blue-600 dark:text-blue-400'
-                              : 'text-purple-600 dark:text-purple-400'
+                              ? 'bg-blue-100 dark:bg-blue-900/30'
+                              : 'bg-purple-100 dark:bg-purple-900/30'
                           }`}
-                        />
+                        >
+                          {IconComponent ? (
+                            <IconComponent
+                              className={`h-5 w-5 ${
+                                activity.isCompleted ||
+                                activity.color === 'green'
+                                  ? 'text-green-600 dark:text-green-400'
+                                  : activity.color === 'blue'
+                                  ? 'text-blue-600 dark:text-blue-400'
+                                  : 'text-purple-600 dark:text-purple-400'
+                              }`}
+                            />
+                          ) : (
+                            <CheckCircle
+                              className={`h-5 w-5 ${
+                                activity.isCompleted
+                                  ? 'text-green-600 dark:text-green-400'
+                                  : 'text-blue-600 dark:text-blue-400'
+                              }`}
+                            />
+                          )}
+                        </div>
+                        <div className='flex-1'>
+                          <p className='text-gray-900 dark:text-white font-medium'>
+                            {activity.title ||
+                              (activity.isCompleted
+                                ? 'Completed'
+                                : 'Accessed') + ` "${activity.lessonTitle}"`}
+                          </p>
+                          <p className='text-sm text-gray-500 dark:text-gray-400'>
+                            {activity.courseTitle || activity.sectionTitle}
+                          </p>
+                          <p className='text-xs text-gray-400 dark:text-gray-500 mt-1'>
+                            {activity.timestamp
+                              ? formatTimeAgo(activity.timestamp)
+                              : new Date(
+                                  activity.lastAccessedAt ||
+                                    activity.completedAt
+                                ).toLocaleDateString()}
+                          </p>
+                        </div>
                       </div>
-                      <div className='flex-1'>
-                        <p className='text-gray-900 dark:text-white font-medium'>
-                          {activity.title}
-                        </p>
-                        <p className='text-sm text-gray-500 dark:text-gray-400'>
-                          {activity.courseTitle}
-                        </p>
-                        <p className='text-xs text-gray-400 dark:text-gray-500 mt-1'>
-                          {formatTimeAgo(activity.timestamp)}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
               </div>
             </div>
           </div>
@@ -590,10 +650,16 @@ const Dashboard: React.FC = () => {
             <div className='bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-xl shadow-lg p-6 border border-orange-200 dark:border-orange-800'>
               <div className='text-center'>
                 <div className='text-3xl font-bold text-orange-600 dark:text-orange-400 mb-2'>
-                  7
+                  {progressOverview?.statistics.totalTimeSpent
+                    ? Math.floor(
+                        progressOverview.statistics.totalTimeSpent / 60
+                      ) || 1
+                    : 7}
                 </div>
                 <div className='text-sm text-orange-700 dark:text-orange-300 font-medium mb-3'>
-                  Day Study Streak
+                  {progressOverview?.statistics.totalTimeSpent
+                    ? 'Hours Studied'
+                    : 'Day Study Streak'}
                 </div>
                 <div className='flex justify-center space-x-1 mb-3'>
                   {[...Array(7)].map((_, i) => (

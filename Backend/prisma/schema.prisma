@@ -41,6 +41,7 @@ model User {
     provider           AuthProviders        @default(EMAIL_OTP) // Which provider the user last used to login
     CourseReview       CourseReview[]
     UserLessonProgress UserLessonProgress[]
+    UserSectionProgress UserSectionProgress[]
 }
 
 // New OTP Code model
@@ -119,6 +120,7 @@ model CourseSection {
     lessons     Lesson[]
     createdAt   DateTime @default(now()) // Added createdAt for content
     updatedAt   DateTime @updatedAt // Added updatedAt for content
+    UserSectionProgress UserSectionProgress[]
 }
 
 model Lesson {
@@ -188,11 +190,31 @@ model UserLessonProgress {
     lessonId        String   @db.ObjectId
     isCompleted     Boolean  @default(false)
     watchedDuration Float? // For video lessons, how many seconds watched
+    completedAt     DateTime? // When the lesson was completed
+    lastAccessedAt  DateTime @default(now()) // When the lesson was last accessed
     createdAt       DateTime @default(now())
     updatedAt       DateTime @updatedAt
 
     @@unique([userId, lessonId]) // User can only have one progress record per lesson
     @@index([userId, isCompleted])
+    @@index([userId, lastAccessedAt])
+}
+
+model UserSectionProgress {
+    id              String        @id @default(auto()) @map("_id") @db.ObjectId
+    user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+    userId          String        @db.ObjectId
+    section         CourseSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+    sectionId       String        @db.ObjectId
+    isCompleted     Boolean       @default(false)
+    completedAt     DateTime?     // When the section was completed
+    lastAccessedAt  DateTime      @default(now()) // When the section was last accessed
+    createdAt       DateTime      @default(now())
+    updatedAt       DateTime      @updatedAt
+
+    @@unique([userId, sectionId]) // User can only have one progress record per section
+    @@index([userId, isCompleted])
+    @@index([userId, lastAccessedAt])
 }
 
 model LessonResource {

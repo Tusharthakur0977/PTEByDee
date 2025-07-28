@@ -11,6 +11,7 @@ interface VideoPlayerProps {
   isPreview?: boolean;
   isEnrolled?: boolean;
   onPlay?: () => void;
+  onProgress?: (watchedDuration: number) => void;
   className?: string;
 }
 
@@ -23,12 +24,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   isPreview = false,
   isEnrolled = false,
   onPlay,
+  onProgress,
   className = '',
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [secureVideoUrl, setSecureVideoUrl] = useState<string | null>(null);
   const [isLoadingVideo, setIsLoadingVideo] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
+  const [lastProgressUpdate, setLastProgressUpdate] = useState(0);
 
   const canPlay = isPreview || isEnrolled;
 
@@ -201,6 +204,16 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
               onError={(e) => console.error('Video error:', e)}
               onCanPlay={() => console.log('Video can play')}
               onPlay={() => console.log('Video started playing')}
+              onTimeUpdate={(e) => {
+                const video = e.target as HTMLVideoElement;
+                const currentTime = Math.floor(video.currentTime);
+
+                // Update progress every 10 seconds to avoid too many API calls
+                if (currentTime > 0 && currentTime - lastProgressUpdate >= 10) {
+                  setLastProgressUpdate(currentTime);
+                  onProgress?.(currentTime);
+                }
+              }}
             >
               Your browser does not support the video tag.
             </video>

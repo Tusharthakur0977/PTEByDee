@@ -19,6 +19,8 @@ import type { Course } from '../services/courses';
 import { useAuth } from '../contexts/AuthContext';
 import VideoPlayer from '../components/VideoPlayer';
 import LessonPlayer from '../components/LessonPlayer';
+import ProgressTracker from '../components/progressTracker';
+import { useCourseProgress } from '../hooks/useProgress';
 
 const CourseDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -27,6 +29,7 @@ const CourseDetail: React.FC = () => {
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [isEnrolling, setIsEnrolling] = React.useState(false);
+  const { progress, refreshProgress } = useCourseProgress(id || '');
 
   React.useEffect(() => {
     if (id) {
@@ -171,6 +174,13 @@ const CourseDetail: React.FC = () => {
             </div>
           </div>
 
+          {/* Progress Tracker */}
+          {progress && (
+            <div className='mb-8'>
+              <ProgressTracker progress={progress} />
+            </div>
+          )}
+
           {/* Course Content - Learning Interface */}
           <div className='space-y-6'>
             {course.sections?.map((section, sectionIndex) => (
@@ -223,9 +233,15 @@ const CourseDetail: React.FC = () => {
                         lesson={lesson}
                         courseId={course.id}
                         isEnrolled={true}
+                        isCompleted={
+                          progress?.sections
+                            .find((s) => s.id === section.id)
+                            ?.lessons.find((l) => l.id === lesson.id)
+                            ?.isCompleted || false
+                        }
                         onComplete={(lessonId) => {
                           console.log(`Lesson completed: ${lessonId}`);
-                          // Here you can add logic to track lesson completion
+                          refreshProgress();
                         }}
                       />
                     ))}
