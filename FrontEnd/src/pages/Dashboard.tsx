@@ -159,12 +159,12 @@ const Dashboard: React.FC = () => {
       <div className='container mx-auto px-4'>
         {/* Welcome Header */}
         <div className='bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl p-8 mb-8'>
-          <div className='flex items-center justify-between'>
+          <div className='flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6'>
             <div>
-              <h1 className='text-3xl font-bold mb-2'>
+              <h1 className='text-2xl sm:text-3xl font-bold mb-2'>
                 Welcome back, {user.name}!
               </h1>
-              <p className='text-blue-100 text-lg'>
+              <p className='text-blue-100 text-base sm:text-lg'>
                 Continue your PTE journey and achieve your goals
               </p>
               {/* Test button for debugging */}
@@ -175,7 +175,7 @@ const Dashboard: React.FC = () => {
                 Test Enrollment (Debug)
               </button>
             </div>
-            <div className='hidden md:block'>
+            <div className='w-full lg:w-auto'>
               <div className='bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-6'>
                 <div className='flex items-center space-x-2 mb-2'>
                   <Trophy className='h-6 w-6 text-yellow-300' />
@@ -190,19 +190,19 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
+        <div className='grid grid-cols-1 xl:grid-cols-3 gap-8'>
           {/* Main Content */}
-          <div className='lg:col-span-2 space-y-8'>
+          <div className='xl:col-span-2 space-y-8'>
             {/* Quick Stats */}
-            <div className='grid grid-cols-2 md:grid-cols-4 gap-4'>
+            <div className='grid grid-cols-2 lg:grid-cols-4 gap-4'>
               <div className='bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg text-center'>
                 <div className='bg-blue-100 dark:bg-blue-900/30 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3'>
                   <BookOpen className='h-6 w-6 text-blue-600 dark:text-blue-400' />
                 </div>
-                <div className='text-2xl font-bold text-gray-900 dark:text-white'>
+                <div className='text-xl sm:text-2xl font-bold text-gray-900 dark:text-white'>
                   {enrolledCourses.length}
                 </div>
-                <div className='text-sm text-gray-600 dark:text-gray-300'>
+                <div className='text-xs sm:text-sm text-gray-600 dark:text-gray-300'>
                   Enrolled Courses
                 </div>
               </div>
@@ -211,10 +211,10 @@ const Dashboard: React.FC = () => {
                 <div className='bg-green-100 dark:bg-green-900/30 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3'>
                   <Clock className='h-6 w-6 text-green-600 dark:text-green-400' />
                 </div>
-                <div className='text-2xl font-bold text-gray-900 dark:text-white'>
+                <div className='text-xl sm:text-2xl font-bold text-gray-900 dark:text-white'>
                   24
                 </div>
-                <div className='text-sm text-gray-600 dark:text-gray-300'>
+                <div className='text-xs sm:text-sm text-gray-600 dark:text-gray-300'>
                   Hours Studied
                 </div>
               </div>
@@ -223,10 +223,10 @@ const Dashboard: React.FC = () => {
                 <div className='bg-purple-100 dark:bg-purple-900/30 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3'>
                   <Target className='h-6 w-6 text-purple-600 dark:text-purple-400' />
                 </div>
-                <div className='text-2xl font-bold text-gray-900 dark:text-white'>
+                <div className='text-xl sm:text-2xl font-bold text-gray-900 dark:text-white'>
                   85%
                 </div>
-                <div className='text-sm text-gray-600 dark:text-gray-300'>
+                <div className='text-xs sm:text-sm text-gray-600 dark:text-gray-300'>
                   Avg. Progress
                 </div>
               </div>
@@ -235,10 +235,10 @@ const Dashboard: React.FC = () => {
                 <div className='bg-orange-100 dark:bg-orange-900/30 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3'>
                   <Star className='h-6 w-6 text-orange-600 dark:text-orange-400' />
                 </div>
-                <div className='text-2xl font-bold text-gray-900 dark:text-white'>
+                <div className='text-xl sm:text-2xl font-bold text-gray-900 dark:text-white'>
                   4.8
                 </div>
-                <div className='text-sm text-gray-600 dark:text-gray-300'>
+                <div className='text-xs sm:text-sm text-gray-600 dark:text-gray-300'>
                   Avg. Score
                 </div>
               </div>

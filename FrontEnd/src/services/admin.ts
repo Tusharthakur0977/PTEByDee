@@ -57,9 +57,78 @@ export interface Category {
   updatedAt: string;
 }
 
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  provider: string;
+  isVerified: boolean;
+  profilePictureUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+  _count?: {
+    courses: number;
+    testAttempts: number;
+  };
+  courses?: any[];
+  testAttempts?: any[];
+  transactions?: any[];
+  subscription?: any;
+  stats?: {
+    totalEnrollments: number;
+    completedCourses: number;
+    totalTestAttempts: number;
+    averageTestScore: number;
+    totalTransactions: number;
+    totalSpent: number;
+  };
+}
+
+export interface UserFilters {
+  page?: number;
+  limit?: number;
+  search?: string;
+  role?: string;
+  provider?: string;
+  isVerified?: boolean;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
 // User Management
-export const getAllUsers = async () => {
-  const response = await api.get('/admin/users');
+export const getAllUsers = async (filters: UserFilters = {}) => {
+  const params = new URLSearchParams();
+
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      params.append(key, value.toString());
+    }
+  });
+
+  const response = await api.get(`/admin/users?${params.toString()}`);
+  return response.data;
+};
+
+export const getUserById = async (id: string) => {
+  const response = await api.get(`/admin/users/${id}`);
+  return response.data;
+};
+
+export const updateUser = async (
+  id: string,
+  userData: {
+    name?: string;
+    email?: string;
+    role?: string;
+    isVerified?: boolean;
+  }
+) => {
+  const response = await api.put(`/admin/users/${id}`, userData);
+  return response.data;
+};
+
+export const deleteUser = async (id: string) => {
+  const response = await api.delete(`/admin/users/${id}`);
   return response.data;
 };
 
@@ -124,5 +193,22 @@ export const createCategory = async (categoryData: {
   description?: string;
 }) => {
   const response = await api.post('/admin/categories', categoryData);
+  return response.data;
+};
+
+export const updateCategory = async (
+  id: string,
+  categoryData: {
+    name?: string;
+    slug?: string;
+    description?: string;
+  }
+) => {
+  const response = await api.put(`/admin/categories/${id}`, categoryData);
+  return response.data;
+};
+
+export const deleteCategory = async (id: string) => {
+  const response = await api.delete(`/admin/categories/${id}`);
   return response.data;
 };

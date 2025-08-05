@@ -10,7 +10,7 @@ interface CourseCardProps {
 
 const CourseCard: React.FC<CourseCardProps> = ({ course }) => {
   return (
-    <div className='bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group'>
+    <div className='bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group w-full'>
       <div className='relative overflow-hidden'>
         <LazyImage
           src={
@@ -39,7 +39,7 @@ const CourseCard: React.FC<CourseCardProps> = ({ course }) => {
           {course.description}
         </p>
 
-        <div className='flex items-center justify-between mb-4'>
+        <div className='flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4 mb-4'>
           <div className='flex items-center space-x-4'>
             <div className='flex items-center space-x-1 text-sm text-gray-500 dark:text-gray-400'>
               <Clock className='h-4 w-4' />
@@ -59,11 +59,11 @@ const CourseCard: React.FC<CourseCardProps> = ({ course }) => {
         </div>
 
         <div className='mb-4'>
-          <div className='flex flex-wrap gap-2'>
+          <div className='flex flex-wrap gap-1 sm:gap-2'>
             {course.features?.slice(0, 2).map((feature, index) => (
               <span
                 key={index}
-                className='px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs rounded-md'
+                className='px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs rounded-md truncate'
               >
                 {feature}
               </span>
@@ -80,7 +80,7 @@ const CourseCard: React.FC<CourseCardProps> = ({ course }) => {
           </div>
         </div>
 
-        <div className='flex items-center justify-between'>
+        <div className='flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3'>
           <div className='flex items-center space-x-2'>
             {course.isFree ? (
               <span className='text-2xl font-bold text-green-600 dark:text-green-400'>
@@ -94,7 +94,7 @@ const CourseCard: React.FC<CourseCardProps> = ({ course }) => {
           </div>
           <Link
             to={`/courses/${course.id}`}
-            className='flex items-center space-x-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors duration-200 text-sm font-medium'
+            className='flex items-center space-x-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors duration-200 text-sm font-medium w-full sm:w-auto justify-center'
           >
             <BookOpen className='h-4 w-4' />
             <span>View Course</span>

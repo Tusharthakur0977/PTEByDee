@@ -22,6 +22,8 @@ import CourseManagement from './pages/admin/CourseManagement';
 import CreateCourse from './pages/admin/CreateCourse';
 import AdminCourseDetail from './pages/admin/CourseDetail';
 import EditCourse from './pages/admin/EditCourse';
+import UserManagement from './pages/admin/UserManagement';
+import CategoryManagement from './pages/admin/CategoryManagement';
 
 function App() {
   return (
@@ -150,6 +152,22 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <EditCourse />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path='/admin/users'
+                    element={
+                      <ProtectedRoute>
+                        <UserManagement />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path='/admin/categories'
+                    element={
+                      <ProtectedRoute>
+                        <CategoryManagement />
                       </ProtectedRoute>
                     }
                   />

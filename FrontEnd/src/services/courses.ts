@@ -1,4 +1,4 @@
-import api from './api';
+import api, { publicApi } from './api';
 
 export interface Course {
   id: string;
@@ -144,13 +144,18 @@ export const getCourses = async (
     }
   });
 
-  const response = await api.get(`/user/courses?${params.toString()}`);
+  // Use publicApi for public course listing
+  const response = await publicApi.get(`/user/courses?${params.toString()}`);
+
+  console.log(response, 'XXX');
+
   return response.data.data;
 };
 
 // Get course by ID
 export const getCourseById = async (id: string): Promise<Course> => {
-  const response = await api.get(`/user/courses/${id}`);
+  // Use publicApi for public course details
+  const response = await publicApi.get(`/user/courses/${id}`);
   return response.data.data;
 };
 
@@ -194,7 +199,8 @@ export const testEnrollment = async () => {
 
 // Get all categories
 export const getCategories = async (): Promise<Category[]> => {
-  const response = await api.get('/user/categories');
+  // Use publicApi for public categories
+  const response = await publicApi.get('/user/categories');
   return response.data.data;
 };
 

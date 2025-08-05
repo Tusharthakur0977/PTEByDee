@@ -634,17 +634,24 @@ const CourseDetail: React.FC = () => {
                     </Link>
                   </div>
                 ) : (
-                  <button
-                    onClick={handleEnroll}
-                    disabled={isEnrolling}
-                    className='w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-semibold transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed'
-                  >
-                    {isEnrolling
-                      ? 'Enrolling...'
-                      : course.isFree
-                      ? 'Enroll for Free'
-                      : 'Enroll Now'}
-                  </button>
+                  <div className='space-y-3'>
+                    {course.isFree ? (
+                      <button
+                        onClick={handleEnroll}
+                        disabled={isEnrolling}
+                        className='w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-semibold transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed'
+                      >
+                        {isEnrolling ? 'Enrolling...' : 'Enroll for Free'}
+                      </button>
+                    ) : (
+                      <Link
+                        to={`/payment/${course.id}`}
+                        className='w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-semibold text-center block transition-colors duration-200'
+                      >
+                        Purchase Course
+                      </Link>
+                    )}
+                  </div>
                 )
               ) : (
                 <div className='space-y-3'>

@@ -75,16 +75,46 @@ const Navbar: React.FC = () => {
               </Link>
             )}
             {user && user.role === 'ADMIN' && (
-              <Link
-                to='/admin'
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
-                  location.pathname.startsWith('/admin')
-                    ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                    : 'text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
-                }`}
-              >
-                Admin
-              </Link>
+              <div className='relative group'>
+                <Link
+                  to='/admin'
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
+                    location.pathname.startsWith('/admin')
+                      ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                      : 'text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
+                  }`}
+                >
+                  Admin
+                </Link>
+                <div className='absolute top-full left-0 mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50'>
+                  <div className='py-2'>
+                    <Link
+                      to='/admin'
+                      className='block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    >
+                      Dashboard
+                    </Link>
+                    <Link
+                      to='/admin/courses'
+                      className='block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    >
+                      Courses
+                    </Link>
+                    <Link
+                      to='/admin/users'
+                      className='block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    >
+                      Users
+                    </Link>
+                    <Link
+                      to='/admin/categories'
+                      className='block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    >
+                      Categories
+                    </Link>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
 
@@ -200,13 +230,36 @@ const Navbar: React.FC = () => {
                 </Link>
               )}
               {user && user.role === 'ADMIN' && (
-                <Link
-                  to='/admin'
-                  className='block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Admin
-                </Link>
+                <>
+                  <Link
+                    to='/admin'
+                    className='block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Admin Dashboard
+                  </Link>
+                  <Link
+                    to='/admin/courses'
+                    className='block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Manage Courses
+                  </Link>
+                  <Link
+                    to='/admin/users'
+                    className='block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Manage Users
+                  </Link>
+                  <Link
+                    to='/admin/categories'
+                    className='block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Manage Categories
+                  </Link>
+                </>
               )}
               {user ? (
                 <>

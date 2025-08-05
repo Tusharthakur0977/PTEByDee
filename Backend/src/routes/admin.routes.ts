@@ -1,5 +1,8 @@
 import { Router } from 'express';
 import { getAllUsers } from '../controllers/Admin/getAllUsers.controller';
+import { getUserById } from '../controllers/Admin/getUserById.controller';
+import { updateUser } from '../controllers/Admin/updateUser.controller';
+import { deleteUser } from '../controllers/Admin/deleteUser.controller';
 import { createCourse } from '../controllers/Admin/createCourse.controller';
 import { getAllCourses } from '../controllers/Admin/getAllCourses.controller';
 import { getCourseById } from '../controllers/Admin/getCourseById.controller';
@@ -7,7 +10,12 @@ import { updateCourse } from '../controllers/Admin/updateCourse.controller';
 import { deleteCourse } from '../controllers/Admin/deleteCourse.controller';
 import { bulkDeleteCourses } from '../controllers/Admin/bulkDeleteCourses.controller';
 import { getCourseStats } from '../controllers/Admin/getCourseStats.controller';
-import { getCategoriesForCourses, createCategory } from '../controllers/Admin/getCategoriesForCourses.controller';
+import {
+  getCategoriesForCourses,
+  createCategory,
+} from '../controllers/Admin/getCategoriesForCourses.controller';
+import { updateCategory } from '../controllers/Admin/updateCategory.controller';
+import { deleteCategory } from '../controllers/Admin/deleteCategory.controller';
 import { uploadCourseImage } from '../controllers/Admin/uploadCourseImage.controller';
 import { uploadCourseVideo } from '../controllers/Admin/uploadCourseVideo.controller';
 import { uploadSectionVideo } from '../controllers/Admin/uploadSectionVideo.controller';
@@ -39,6 +47,9 @@ const router = Router();
 
 // User management routes
 router.get('/users', protect, isAdmin, getAllUsers);
+router.get('/users/:id', protect, isAdmin, getUserById);
+router.put('/users/:id', protect, isAdmin, updateUser);
+router.delete('/users/:id', protect, isAdmin, deleteUser);
 
 // Course management routes
 router.post('/courses', protect, isAdmin, createCourse);
@@ -52,6 +63,8 @@ router.delete('/courses/bulk', protect, isAdmin, bulkDeleteCourses);
 // Category management routes
 router.get('/categories', protect, isAdmin, getCategoriesForCourses);
 router.post('/categories', protect, isAdmin, createCategory);
+router.put('/categories/:id', protect, isAdmin, updateCategory);
+router.delete('/categories/:id', protect, isAdmin, deleteCategory);
 
 // File upload routes
 router.post(

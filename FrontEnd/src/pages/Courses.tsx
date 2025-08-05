@@ -3,15 +3,16 @@ import React, { useState } from 'react';
 import { Search, Filter } from 'lucide-react';
 import CourseCard from '../components/CourseCard';
 import { getCourses, getCategories } from '../services/courses';
+import { useAuth } from '../contexts/AuthContext';
 import type { Course, Category, CourseFilters } from '../services/courses';
 import useDebounce from '../hooks/useDebounce';
 
 const Courses: React.FC = () => {
+  const { user } = useAuth();
   const [courses, setCourses] = useState<Course[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [pagination, setPagination] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLevel, setSelectedLevel] = useState('all');
@@ -42,7 +43,6 @@ const Courses: React.FC = () => {
   const fetchCourses = async () => {
     try {
       setIsLoading(true);
-      setError(null);
 
       const filters: CourseFilters = {
         search: debouncedSearchTerm,
@@ -68,7 +68,10 @@ const Courses: React.FC = () => {
       setCourses(response.courses);
       setPagination(response.pagination);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch courses');
+      console.error('Failed to fetch courses:', err);
+      // Don't show error to user for public course listing, just show empty state
+      setCourses([]);
+      setPagination(null);
     } finally {
       setIsLoading(false);
     }
@@ -89,22 +92,7 @@ const Courses: React.FC = () => {
     setSortOrder(newSortOrder as 'asc' | 'desc');
   };
 
-  if (error) {
-    return (
-      <div className='min-h-screen flex items-center justify-center'>
-        <div className='text-center'>
-          <h1 className='text-2xl font-bold text-red-600 mb-4'>Error</h1>
-          <p className='text-gray-600 mb-4'>{error}</p>
-          <button
-            onClick={fetchCourses}
-            className='bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700'
-          >
-            Try Again
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // Remove error display since we're handling errors gracefully now
 
   return (
     <div className='min-h-screen py-8'>
@@ -122,9 +110,9 @@ const Courses: React.FC = () => {
 
         {/* Search and Filters */}
         <div className='bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-8'>
-          <div className='grid grid-cols-1 md:grid-cols-5 gap-4'>
+          <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4'>
             {/* Search */}
-            <div className='relative'>
+            <div className='relative sm:col-span-2 lg:col-span-1'>
               <Search className='absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5' />
               <input
                 type='text'
@@ -201,7 +189,7 @@ const Courses: React.FC = () => {
         </div>
 
         {/* Results Info */}
-        <div className='flex items-center justify-between mb-8'>
+        <div className='flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8'>
           <p className='text-gray-600 dark:text-gray-300'>
             {isLoading
               ? 'Loading courses...'
@@ -224,7 +212,7 @@ const Courses: React.FC = () => {
 
         {/* Courses Grid */}
         {isLoading ? (
-          <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8'>
+          <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8'>
             {[...Array(6)].map((_, index) => (
               <div
                 key={index}
@@ -245,7 +233,7 @@ const Courses: React.FC = () => {
           </div>
         ) : courses.length > 0 ? (
           <>
-            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8'>
+            <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8'>
               {courses.map((course) => (
                 <CourseCard
                   key={course.id}
@@ -256,7 +244,7 @@ const Courses: React.FC = () => {
 
             {/* Pagination */}
             {pagination && pagination.totalPages > 1 && (
-              <div className='mt-12 flex justify-center'>
+              <div className='mt-12 flex flex-col sm:flex-row items-center justify-center gap-4'>
                 <div className='flex items-center space-x-2'>
                   <button
                     onClick={() => {
