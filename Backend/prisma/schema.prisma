@@ -37,10 +37,10 @@ model User {
     appleGivenName    String?
     appleFamilyName   String?
 
-    profilePictureUrl  String? // Consolidate profile picture URL for any provider
-    provider           AuthProviders        @default(EMAIL_OTP) // Which provider the user last used to login
-    CourseReview       CourseReview[]
-    UserLessonProgress UserLessonProgress[]
+    profilePictureUrl   String? // Consolidate profile picture URL for any provider
+    provider            AuthProviders         @default(EMAIL_OTP) // Which provider the user last used to login
+    CourseReview        CourseReview[]
+    UserLessonProgress  UserLessonProgress[]
     UserSectionProgress UserSectionProgress[]
 }
 
@@ -61,17 +61,19 @@ model OtpCode {
 }
 
 model Subscription {
-    id             String           @id @default(auto()) @map("_id") @db.ObjectId
-    planName       SubscriptionPlan @default(FREE)
-    price          Float
-    durationInDays Int // e.g., 30 for 30 days
-    features       String[]
-    user           User             @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-    userId         String           @unique @db.ObjectId
-    startDate      DateTime         @default(now())
-    endDate        DateTime // Calculated based on startDate + durationInDays
-    createdAt      DateTime         @default(now())
-    updatedAt      DateTime         @updatedAt
+    id                   String           @id @default(auto()) @map("_id") @db.ObjectId
+    planName             SubscriptionPlan @default(FREE)
+    price                Float
+    durationInDays       Int // e.g., 30 for 30 days
+    features             String[]
+    user                 User             @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    userId               String           @unique @db.ObjectId
+    startDate            DateTime         @default(now())
+    endDate              DateTime // Calculated based on startDate + durationInDays
+    createdAt            DateTime         @default(now())
+    updatedAt            DateTime         @updatedAt
+    stripeSubscriptionId String?          @unique
+    stripeCustomerId     String?
 
     // --- FIELDS FOR FREE TRIAL ---
     isTrial                 Boolean   @default(false) // True if this subscription record represents a free trial
@@ -109,17 +111,17 @@ model Course {
 }
 
 model CourseSection {
-    id          String   @id @default(auto()) @map("_id") @db.ObjectId
-    title       String
-    description String?
-    videoUrl    String? // Legacy field - for backward compatibility
-    videoKey    String? // S3 key for secure video storage
-    course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-    courseId    String   @db.ObjectId
-    order       Int // To define the order of sections within a course
-    lessons     Lesson[]
-    createdAt   DateTime @default(now()) // Added createdAt for content
-    updatedAt   DateTime @updatedAt // Added updatedAt for content
+    id                  String                @id @default(auto()) @map("_id") @db.ObjectId
+    title               String
+    description         String?
+    videoUrl            String? // Legacy field - for backward compatibility
+    videoKey            String? // S3 key for secure video storage
+    course              Course                @relation(fields: [courseId], references: [id], onDelete: Cascade)
+    courseId            String                @db.ObjectId
+    order               Int // To define the order of sections within a course
+    lessons             Lesson[]
+    createdAt           DateTime              @default(now()) // Added createdAt for content
+    updatedAt           DateTime              @updatedAt // Added updatedAt for content
     UserSectionProgress UserSectionProgress[]
 }
 
@@ -183,17 +185,17 @@ model CourseReview {
 }
 
 model UserLessonProgress {
-    id              String   @id @default(auto()) @map("_id") @db.ObjectId
-    user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-    userId          String   @db.ObjectId
-    lesson          Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-    lessonId        String   @db.ObjectId
-    isCompleted     Boolean  @default(false)
+    id              String    @id @default(auto()) @map("_id") @db.ObjectId
+    user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+    userId          String    @db.ObjectId
+    lesson          Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+    lessonId        String    @db.ObjectId
+    isCompleted     Boolean   @default(false)
     watchedDuration Float? // For video lessons, how many seconds watched
     completedAt     DateTime? // When the lesson was completed
-    lastAccessedAt  DateTime @default(now()) // When the lesson was last accessed
-    createdAt       DateTime @default(now())
-    updatedAt       DateTime @updatedAt
+    lastAccessedAt  DateTime  @default(now()) // When the lesson was last accessed
+    createdAt       DateTime  @default(now())
+    updatedAt       DateTime  @updatedAt
 
     @@unique([userId, lessonId]) // User can only have one progress record per lesson
     @@index([userId, isCompleted])
@@ -201,16 +203,16 @@ model UserLessonProgress {
 }
 
 model UserSectionProgress {
-    id              String        @id @default(auto()) @map("_id") @db.ObjectId
-    user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-    userId          String        @db.ObjectId
-    section         CourseSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-    sectionId       String        @db.ObjectId
-    isCompleted     Boolean       @default(false)
-    completedAt     DateTime?     // When the section was completed
-    lastAccessedAt  DateTime      @default(now()) // When the section was last accessed
-    createdAt       DateTime      @default(now())
-    updatedAt       DateTime      @updatedAt
+    id             String        @id @default(auto()) @map("_id") @db.ObjectId
+    user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+    userId         String        @db.ObjectId
+    section        CourseSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+    sectionId      String        @db.ObjectId
+    isCompleted    Boolean       @default(false)
+    completedAt    DateTime? // When the section was completed
+    lastAccessedAt DateTime      @default(now()) // When the section was last accessed
+    createdAt      DateTime      @default(now())
+    updatedAt      DateTime      @updatedAt
 
     @@unique([userId, sectionId]) // User can only have one progress record per section
     @@index([userId, isCompleted])
