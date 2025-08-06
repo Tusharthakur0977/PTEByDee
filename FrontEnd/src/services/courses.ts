@@ -144,7 +144,7 @@ export const getCourses = async (
     }
   });
 
-  // Use publicApi for public course listing
+  // Use publicApi for public course listing (no auth required)
   const response = await publicApi.get(`/user/courses?${params.toString()}`);
 
   console.log(response, 'XXX');
@@ -154,7 +154,7 @@ export const getCourses = async (
 
 // Get course by ID
 export const getCourseById = async (id: string): Promise<Course> => {
-  // Use publicApi for public course details
+  // Use publicApi for public course details (no auth required)
   const response = await publicApi.get(`/user/courses/${id}`);
   return response.data.data;
 };

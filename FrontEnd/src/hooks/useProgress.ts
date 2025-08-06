@@ -36,13 +36,19 @@ export const useProgress = () => {
   };
 };
 
-export const useCourseProgress = (courseId: string) => {
+export const useCourseProgress = (
+  courseId: string,
+  shouldFetch: boolean = true
+) => {
   const [progress, setProgress] = useState<CourseProgress | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchProgress = useCallback(async () => {
-    if (!courseId) return;
+    if (!courseId || !shouldFetch) {
+      setIsLoading(false);
+      return;
+    }
 
     try {
       setIsLoading(true);
@@ -56,7 +62,7 @@ export const useCourseProgress = (courseId: string) => {
     } finally {
       setIsLoading(false);
     }
-  }, [courseId]);
+  }, [courseId, shouldFetch]);
 
   useEffect(() => {
     fetchProgress();

@@ -1,6 +1,6 @@
 import { ArrowLeft, BookOpen, Clock, Mail, Shield } from 'lucide-react';
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 
@@ -13,6 +13,7 @@ const Login: React.FC = () => {
   const [countdown, setCountdown] = useState(0);
   const { sendOtp, verifyOtp, isLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isSendingOTP, setIsSendingOTP] = useState(false);
 
   // Countdown timer for resend OTP
@@ -56,7 +57,9 @@ const Login: React.FC = () => {
 
     const result = await verifyOtp(email, otp, 'login');
     if (result.success) {
-      navigate('/dashboard');
+      // Redirect to the page user was trying to access, or dashboard as default
+      const from = (location.state as any)?.from || '/dashboard';
+      navigate(from);
     } else {
       setError(result.message);
     }
@@ -77,7 +80,9 @@ const Login: React.FC = () => {
   };
 
   const handleGoogleSuccess = () => {
-    navigate('/dashboard');
+    // Redirect to the page user was trying to access, or dashboard as default
+    const from = (location.state as any)?.from || '/dashboard';
+    navigate(from);
   };
 
   const handleGoogleError = (error: string) => {

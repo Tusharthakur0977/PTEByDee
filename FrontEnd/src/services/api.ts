@@ -28,6 +28,15 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Add token to public API requests if available (optional authentication)
+publicApi.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 // Handle token expiration (only for authenticated api)
 api.interceptors.response.use(
   (response) => response,
@@ -43,8 +52,14 @@ api.interceptors.response.use(
   }
 );
 
-// Public API doesn't have authentication interceptors
-// This allows public endpoints to return 401 without redirecting
+// Public API doesn't redirect on 401 errors
+publicApi.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Don't redirect to login for public API calls
+    return Promise.reject(error);
+  }
+);
 
 export default api;
 export { publicApi };

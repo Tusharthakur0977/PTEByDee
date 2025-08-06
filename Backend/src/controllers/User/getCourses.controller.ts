@@ -5,14 +5,38 @@ import { STATUS_CODES } from '../../utils/constants';
 import { sendResponse } from '../../utils/helpers';
 import { CustomRequest } from '../../types';
 
+import jwt from 'jsonwebtoken';
+
 /**
  * @desc    Get all courses for users (public access)
  * @route   GET /api/user/courses
- * @access  Public
+ * @access  Public (but shows different data if user is authenticated)
  */
-export const getCourses = asyncHandler(async (req: CustomRequest, res: Response) => {
+export const getCourses = asyncHandler(async (req: Request, res: Response) => {
   try {
-    const userId = req.user?.id; // Get user ID if authenticated
+    // Try to get user ID from token if provided (optional authentication)
+    let userId: string | undefined;
+
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.split(' ')[1];
+        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+
+        // Verify user exists
+        const user = await prisma.user.findUnique({
+          where: { id: decoded.id },
+          select: { id: true },
+        });
+
+        if (user) {
+          userId = user.id;
+        }
+      } catch (error) {
+        // Invalid token, continue as unauthenticated user
+        console.log('Invalid or expired token, continuing as public user');
+      }
+    }
 
     const {
       page = '1',

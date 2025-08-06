@@ -69,7 +69,7 @@ const Courses: React.FC = () => {
       setPagination(response.pagination);
     } catch (err: any) {
       console.error('Failed to fetch courses:', err);
-      // Don't show error to user for public course listing, just show empty state
+      // For public course listing, show empty state instead of error
       setCourses([]);
       setPagination(null);
     } finally {
@@ -83,6 +83,8 @@ const Courses: React.FC = () => {
       setCategories(categoriesData);
     } catch (err) {
       console.error('Failed to fetch categories:', err);
+      // Continue without categories if fetch fails
+      setCategories([]);
     }
   };
 

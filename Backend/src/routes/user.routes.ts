@@ -19,8 +19,8 @@ import { protect } from '../middlewares/authenticate.middleware';
 const router = Router();
 
 // Public routes (no authentication required)
-router.get('/courses', protect, getCourses);
-router.get('/courses/:id', protect, getCourseById);
+router.get('/courses', getCourses);
+router.get('/courses/:id', getCourseById);
 router.get('/categories', getCategories);
 
 // Protected routes (User Profile Management)

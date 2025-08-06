@@ -1,5 +1,5 @@
 import React from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   Clock,
   Users,
@@ -25,19 +25,20 @@ import { useCourseProgress } from '../hooks/useProgress';
 const CourseDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [course, setCourse] = React.useState<Course | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [isEnrolling, setIsEnrolling] = React.useState(false);
-  const { progress, refreshProgress } = useCourseProgress(id || '');
 
-  React.useEffect(() => {
-    if (id) {
-      fetchCourse();
-    }
-  }, [id]);
+  // Always call the hook unconditionally, but control fetching based on user and enrollment status
+  const isEnrolled = course?.isEnrolled || false;
+  const { progress, refreshProgress } = useCourseProgress(
+    id || '',
+    !!(user && isEnrolled)
+  );
 
-  const fetchCourse = async () => {
+  const fetchCourse = React.useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -48,11 +49,18 @@ const CourseDetail: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [id]);
+
+  React.useEffect(() => {
+    if (id) {
+      fetchCourse();
+    }
+  }, [id, fetchCourse]);
 
   const handleEnroll = async () => {
     if (!user) {
-      // Redirect to login
+      // Redirect to login if not authenticated
+      navigate('/login');
       return;
     }
 
@@ -101,7 +109,6 @@ const CourseDetail: React.FC = () => {
     );
   }
 
-  const isEnrolled = course.isEnrolled || false;
   const discount = 0; // Can be calculated if originalPrice is added to the API
 
   // If user is enrolled, show the learning interface
@@ -655,18 +662,37 @@ const CourseDetail: React.FC = () => {
                 )
               ) : (
                 <div className='space-y-3'>
-                  <Link
-                    to='/register'
-                    className='w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-semibold text-center block transition-colors duration-200'
-                  >
-                    Sign Up to Enroll
-                  </Link>
-                  <Link
-                    to='/login'
-                    className='w-full border border-blue-600 text-blue-600 dark:text-blue-400 py-3 px-4 rounded-lg font-semibold text-center block hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors duration-200'
-                  >
-                    Already have an account?
-                  </Link>
+                  {course.isFree ? (
+                    <>
+                      <Link
+                        to='/register'
+                        className='w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-semibold text-center block transition-colors duration-200'
+                      >
+                        Sign Up to Enroll for Free
+                      </Link>
+                      <Link
+                        to='/login'
+                        className='w-full border border-blue-600 text-blue-600 dark:text-blue-400 py-3 px-4 rounded-lg font-semibold text-center block hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors duration-200'
+                      >
+                        Already have an account?
+                      </Link>
+                    </>
+                  ) : (
+                    <>
+                      <Link
+                        to='/register'
+                        className='w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-semibold text-center block transition-colors duration-200'
+                      >
+                        Sign Up to Purchase
+                      </Link>
+                      <Link
+                        to='/login'
+                        className='w-full border border-blue-600 text-blue-600 dark:text-blue-400 py-3 px-4 rounded-lg font-semibold text-center block hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors duration-200'
+                      >
+                        Login to Purchase
+                      </Link>
+                    </>
+                  )}
                 </div>
               )}
 

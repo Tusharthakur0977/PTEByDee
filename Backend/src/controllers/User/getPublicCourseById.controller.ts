@@ -3,42 +3,15 @@ import asyncHandler from 'express-async-handler';
 import prisma from '../../config/prismaInstance';
 import { STATUS_CODES } from '../../utils/constants';
 import { sendResponse } from '../../utils/helpers';
-import { CustomRequest } from '../../types';
-
-import jwt from 'jsonwebtoken';
 
 /**
- * @desc    Get a single course by ID for users
- * @route   GET /api/user/courses/:id
- * @access  Public (but shows different data if user is authenticated)
+ * @desc    Get a single course by ID for public viewing (no authentication required)
+ * @route   GET /api/user/courses/:id/public
+ * @access  Public
  */
-export const getCourseById = asyncHandler(
+export const getPublicCourseById = asyncHandler(
   async (req: Request, res: Response) => {
     const { id } = req.params;
-
-    // Try to get user ID from token if provided (optional authentication)
-    let userId: string | undefined;
-
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      try {
-        const token = authHeader.split(' ')[1];
-        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
-
-        // Verify user exists
-        const user = await prisma.user.findUnique({
-          where: { id: decoded.id },
-          select: { id: true },
-        });
-
-        if (user) {
-          userId = user.id;
-        }
-      } catch (error) {
-        // Invalid token, continue as unauthenticated user
-        console.log('Invalid or expired token, continuing as public user');
-      }
-    }
 
     try {
       // Validate ObjectId format
@@ -66,27 +39,23 @@ export const getCourseById = asyncHandler(
           reviewCount: true,
           createdAt: true,
           updatedAt: true,
-          // Get sections with lessons (limited info for non-enrolled users)
+          // Get sections with lessons (limited info for public view)
           sections: {
             select: {
               id: true,
               title: true,
               description: true,
-              videoUrl: true,
-              videoKey: true,
               order: true,
               lessons: {
                 select: {
                   id: true,
                   title: true,
                   description: true,
-                  videoUrl: true,
-                  videoKey: true,
-                  textContent: true,
-                  audioUrl: true,
                   order: true,
+                  // Only show first lesson content as preview
                 },
                 orderBy: { order: 'asc' },
+                take: 1, // Only first lesson for preview
               },
             },
             orderBy: { order: 'asc' },
@@ -128,36 +97,12 @@ export const getCourseById = asyncHandler(
         );
       }
 
-      // Check if user is enrolled (if authenticated)
-      let userEnrollment = null;
-      let isEnrolled = false;
-
-      if (userId) {
-        userEnrollment = await prisma.userCourse.findUnique({
-          where: {
-            userId_courseId: {
-              userId,
-              courseId: id,
-            },
-          },
-          select: {
-            id: true,
-            progress: true,
-            completed: true,
-            enrolledAt: true,
-            completedAt: true,
-          },
-        });
-
-        isEnrolled = !!userEnrollment;
-      }
-
-      // Transform course data for frontend compatibility
+      // Transform course data for frontend compatibility (public view)
       const transformedCourse = {
         id: course.id,
         title: course.title,
         description: course.description,
-        detailedDescription: course.description, // Use same description for detailed view
+        detailedDescription: course.description,
         imageUrl: course.imageUrl,
         coursePreviewVideoUrl: course.coursePreviewVideoUrl,
         isFree: course.isFree,
@@ -173,52 +118,48 @@ export const getCourseById = asyncHandler(
         // Frontend compatibility fields
         rating: course.averageRating || 0,
         students: course._count.userCourses,
-        level: 'All Levels', // Default level
+        level: 'All Levels',
         duration: `${course._count.sections} sections`,
 
-        // User-specific data
-        isEnrolled,
-        userEnrollment,
+        // User-specific data (public view)
+        isEnrolled: false,
+        userEnrollment: null,
 
-        // Course content
+        // Course content (limited for public view)
         sections: course.sections.map((section) => ({
           id: section.id,
           title: section.title,
           description: section.description,
-          videoUrl: isEnrolled ? section.videoUrl : null,
-          videoKey: isEnrolled ? section.videoKey : null,
+          videoUrl: null, // No video access for public view
+          videoKey: null,
           order: section.order,
           lessons: section.lessons.map((lesson, index) => ({
             id: lesson.id,
             title: lesson.title,
             description: lesson.description,
             order: lesson.order,
-            // Show content based on enrollment status and preview availability
-            videoUrl: isEnrolled || index === 0 ? lesson.videoUrl : null,
-            videoKey: isEnrolled || index === 0 ? lesson.videoKey : null,
-            textContent: isEnrolled || index === 0 ? lesson.textContent : null,
-            audioUrl: isEnrolled || index === 0 ? lesson.audioUrl : null,
-            type: lesson.videoUrl
-              ? 'video'
-              : lesson.audioUrl
-              ? 'audio'
-              : 'text',
-            isPreview: index === 0, // First lesson is always preview
-            duration: '15 min', // Default duration, can be enhanced
+            // No content access for public view
+            videoUrl: null,
+            videoKey: null,
+            textContent: null,
+            audioUrl: null,
+            type: 'video', // Default type
+            isPreview: index === 0,
+            duration: '15 min',
           })),
         })),
 
         // Reviews
         reviews: course.reviews,
 
-        // Mock instructor data (can be enhanced later)
+        // Mock instructor data
         instructor: {
           name: 'Expert Instructor',
           bio: 'Experienced PTE trainer with proven track record',
           experience: '5+ years',
         },
 
-        // Mock features (can be enhanced later)
+        // Mock features
         features: [
           'Comprehensive course content',
           'Expert instruction',
@@ -228,19 +169,15 @@ export const getCourseById = asyncHandler(
           'Lifetime access',
         ],
 
-        // Mock curriculum structure for frontend compatibility
-        curriculum: course.sections.map((section, sectionIndex) => ({
+        // Mock curriculum structure for frontend compatibility (public view)
+        curriculum: course.sections.map((section) => ({
           title: section.title,
-          lessons: section.lessons.map((lesson, lessonIndex) => ({
+          lessons: section.lessons.map((lesson) => ({
             title: lesson.title,
             duration: '15 min',
-            videoUrl: isEnrolled || lessonIndex === 0 ? lesson.videoUrl : null,
-            type: lesson.videoUrl
-              ? 'video'
-              : lesson.audioUrl
-              ? 'audio'
-              : 'text',
-            isPreview: lessonIndex === 0,
+            videoUrl: null, // No access for public view
+            type: 'video',
+            isPreview: false, // No previews in public view
           })),
         })),
       };
@@ -252,7 +189,7 @@ export const getCourseById = asyncHandler(
         'Course retrieved successfully.'
       );
     } catch (error: any) {
-      console.error('Get course by ID error:', error);
+      console.error('Get public course by ID error:', error);
 
       if (error.code === 'P2025') {
         return sendResponse(
