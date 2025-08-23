@@ -16,6 +16,7 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import Payment from './pages/Payment';
 import PaymentSuccess from './pages/PaymentSuccess';
+import PaymentCancel from './pages/PaymentCancel';
 import PaymentHistory from './pages/PaymentHistory';
 import Portal from './pages/Portal';
 import Register from './pages/Register';
@@ -95,6 +96,14 @@ function App() {
                       element={
                         <ProtectedRoute>
                           <PaymentSuccess />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path='/payment/cancel'
+                      element={
+                        <ProtectedRoute>
+                          <PaymentCancel />
                         </ProtectedRoute>
                       }
                     />

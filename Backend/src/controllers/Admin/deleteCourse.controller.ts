@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import prisma from '../../config/prismaInstance';
+import { StripeProductService } from '../../services/stripeProductService';
 import { STATUS_CODES } from '../../utils/constants';
 import { sendResponse } from '../../utils/helpers';
 
@@ -69,9 +70,19 @@ export const deleteCourse = asyncHandler(
       // Perform soft delete or hard delete based on business logic
       // For this implementation, we'll do a hard delete with proper cascade
       const deletionResult = await prisma.$transaction(async (tx) => {
+        // Archive Stripe product if it exists
+        if (course.stripeProductId) {
+          try {
+            await StripeProductService.archiveProduct(course.stripeProductId);
+          } catch (error) {
+            console.warn('Failed to archive Stripe product:', error);
+            // Don't fail the deletion for this
+          }
+        }
+
         // Delete lesson resources first
-        const lessonIds = course.sections.flatMap(section => 
-          section.lessons.map(lesson => lesson.id)
+        const lessonIds = course.sections.flatMap((section) =>
+          section.lessons.map((lesson) => lesson.id)
         );
 
         if (lessonIds.length > 0) {
@@ -103,7 +114,7 @@ export const deleteCourse = asyncHandler(
         }
 
         // Delete sections
-        const sectionIds = course.sections.map(section => section.id);
+        const sectionIds = course.sections.map((section) => section.id);
         if (sectionIds.length > 0) {
           await tx.courseSection.deleteMany({
             where: {
@@ -159,7 +170,7 @@ export const deleteCourse = asyncHandler(
       );
     } catch (error: any) {
       console.error('Delete course error:', error);
-      
+
       // Handle Prisma specific errors
       if (error.code === 'P2025') {
         return sendResponse(

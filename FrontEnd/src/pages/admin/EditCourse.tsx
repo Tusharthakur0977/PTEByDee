@@ -375,8 +375,8 @@ const EditCourse: React.FC = () => {
               </div>
 
               <ImageUpload
-                onImageUpload={(imageUrl) =>
-                  handleInputChange('imageUrl', imageUrl)
+                onImageUpload={(imageKey) =>
+                  handleInputChange('imageUrl', imageKey)
                 }
                 currentImageUrl={courseData.imageUrl}
                 label='Course Image'
@@ -384,8 +384,8 @@ const EditCourse: React.FC = () => {
               />
 
               <VideoUpload
-                onVideoUpload={(videoUrl) =>
-                  handleInputChange('coursePreviewVideoUrl', videoUrl)
+                onVideoUpload={(videoKey) =>
+                  handleInputChange('coursePreviewVideoUrl', videoKey)
                 }
                 currentVideoUrl={courseData.coursePreviewVideoUrl}
                 label='Preview Video'

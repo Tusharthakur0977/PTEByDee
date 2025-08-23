@@ -17,6 +17,7 @@ import {
 import { getCourseById, enrollInCourse } from '../services/courses';
 import type { Course } from '../services/courses';
 import { useAuth } from '../contexts/AuthContext';
+import CheckoutButton from '../components/CheckoutButton';
 import VideoPlayer from '../components/VideoPlayer';
 import LessonPlayer from '../components/LessonPlayer';
 import ProgressTracker from '../components/progressTracker';
@@ -651,12 +652,13 @@ const CourseDetail: React.FC = () => {
                         {isEnrolling ? 'Enrolling...' : 'Enroll for Free'}
                       </button>
                     ) : (
-                      <Link
-                        to={`/payment/${course.id}`}
-                        className='w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-semibold text-center block transition-colors duration-200'
-                      >
-                        Purchase Course
-                      </Link>
+                      <CheckoutButton
+                        courseId={course.id}
+                        courseTitle={course.title}
+                        price={course.price}
+                        currency={course.currency || 'USD'}
+                        onError={(error) => setError(error)}
+                      />
                     )}
                   </div>
                 )

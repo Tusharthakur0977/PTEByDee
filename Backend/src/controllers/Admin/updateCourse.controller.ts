@@ -1,9 +1,10 @@
 import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import prisma from '../../config/prismaInstance';
+import { StripeProductService } from '../../services/stripeProductService';
+import { CustomRequest } from '../../types';
 import { STATUS_CODES } from '../../utils/constants';
 import { sendResponse } from '../../utils/helpers';
-import { CustomRequest } from '../../types';
 
 /**
  * @desc    Update a course with sections and lessons (Admin only)
@@ -99,33 +100,100 @@ export const updateCourse = asyncHandler(
 
       // Update course with sections and lessons in a transaction
       const updatedCourse = await prisma.$transaction(async (tx) => {
+        // Handle Stripe product updates for paid courses
+        let stripeProductId = existingCourse.stripeProductId;
+        let stripePriceId = existingCourse.stripePriceId;
+
+        if (!isFree && price > 0) {
+          try {
+            if (!stripeProductId) {
+              // Create new Stripe product and price
+              const stripeData =
+                await StripeProductService.createProductAndPrice({
+                  courseId: id,
+                  name: title,
+                  description,
+                  // imageUrl,
+                  price,
+                  currency: currency || 'USD',
+                });
+              stripeProductId = stripeData.productId;
+              stripePriceId = stripeData.priceId;
+            } else {
+              // Update existing Stripe product
+              await StripeProductService.updateProduct(stripeProductId, {
+                courseId: id,
+                name: title,
+                description,
+                // imageUrl,
+                price,
+                currency: currency || 'USD',
+              });
+
+              // Check if price changed
+              if (
+                price !== existingCourse.price ||
+                (currency || 'USD') !== existingCourse.currency
+              ) {
+                const newPrice = await StripeProductService.createNewPrice(
+                  stripeProductId,
+                  price,
+                  currency || 'USD',
+                  id
+                );
+                stripePriceId = newPrice.id;
+              }
+            }
+          } catch (error) {
+            console.error('Failed to update Stripe product:', error);
+            throw new Error(
+              'Failed to update payment processing for this course'
+            );
+          }
+        } else if (isFree && stripeProductId) {
+          // Archive Stripe product if course becomes free
+          try {
+            await StripeProductService.archiveProduct(stripeProductId);
+            stripeProductId = null;
+            stripePriceId = null;
+          } catch (error) {
+            console.warn('Failed to archive Stripe product:', error);
+            // Don't fail the update for this
+          }
+        }
+
         // Update the main course
         const course = await tx.course.update({
           where: { id },
           data: {
             title,
             description,
-            coursePreviewVideoUrl: coursePreviewVideoUrl || null,
+            coursePreviewVideoUrl:
+              typeof coursePreviewVideoUrl === 'string'
+                ? coursePreviewVideoUrl
+                : null,
             isFree: isFree || false,
-            imageUrl: imageUrl || null,
+            imageUrl: typeof imageUrl === 'string' ? imageUrl : null,
             price: isFree ? null : price,
-            currency: isFree ? null : (currency || 'USD'),
+            currency: isFree ? null : currency || 'USD',
             categoryIds: categoryIds || [],
             updatedAt: new Date(),
+            stripeProductId,
+            stripePriceId,
           },
         });
 
         // Handle sections update
         if (sections && sections.length > 0) {
           // Get existing section IDs
-          const existingSectionIds = existingCourse.sections.map(s => s.id);
+          const existingSectionIds = existingCourse.sections.map((s) => s.id);
           const newSectionIds = sections
             .filter((s: any) => s.id && !s.id.startsWith('section_'))
             .map((s: any) => s.id);
 
           // Delete sections that are no longer present
           const sectionsToDelete = existingSectionIds.filter(
-            id => !newSectionIds.includes(id)
+            (id) => !newSectionIds.includes(id)
           );
 
           if (sectionsToDelete.length > 0) {
@@ -184,16 +252,17 @@ export const updateCourse = asyncHandler(
             // Handle lessons for this section
             if (section.lessons && section.lessons.length > 0) {
               // Get existing lesson IDs for this section
-              const existingLessons = existingCourse.sections
-                .find(s => s.id === section.id)?.lessons || [];
-              const existingLessonIds = existingLessons.map(l => l.id);
+              const existingLessons =
+                existingCourse.sections.find((s) => s.id === section.id)
+                  ?.lessons || [];
+              const existingLessonIds = existingLessons.map((l) => l.id);
               const newLessonIds = section.lessons
                 .filter((l: any) => l.id && !l.id.startsWith('lesson_'))
                 .map((l: any) => l.id);
 
               // Delete lessons that are no longer present
               const lessonsToDelete = existingLessonIds.filter(
-                id => !newLessonIds.includes(id)
+                (id) => !newLessonIds.includes(id)
               );
 
               if (lessonsToDelete.length > 0) {
@@ -210,7 +279,9 @@ export const updateCourse = asyncHandler(
               for (const [lessonIndex, lesson] of section.lessons.entries()) {
                 if (!lesson.title) {
                   throw new Error(
-                    `Lesson ${lessonIndex + 1} in section "${section.title}" title is required.`
+                    `Lesson ${lessonIndex + 1} in section "${
+                      section.title
+                    }" title is required.`
                   );
                 }
 
@@ -321,17 +392,14 @@ export const updateCourse = asyncHandler(
       );
     } catch (error: any) {
       console.error('Update course error:', error);
-      
+
       // Handle specific validation errors
-      if (error.message.includes('title is required') || 
-          error.message.includes('Lesson') || 
-          error.message.includes('Section')) {
-        return sendResponse(
-          res,
-          STATUS_CODES.BAD_REQUEST,
-          null,
-          error.message
-        );
+      if (
+        error.message.includes('title is required') ||
+        error.message.includes('Lesson') ||
+        error.message.includes('Section')
+      ) {
+        return sendResponse(res, STATUS_CODES.BAD_REQUEST, null, error.message);
       }
 
       // Handle Prisma specific errors

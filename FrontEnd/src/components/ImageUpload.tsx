@@ -1,11 +1,5 @@
-import React, { useState, useRef, useCallback } from 'react';
-import {
-  Upload,
-  X,
-  Image as ImageIcon,
-  AlertCircle,
-  CheckCircle,
-} from 'lucide-react';
+import { AlertCircle, CheckCircle, Upload, X } from 'lucide-react';
+import React, { useCallback, useRef, useState } from 'react';
 import { useFileUpload } from '../contexts/UploadContext';
 
 interface ImageUploadProps {
@@ -23,6 +17,8 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   label = 'Course Image',
   required = false,
 }) => {
+  console.log(currentImageUrl, 'XXXX');
+
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +61,9 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
 
       // Update with the actual S3 URL
       setPreviewUrl(imageUrl);
-      onImageUpload(imageUrl);
+      // Extract just the imageKey for database storage
+      const imageKey = imageUrl.imageKey || imageUrl.fileName || imageUrl;
+      onImageUpload(imageKey);
       setError(null);
     } catch (err: any) {
       console.error('Upload error:', err);
@@ -135,6 +133,8 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     }
   };
 
+  console.log(previewUrl);
+
   return (
     <div className={`space-y-2 ${className}`}>
       <label className='block text-sm font-medium text-gray-700 dark:text-gray-300'>
@@ -165,7 +165,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         {previewUrl ? (
           <div className='relative'>
             <img
-              src={previewUrl}
+              src={previewUrl.imageUrl}
               alt='Course preview'
               className='w-full h-48 object-cover rounded-lg'
             />

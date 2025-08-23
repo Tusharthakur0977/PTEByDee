@@ -3,6 +3,7 @@ import asyncHandler from 'express-async-handler';
 import prisma from '../../config/prismaInstance';
 import { STATUS_CODES } from '../../utils/constants';
 import { sendResponse } from '../../utils/helpers';
+import { SecureUrlService } from '../../services/secureUrlService';
 
 /**
  * @desc    Get a single course by ID with complete details (Admin only)
@@ -99,21 +100,64 @@ export const getCourseById = asyncHandler(
         completedEnrollments: course.userCourses.filter(
           (enrollment) => enrollment.completed
         ).length,
-        averageProgress: course.userCourses.length > 0 
-          ? course.userCourses.reduce((sum, enrollment) => sum + enrollment.progress, 0) / course.userCourses.length
-          : 0,
+        averageProgress:
+          course.userCourses.length > 0
+            ? course.userCourses.reduce(
+                (sum, enrollment) => sum + enrollment.progress,
+                0
+              ) / course.userCourses.length
+            : 0,
         totalResources: course.sections.reduce(
-          (total, section) => 
-            total + section.lessons.reduce(
-              (lessonTotal, lesson) => lessonTotal + lesson.LessonResource.length,
+          (total, section) =>
+            total +
+            section.lessons.reduce(
+              (lessonTotal, lesson) =>
+                lessonTotal + lesson.LessonResource.length,
               0
             ),
           0
         ),
       };
 
+      // Generate signed URLs for admin view
+      let courseWithSignedUrls = { ...course };
+
+      // Generate signed URL for course image
+      if (course.imageUrl && SecureUrlService.isConfigured()) {
+        try {
+          const signedUrlResponse =
+            await SecureUrlService.generateSecureImageUrl(course.imageUrl, {
+              expirationHours: 24,
+            });
+          courseWithSignedUrls.imageUrl = signedUrlResponse.signedUrl;
+        } catch (error) {
+          console.warn(
+            `Failed to generate signed URL for course ${course.id} image:`,
+            error
+          );
+        }
+      }
+
+      // Generate signed URL for course preview video
+      if (course.coursePreviewVideoUrl && SecureUrlService.isConfigured()) {
+        try {
+          const signedUrlResponse =
+            await SecureUrlService.generateSecureVideoUrl(
+              course.coursePreviewVideoUrl,
+              { expirationHours: 24 }
+            );
+          courseWithSignedUrls.coursePreviewVideoUrl =
+            signedUrlResponse.signedUrl;
+        } catch (error) {
+          console.warn(
+            `Failed to generate signed URL for course ${course.id} preview video:`,
+            error
+          );
+        }
+      }
+
       const responseData = {
-        ...course,
+        ...courseWithSignedUrls,
         stats,
       };
 
@@ -125,7 +169,7 @@ export const getCourseById = asyncHandler(
       );
     } catch (error: any) {
       console.error('Get course by ID error:', error);
-      
+
       // Handle Prisma specific errors
       if (error.code === 'P2025') {
         return sendResponse(

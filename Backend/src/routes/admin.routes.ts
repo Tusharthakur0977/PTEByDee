@@ -33,6 +33,10 @@ import {
   getSecureContentUrls,
   getCourseContentUrls,
 } from '../controllers/Admin/getSecureContentUrls.controller';
+import {
+  syncStripeProducts,
+  verifyStripeProducts,
+} from '../controllers/Admin/syncStripeProducts.controller';
 
 import { protect } from '../middlewares/authenticate.middleware';
 import { isAdmin } from '../middlewares/isAdmin.middleware';
@@ -116,5 +120,9 @@ router.post(
 
 // Debug routes
 router.get('/debug/cloudfront', protect, isAdmin, debugCloudFront);
+
+// Stripe management routes
+router.post('/stripe/sync-products', protect, isAdmin, syncStripeProducts);
+router.get('/stripe/verify-products', protect, isAdmin, verifyStripeProducts);
 
 export default router;

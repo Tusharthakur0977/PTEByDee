@@ -13,6 +13,18 @@ export interface PaymentIntent {
   };
 }
 
+export interface CheckoutSession {
+  sessionId: string;
+  sessionUrl: string;
+  transactionId: string;
+  course: {
+    id: string;
+    title: string;
+    price: number;
+    currency: string;
+  };
+}
+
 export interface PaymentConfirmation {
   enrollment: {
     id: string;
@@ -58,6 +70,24 @@ export interface PaymentHistory {
     limit: number;
   };
 }
+
+// Create checkout session for course purchase (NEW PREFERRED METHOD)
+export const createCheckoutSession = async (
+  courseId: string
+): Promise<CheckoutSession> => {
+  const response = await api.post('/payment/create-checkout-session', {
+    courseId,
+  });
+  return response.data.data;
+};
+
+// Confirm checkout session after successful payment (NEW PREFERRED METHOD)
+export const confirmCheckoutSession = async (
+  sessionId: string
+): Promise<PaymentConfirmation> => {
+  const response = await api.post('/payment/confirm-checkout', { sessionId });
+  return response.data.data;
+};
 
 // Create payment intent for course purchase
 export const createPaymentIntent = async (

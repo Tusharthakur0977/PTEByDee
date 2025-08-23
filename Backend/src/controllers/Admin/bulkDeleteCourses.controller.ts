@@ -3,6 +3,7 @@ import asyncHandler from 'express-async-handler';
 import prisma from '../../config/prismaInstance';
 import { STATUS_CODES } from '../../utils/constants';
 import { sendResponse } from '../../utils/helpers';
+import { StripeProductService } from '../../services/stripeProductService';
 
 /**
  * @desc    Bulk delete multiple courses (Admin only)
@@ -25,7 +26,7 @@ export const bulkDeleteCourses = asyncHandler(
       }
 
       // Validate ObjectId format for all IDs
-      const invalidIds = courseIds.filter(id => !id || id.length !== 24);
+      const invalidIds = courseIds.filter((id) => !id || id.length !== 24);
       if (invalidIds.length > 0) {
         return sendResponse(
           res,
@@ -68,16 +69,18 @@ export const bulkDeleteCourses = asyncHandler(
 
       // Check for courses with active enrollments
       const coursesWithActiveEnrollments = courses.filter(
-        course => course.userCourses.length > 0
+        (course) => course.userCourses.length > 0
       );
 
       if (coursesWithActiveEnrollments.length > 0) {
-        const courseNames = coursesWithActiveEnrollments.map(c => c.title);
+        const courseNames = coursesWithActiveEnrollments.map((c) => c.title);
         return sendResponse(
           res,
           STATUS_CODES.CONFLICT,
           null,
-          `Cannot delete courses with active enrollments: ${courseNames.join(', ')}`
+          `Cannot delete courses with active enrollments: ${courseNames.join(
+            ', '
+          )}`
         );
       }
 
@@ -86,9 +89,22 @@ export const bulkDeleteCourses = asyncHandler(
         const results = [];
 
         for (const course of courses) {
+          // Archive Stripe product if it exists
+          if (course.stripeProductId) {
+            try {
+              await StripeProductService.archiveProduct(course.stripeProductId);
+            } catch (error) {
+              console.warn(
+                `Failed to archive Stripe product for course ${course.id}:`,
+                error
+              );
+              // Don't fail the deletion for this
+            }
+          }
+
           // Delete lesson resources
-          const lessonIds = course.sections.flatMap(section => 
-            section.lessons.map(lesson => lesson.id)
+          const lessonIds = course.sections.flatMap((section) =>
+            section.lessons.map((lesson) => lesson.id)
           );
 
           if (lessonIds.length > 0) {
@@ -118,7 +134,7 @@ export const bulkDeleteCourses = asyncHandler(
           }
 
           // Delete sections
-          const sectionIds = course.sections.map(section => section.id);
+          const sectionIds = course.sections.map((section) => section.id);
           if (sectionIds.length > 0) {
             await tx.courseSection.deleteMany({
               where: {
@@ -161,10 +177,19 @@ export const bulkDeleteCourses = asyncHandler(
 
       const summary = {
         totalCoursesDeleted: deletionResults.length,
-        totalSectionsDeleted: deletionResults.reduce((sum, r) => sum + r.deletedSections, 0),
-        totalLessonsDeleted: deletionResults.reduce((sum, r) => sum + r.deletedLessons, 0),
-        totalReviewsDeleted: deletionResults.reduce((sum, r) => sum + r.deletedReviews, 0),
-        deletedCourses: deletionResults.map(r => ({
+        totalSectionsDeleted: deletionResults.reduce(
+          (sum, r) => sum + r.deletedSections,
+          0
+        ),
+        totalLessonsDeleted: deletionResults.reduce(
+          (sum, r) => sum + r.deletedLessons,
+          0
+        ),
+        totalReviewsDeleted: deletionResults.reduce(
+          (sum, r) => sum + r.deletedReviews,
+          0
+        ),
+        deletedCourses: deletionResults.map((r) => ({
           id: r.courseId,
           title: r.courseTitle,
         })),
@@ -181,7 +206,7 @@ export const bulkDeleteCourses = asyncHandler(
       );
     } catch (error: any) {
       console.error('Bulk delete courses error:', error);
-      
+
       return sendResponse(
         res,
         STATUS_CODES.INTERNAL_SERVER_ERROR,

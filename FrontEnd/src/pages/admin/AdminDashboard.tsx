@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import StripeProductStatus from '../../components/StripeProductStatus';
 import {
   getAllCourses,
   getAllUsers,
@@ -214,6 +215,11 @@ const AdminDashboard: React.FC = () => {
         </div>
 
         <div className='grid grid-cols-1 lg:grid-cols-2 gap-8'>
+          {/* Stripe Product Status */}
+          <div className='lg:col-span-2 mb-8'>
+            <StripeProductStatus />
+          </div>
+
           {/* Top Performing Courses */}
           <div className='bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6'>
             <div className='flex items-center justify-between mb-6'>

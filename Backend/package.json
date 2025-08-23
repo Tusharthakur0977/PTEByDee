@@ -8,7 +8,8 @@
     "build": "tsc",
     "prisma:generate": "npx prisma generate",
     "prisma:push": "npx prisma db push",
-    "test:cloudfront": "npx ts-node scripts/test-cloudfront-setup.ts"
+    "test:cloudfront": "npx ts-node scripts/test-cloudfront-setup.ts",
+    "sync:stripe-products": "npx ts-node scripts/sync-stripe-products.ts"
   },
   "keywords": [],
   "author": "",
@@ -17,7 +18,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.848.0",
     "@aws-sdk/cloudfront-signer": "^3.821.0",
-    "@prisma/client": "^6.11.1",
+    "@prisma/client": "6.13.0",
     "@types/multer": "^2.0.0",
     "bcrypt": "^6.0.0",
     "compression": "^1.8.0",
@@ -47,7 +48,7 @@
     "@types/nodemailer": "^6.4.17",
     "@types/serve-favicon": "^2.5.7",
     "nodemon": "^3.1.10",
-    "prisma": "^6.11.1",
+    "prisma": "6.13.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
   }

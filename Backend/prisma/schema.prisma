@@ -104,6 +104,8 @@ model Course {
     reviewCount           Int?            @default(0) // Can be updated by a trigger/cron job
     price                 Float? // Price of the course if sold individually
     currency              String?         @default("INR") // e.g., "USD", "INR"
+    stripeProductId       String? // Stripe product ID for payments
+    stripePriceId         String? // Stripe price ID for payments
 
     categoryIds String[] @db.ObjectId // NEW: Array of category ObjectId references
     // instructor    User? @relation(fields: [instructorId], references: [id]) // Uncomment if you add an instructor role

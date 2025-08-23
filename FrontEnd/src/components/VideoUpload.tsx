@@ -71,7 +71,9 @@ const VideoUpload: React.FC<VideoUploadProps> = ({
 
         // Update with the actual S3 URL
         setPreviewUrl(videoUrl);
-        onVideoUpload(videoUrl);
+        // Extract just the videoKey for database storage
+        const videoKey = videoUrl.videoKey || videoUrl.fileName || videoUrl;
+        onVideoUpload(videoKey);
         setError(null);
       } catch (err: any) {
         console.error('Upload error:', err);

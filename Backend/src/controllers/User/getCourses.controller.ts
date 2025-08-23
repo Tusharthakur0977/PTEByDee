@@ -4,6 +4,7 @@ import prisma from '../../config/prismaInstance';
 import { STATUS_CODES } from '../../utils/constants';
 import { sendResponse } from '../../utils/helpers';
 import { CustomRequest } from '../../types';
+import { SecureUrlService } from '../../services/secureUrlService';
 
 import jwt from 'jsonwebtoken';
 
@@ -156,36 +157,61 @@ export const getCourses = asyncHandler(async (req: Request, res: Response) => {
       take: limitNumber,
     });
 
-    // Transform courses to include computed fields
-    const transformedCourses = courses.map((course) => ({
-      id: course.id,
-      title: course.title,
-      description: course.description,
-      imageUrl: course.imageUrl,
-      isFree: course.isFree,
-      price: course.price,
-      currency: course.currency,
-      averageRating: course.averageRating || 0,
-      reviewCount: course.reviewCount || 0,
-      enrollmentCount: course._count.userCourses,
-      sectionCount: course._count.sections,
-      createdAt: course.createdAt,
-      updatedAt: course.updatedAt,
-      reviews: course.reviews,
-      // Computed fields for frontend compatibility
-      students: course._count.userCourses,
-      rating: course.averageRating || 0,
-      level: 'All Levels', // Default level, can be enhanced later
-      duration: `${course._count.sections} sections`, // Basic duration info
-      // User enrollment status
-      isEnrolled: userId
-        ? course.userCourses && course.userCourses.length > 0
-        : false,
-      userEnrollment:
-        userId && course.userCourses && course.userCourses.length > 0
-          ? course.userCourses[0]
-          : null,
-    }));
+    // Transform courses to include computed fields and generate signed URLs
+    const transformedCourses = await Promise.all(
+      courses.map(async (course) => {
+        // Generate signed URL for course image if it exists
+        let imageUrl = null;
+        if (course.imageUrl && SecureUrlService.isConfigured()) {
+          try {
+            const signedUrlResponse =
+              await SecureUrlService.generateSecureImageUrl(course.imageUrl, {
+                expirationHours: 24,
+              });
+            imageUrl = signedUrlResponse.signedUrl;
+          } catch (error) {
+            console.warn(
+              `Failed to generate signed URL for course ${course.id} image:`,
+              error
+            );
+            // Keep the original URL as fallback
+            imageUrl = course.imageUrl;
+          }
+        } else {
+          imageUrl = course.imageUrl;
+        }
+
+        return {
+          id: course.id,
+          title: course.title,
+          description: course.description,
+          imageUrl,
+          isFree: course.isFree,
+          price: course.price,
+          currency: course.currency,
+          averageRating: course.averageRating || 0,
+          reviewCount: course.reviewCount || 0,
+          enrollmentCount: course._count.userCourses,
+          sectionCount: course._count.sections,
+          createdAt: course.createdAt,
+          updatedAt: course.updatedAt,
+          reviews: course.reviews,
+          // Computed fields for frontend compatibility
+          students: course._count.userCourses,
+          rating: course.averageRating || 0,
+          level: 'All Levels', // Default level, can be enhanced later
+          duration: `${course._count.sections} sections`, // Basic duration info
+          // User enrollment status
+          isEnrolled: userId
+            ? course.userCourses && course.userCourses.length > 0
+            : false,
+          userEnrollment:
+            userId && course.userCourses && course.userCourses.length > 0
+              ? course.userCourses[0]
+              : null,
+        };
+      })
+    );
 
     // Calculate pagination info
     const totalPages = Math.ceil(totalCourses / limitNumber);

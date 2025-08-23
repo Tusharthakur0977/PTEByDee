@@ -1,24 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, CreditCard, XCircle } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import CheckoutButton from '../components/CheckoutButton';
 import { useAuth } from '../contexts/AuthContext';
-import { getCourseById } from '../services/courses';
-import { createPaymentIntent, confirmPayment } from '../services/payment';
-import PaymentForm from '../components/PaymentForm';
 import type { Course } from '../services/courses';
+import { getCourseById } from '../services/courses';
 
 const Payment: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [course, setCourse] = useState<Course | null>(null);
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [paymentStatus, setPaymentStatus] = useState<
-    'pending' | 'processing' | 'success' | 'error'
-  >('pending');
 
   useEffect(() => {
     if (!user) {
@@ -27,11 +21,11 @@ const Payment: React.FC = () => {
     }
 
     if (courseId) {
-      initializePayment();
+      initializeCourse();
     }
   }, [courseId, user]);
 
-  const initializePayment = async () => {
+  const initializeCourse = async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -51,37 +45,15 @@ const Payment: React.FC = () => {
         setError('You are already enrolled in this course.');
         return;
       }
-
-      // Create payment intent
-      const paymentData = await createPaymentIntent(courseId!);
-      setClientSecret(paymentData.clientSecret);
-      setPaymentIntentId(paymentData.paymentIntentId);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to initialize payment');
+      setError(err.response?.data?.message || 'Failed to load course');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handlePaymentSuccess = async (paymentIntentId: string) => {
-    try {
-      setPaymentStatus('processing');
-      const confirmation = await confirmPayment(paymentIntentId);
-      setPaymentStatus('success');
-
-      // Redirect to course page after a short delay
-      setTimeout(() => {
-        navigate(`/courses/${courseId}`);
-      }, 3000);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to confirm payment');
-      setPaymentStatus('error');
-    }
-  };
-
-  const handlePaymentError = (error: string) => {
+  const handleCheckoutError = (error: string) => {
     setError(error);
-    setPaymentStatus('error');
   };
 
   if (!user) {
@@ -143,29 +115,6 @@ const Payment: React.FC = () => {
               Browse Courses
             </Link>
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (paymentStatus === 'success') {
-    return (
-      <div className='min-h-screen flex items-center justify-center'>
-        <div className='text-center max-w-md mx-auto p-6'>
-          <CheckCircle className='h-16 w-16 text-green-500 mx-auto mb-4' />
-          <h1 className='text-2xl font-bold text-gray-900 dark:text-white mb-4'>
-            Payment Successful!
-          </h1>
-          <p className='text-gray-600 dark:text-gray-300 mb-6'>
-            You have successfully enrolled in "{course.title}". You will be
-            redirected to the course page shortly.
-          </p>
-          <Link
-            to={`/courses/${courseId}`}
-            className='bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700'
-          >
-            Go to Course
-          </Link>
         </div>
       </div>
     );
@@ -269,24 +218,69 @@ const Payment: React.FC = () => {
 
           {/* Payment Form */}
           <div>
-            {clientSecret && paymentIntentId ? (
-              <PaymentForm
-                clientSecret={clientSecret}
-                amount={course.price}
-                currency={course.currency || 'USD'}
-                courseTitle={course.title}
-                onSuccess={handlePaymentSuccess}
-                onError={handlePaymentError}
-                isLoading={paymentStatus === 'processing'}
-              />
-            ) : (
-              <div className='bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center'>
-                <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4'></div>
+            <div className='bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6'>
+              <div className='text-center mb-6'>
+                <div className='bg-blue-100 dark:bg-blue-900/30 p-3 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center'>
+                  <CreditCard className='h-8 w-8 text-blue-600 dark:text-blue-400' />
+                </div>
+                <h2 className='text-2xl font-bold text-gray-900 dark:text-white mb-2'>
+                  Secure Checkout
+                </h2>
                 <p className='text-gray-600 dark:text-gray-300'>
-                  Setting up payment...
+                  You'll be redirected to our secure payment processor
                 </p>
               </div>
-            )}
+
+              {/* Security Notice */}
+              <div className='bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 mb-6'>
+                <div className='flex items-center space-x-2'>
+                  <CheckCircle className='h-5 w-5 text-green-600 dark:text-green-400' />
+                  <span className='text-sm font-medium text-green-800 dark:text-green-300'>
+                    Secure Payment
+                  </span>
+                </div>
+                <p className='text-sm text-green-700 dark:text-green-400 mt-1'>
+                  Your payment is processed securely by Stripe. We never store
+                  your payment information.
+                </p>
+              </div>
+
+              {/* Checkout Button */}
+              <CheckoutButton
+                courseId={course.id}
+                courseTitle={course.title}
+                price={course.price}
+                currency={course.currency || 'USD'}
+                onError={handleCheckoutError}
+              />
+
+              {/* Error Display */}
+              {error && (
+                <div className='mt-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg text-sm'>
+                  {error}
+                </div>
+              )}
+
+              {/* Footer */}
+              <div className='mt-6 text-center'>
+                <p className='text-xs text-gray-500 dark:text-gray-400'>
+                  By completing this purchase, you agree to our{' '}
+                  <a
+                    href='#'
+                    className='text-blue-600 dark:text-blue-400 hover:underline'
+                  >
+                    Terms of Service
+                  </a>{' '}
+                  and{' '}
+                  <a
+                    href='#'
+                    className='text-blue-600 dark:text-blue-400 hover:underline'
+                  >
+                    Privacy Policy
+                  </a>
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>

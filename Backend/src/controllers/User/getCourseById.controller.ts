@@ -4,6 +4,7 @@ import prisma from '../../config/prismaInstance';
 import { STATUS_CODES } from '../../utils/constants';
 import { sendResponse } from '../../utils/helpers';
 import { CustomRequest } from '../../types';
+import { SecureUrlService } from '../../services/secureUrlService';
 
 import jwt from 'jsonwebtoken';
 
@@ -152,14 +153,64 @@ export const getCourseById = asyncHandler(
         isEnrolled = !!userEnrollment;
       }
 
+      // Generate signed URLs for media content
+      let imageUrl = null;
+      let coursePreviewVideoUrl = null;
+
+      // Generate signed URL for course image
+      if (course.imageUrl && SecureUrlService.isConfigured()) {
+        try {
+          const signedUrlResponse =
+            await SecureUrlService.generateSecureImageUrl(course.imageUrl, {
+              expirationHours: 24,
+            });
+          imageUrl = signedUrlResponse.signedUrl;
+        } catch (error) {
+          console.warn(
+            `Failed to generate signed URL for course ${course.id} image:`,
+            error
+          );
+          imageUrl = course.imageUrl;
+        }
+      } else {
+        imageUrl = course.imageUrl;
+      }
+
+      // Generate signed URL for course preview video (only if user is enrolled or it's free)
+      if (
+        course.coursePreviewVideoUrl &&
+        (isEnrolled || course.isFree) &&
+        SecureUrlService.isConfigured()
+      ) {
+        try {
+          const signedUrlResponse =
+            await SecureUrlService.generateSecureVideoUrl(
+              course.coursePreviewVideoUrl,
+              { expirationHours: 24 }
+            );
+          coursePreviewVideoUrl = signedUrlResponse.signedUrl;
+        } catch (error) {
+          console.warn(
+            `Failed to generate signed URL for course ${course.id} preview video:`,
+            error
+          );
+          coursePreviewVideoUrl = course.coursePreviewVideoUrl;
+        }
+      } else if (
+        course.coursePreviewVideoUrl &&
+        (isEnrolled || course.isFree)
+      ) {
+        coursePreviewVideoUrl = course.coursePreviewVideoUrl;
+      }
+
       // Transform course data for frontend compatibility
       const transformedCourse = {
         id: course.id,
         title: course.title,
         description: course.description,
         detailedDescription: course.description, // Use same description for detailed view
-        imageUrl: course.imageUrl,
-        coursePreviewVideoUrl: course.coursePreviewVideoUrl,
+        imageUrl,
+        coursePreviewVideoUrl,
         isFree: course.isFree,
         price: course.price || 0,
         currency: course.currency || 'USD',

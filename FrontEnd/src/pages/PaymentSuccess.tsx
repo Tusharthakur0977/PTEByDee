@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { CheckCircle, ArrowRight, Download, Star } from 'lucide-react';
-import { confirmPayment } from '../services/payment';
+import { confirmPayment, confirmCheckoutSession } from '../services/payment';
 import { useAuth } from '../contexts/AuthContext';
 
 const PaymentSuccess: React.FC = () => {
@@ -12,10 +12,49 @@ const PaymentSuccess: React.FC = () => {
   const [confirmation, setConfirmation] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Get parameters from URL - support both checkout sessions and payment intents
+  const sessionId = searchParams.get('session_id');
   const paymentIntentId = searchParams.get('payment_intent');
   const paymentIntentClientSecret = searchParams.get(
     'payment_intent_client_secret'
   );
+
+  console.log('Payment Success Debug:', {
+    sessionId,
+    paymentIntentId,
+    paymentIntentClientSecret,
+    searchParams: Object.fromEntries(searchParams.entries()),
+  });
+
+  const handleCheckoutConfirmation = useCallback(async () => {
+    try {
+      setIsConfirming(true);
+      console.log('Confirming checkout session:', sessionId);
+      const confirmationData = await confirmCheckoutSession(sessionId!);
+      setConfirmation(confirmationData);
+    } catch (err: any) {
+      console.error('Checkout confirmation error:', err);
+      setError(
+        err.response?.data?.message || 'Failed to confirm checkout session'
+      );
+    } finally {
+      setIsConfirming(false);
+    }
+  }, [sessionId]);
+
+  const handlePaymentConfirmation = useCallback(async () => {
+    try {
+      setIsConfirming(true);
+      console.log('Confirming payment intent:', paymentIntentId);
+      const confirmationData = await confirmPayment(paymentIntentId!);
+      setConfirmation(confirmationData);
+    } catch (err: any) {
+      console.error('Payment confirmation error:', err);
+      setError(err.response?.data?.message || 'Failed to confirm payment');
+    } finally {
+      setIsConfirming(false);
+    }
+  }, [paymentIntentId]);
 
   useEffect(() => {
     if (!user) {
@@ -23,25 +62,25 @@ const PaymentSuccess: React.FC = () => {
       return;
     }
 
-    if (paymentIntentId) {
+    // Handle checkout session (preferred method)
+    if (sessionId) {
+      handleCheckoutConfirmation();
+    }
+    // Handle payment intent (legacy method)
+    else if (paymentIntentId) {
       handlePaymentConfirmation();
     } else {
       setError('Payment information not found');
       setIsConfirming(false);
     }
-  }, [paymentIntentId, user]);
-
-  const handlePaymentConfirmation = async () => {
-    try {
-      setIsConfirming(true);
-      const confirmationData = await confirmPayment(paymentIntentId!);
-      setConfirmation(confirmationData);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to confirm payment');
-    } finally {
-      setIsConfirming(false);
-    }
-  };
+  }, [
+    sessionId,
+    paymentIntentId,
+    user,
+    navigate,
+    handleCheckoutConfirmation,
+    handlePaymentConfirmation,
+  ]);
 
   if (!user) {
     return null; // Will redirect to login

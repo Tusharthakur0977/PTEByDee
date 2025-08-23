@@ -4,6 +4,7 @@ import prisma from '../../config/prismaInstance';
 import { STATUS_CODES } from '../../utils/constants';
 import { sendResponse } from '../../utils/helpers';
 import { CustomRequest } from '../../types';
+import { StripeProductService } from '../../services/stripeProductService';
 
 /**
  * @desc    Create a new course with sections and lessons
@@ -67,21 +68,69 @@ export const createCourse = asyncHandler(
 
       // Create course with sections and lessons in a transaction
       const course = await prisma.$transaction(async (tx) => {
+        let stripeProductId = null;
+        let stripePriceId = null;
+
+        // Create Stripe product and price for paid courses
+        if (!isFree && price > 0) {
+          try {
+            const stripeData = await StripeProductService.createProductAndPrice(
+              {
+                courseId: 'temp', // Will be updated after course creation
+                name: title,
+                description,
+                // imageUrl,
+                price,
+                currency: currency || 'USD',
+              }
+            );
+            stripeProductId = stripeData.productId;
+            stripePriceId = stripeData.priceId;
+          } catch (error) {
+            console.error('Failed to create Stripe product:', error);
+            throw new Error(
+              'Failed to set up payment processing for this course'
+            );
+          }
+        }
+
         // Create the main course
         const newCourse = await tx.course.create({
           data: {
             title,
             description,
-            coursePreviewVideoUrl: coursePreviewVideoUrl || null,
+            coursePreviewVideoUrl:
+              typeof coursePreviewVideoUrl === 'string'
+                ? coursePreviewVideoUrl
+                : null,
             isFree: isFree || false,
-            imageUrl: imageUrl || null,
+            imageUrl: typeof imageUrl === 'string' ? imageUrl : null,
             price: isFree ? null : price,
-            currency: isFree ? null : (currency || 'USD'),
+            currency: isFree ? null : currency || 'USD',
             categoryIds: categoryIds || [],
             averageRating: 0.0,
             reviewCount: 0,
+            stripeProductId,
+            stripePriceId,
           },
         });
+
+        // Update Stripe product metadata with actual course ID
+        if (stripeProductId && !isFree) {
+          try {
+            await StripeProductService.updateProduct(stripeProductId, {
+              courseId: newCourse.id,
+              name: title,
+              description,
+              // imageUrl,
+              price,
+              currency: currency || 'USD',
+            });
+          } catch (error) {
+            console.warn('Failed to update Stripe product metadata:', error);
+            // Don't fail the course creation for this
+          }
+        }
 
         // Create sections if provided
         if (sections && sections.length > 0) {
@@ -105,7 +154,9 @@ export const createCourse = asyncHandler(
               for (const [lessonIndex, lesson] of section.lessons.entries()) {
                 if (!lesson.title) {
                   throw new Error(
-                    `Lesson ${lessonIndex + 1} in section "${section.title}" title is required.`
+                    `Lesson ${lessonIndex + 1} in section "${
+                      section.title
+                    }" title is required.`
                   );
                 }
 
@@ -173,17 +224,14 @@ export const createCourse = asyncHandler(
       );
     } catch (error: any) {
       console.error('Create course error:', error);
-      
+
       // Handle specific validation errors
-      if (error.message.includes('title is required') || 
-          error.message.includes('Lesson') || 
-          error.message.includes('Section')) {
-        return sendResponse(
-          res,
-          STATUS_CODES.BAD_REQUEST,
-          null,
-          error.message
-        );
+      if (
+        error.message.includes('title is required') ||
+        error.message.includes('Lesson') ||
+        error.message.includes('Section')
+      ) {
+        return sendResponse(res, STATUS_CODES.BAD_REQUEST, null, error.message);
       }
 
       return sendResponse(

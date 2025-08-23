@@ -1,8 +1,7 @@
 import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
-import stripe, { STRIPE_CONFIG } from '../../config/stripeConfig';
 import prisma from '../../config/prismaInstance';
-import { STATUS_CODES } from '../../utils/constants';
+import stripe, { STRIPE_CONFIG } from '../../config/stripeConfig';
 
 /**
  * @desc    Handle Stripe webhook events
@@ -10,13 +9,14 @@ import { STATUS_CODES } from '../../utils/constants';
  * @access  Public (Stripe webhook)
  */
 export const stripeWebhook = asyncHandler(
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response): Promise<void> => {
     const sig = req.headers['stripe-signature'] as string;
     const endpointSecret = STRIPE_CONFIG.webhookSecret;
 
     if (!endpointSecret) {
       console.error('Stripe webhook secret not configured');
-      return res.status(400).send('Webhook secret not configured');
+      res.status(400).send('Webhook secret not configured');
+      return;
     }
 
     let event: any;
@@ -26,12 +26,17 @@ export const stripeWebhook = asyncHandler(
       event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
     } catch (err: any) {
       console.error('Webhook signature verification failed:', err.message);
-      return res.status(400).send(`Webhook Error: ${err.message}`);
+      res.status(400).send(`Webhook Error: ${err.message}`);
+      return;
     }
 
     try {
       // Handle the event
       switch (event.type) {
+        case 'checkout.session.completed':
+          await handleCheckoutSessionCompleted(event.data.object);
+          break;
+
         case 'payment_intent.succeeded':
           await handlePaymentSucceeded(event.data.object);
           break;
@@ -55,6 +60,65 @@ export const stripeWebhook = asyncHandler(
     }
   }
 );
+
+/**
+ * Handle completed checkout session
+ */
+async function handleCheckoutSessionCompleted(session: any) {
+  try {
+    console.log('Checkout session completed:', session.id);
+
+    const { userId, courseId } = session.metadata;
+
+    if (!userId || !courseId) {
+      console.error('Missing metadata in checkout session:', session.id);
+      return;
+    }
+
+    // Update transaction status
+    await prisma.transaction.updateMany({
+      where: {
+        transactionId: session.id,
+        userId: userId,
+      },
+      data: {
+        paymentStatus: 'SUCCESS',
+      },
+    });
+
+    // Check if enrollment already exists
+    const existingEnrollment = await prisma.userCourse.findUnique({
+      where: {
+        userId_courseId: {
+          userId,
+          courseId,
+        },
+      },
+    });
+
+    if (!existingEnrollment) {
+      // Create enrollment
+      await prisma.userCourse.create({
+        data: {
+          userId,
+          courseId,
+          progress: 0.0,
+          completed: false,
+          enrolledAt: new Date(),
+        },
+      });
+
+      console.log(
+        `User ${userId} enrolled in course ${courseId} via checkout session ${session.id}`
+      );
+    }
+
+    // TODO: Send enrollment confirmation email
+    // await sendEnrollmentConfirmationEmail(userId, courseId);
+  } catch (error) {
+    console.error('Error handling checkout session completion:', error);
+  }
+}
 
 /**
  * Handle successful payment
