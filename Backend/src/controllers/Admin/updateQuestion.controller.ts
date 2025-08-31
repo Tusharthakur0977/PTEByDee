@@ -1,0 +1,166 @@
+import { Request, Response } from 'express';
+import asyncHandler from 'express-async-handler';
+import prisma from '../../config/prismaInstance';
+import { STATUS_CODES } from '../../utils/constants';
+import { sendResponse } from '../../utils/helpers';
+import { CustomRequest } from '../../types';
+
+/**
+ * @desc    Update a PTE question
+ * @route   PUT /api/admin/questions/:id
+ * @access  Private/Admin
+ */
+export const updateQuestion = asyncHandler(
+  async (req: CustomRequest, res: Response) => {
+    const { id } = req.params;
+    const {
+      questionCode,
+      questionTypeId,
+      testId,
+      orderInTest,
+      textContent,
+      audioKey,
+      imageUrl,
+      options,
+      correctAnswers,
+      wordCountMin,
+      wordCountMax,
+      durationMillis,
+      originalTextWithErrors,
+      incorrectWords,
+    } = req.body;
+
+    try {
+      // Validate ObjectId format
+      if (!id || id.length !== 24) {
+        return sendResponse(
+          res,
+          STATUS_CODES.BAD_REQUEST,
+          null,
+          'Invalid question ID format.'
+        );
+      }
+
+      // Check if question exists
+      const existingQuestion = await prisma.question.findUnique({
+        where: { id },
+        include: {
+          questionType: true,
+        },
+      });
+
+      if (!existingQuestion) {
+        return sendResponse(
+          res,
+          STATUS_CODES.NOT_FOUND,
+          null,
+          'Question not found.'
+        );
+      }
+
+      // Check if question code is being changed and if it conflicts
+      if (questionCode && questionCode !== existingQuestion.questionCode) {
+        const codeExists = await prisma.question.findFirst({
+          where: {
+            questionCode,
+            id: { not: id },
+          },
+        });
+
+        if (codeExists) {
+          return sendResponse(
+            res,
+            STATUS_CODES.CONFLICT,
+            null,
+            'Question code already exists. Please use a unique code.'
+          );
+        }
+      }
+
+      // Prepare update data
+      const updateData: any = {};
+
+      if (questionCode) updateData.questionCode = questionCode;
+      if (questionTypeId) updateData.questionTypeId = questionTypeId;
+      if (testId) updateData.testId = testId;
+      if (orderInTest !== undefined) updateData.orderInTest = orderInTest;
+      if (textContent !== undefined)
+        updateData.textContent = textContent || null;
+      if (audioKey !== undefined) updateData.audioUrl = audioKey || null;
+      if (imageUrl !== undefined) updateData.imageUrl = imageUrl || null;
+      if (options !== undefined) updateData.options = options || null;
+      if (correctAnswers !== undefined)
+        updateData.correctAnswers = correctAnswers || null;
+      if (wordCountMin !== undefined)
+        updateData.wordCountMin = wordCountMin || null;
+      if (wordCountMax !== undefined)
+        updateData.wordCountMax = wordCountMax || null;
+      if (durationMillis !== undefined)
+        updateData.durationMillis = durationMillis || null;
+      if (originalTextWithErrors !== undefined)
+        updateData.originalTextWithErrors = originalTextWithErrors || null;
+      if (incorrectWords !== undefined)
+        updateData.incorrectWords = incorrectWords || null;
+
+      updateData.updatedAt = new Date();
+
+      // Update the question
+      const updatedQuestion = await prisma.question.update({
+        where: { id },
+        data: updateData,
+        include: {
+          questionType: {
+            include: {
+              pteSection: true,
+            },
+          },
+          test: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
+          _count: {
+            select: {
+              UserResponse: true,
+            },
+          },
+        },
+      });
+
+      return sendResponse(
+        res,
+        STATUS_CODES.OK,
+        updatedQuestion,
+        'Question updated successfully.'
+      );
+    } catch (error: any) {
+      console.error('Update question error:', error);
+
+      if (error.code === 'P2025') {
+        return sendResponse(
+          res,
+          STATUS_CODES.NOT_FOUND,
+          null,
+          'Question not found.'
+        );
+      }
+
+      if (error.code === 'P2002') {
+        return sendResponse(
+          res,
+          STATUS_CODES.CONFLICT,
+          null,
+          'Question code already exists.'
+        );
+      }
+
+      return sendResponse(
+        res,
+        STATUS_CODES.INTERNAL_SERVER_ERROR,
+        null,
+        'An error occurred while updating the question. Please try again.'
+      );
+    }
+  }
+);

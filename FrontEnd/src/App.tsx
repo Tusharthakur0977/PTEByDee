@@ -31,6 +31,7 @@ import EditCourse from './pages/admin/EditCourse';
 import UserManagement from './pages/admin/UserManagement';
 import CategoryManagement from './pages/admin/CategoryManagement';
 import PaymentManagement from './pages/admin/PaymentManagement';
+import QuestionManagement from './pages/admin/QuestionManagement';
 
 // Initialize Stripe
 const stripePromise = loadStripe(
@@ -223,6 +224,14 @@ function App() {
                       element={
                         <ProtectedRoute>
                           <PaymentManagement />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path='/admin/questions'
+                      element={
+                        <ProtectedRoute>
+                          <QuestionManagement />
                         </ProtectedRoute>
                       }
                     />

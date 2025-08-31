@@ -43,6 +43,14 @@ import {
   getTransactionById,
   refundTransaction,
 } from '../controllers/Admin/paymentManagement.controller';
+import { createQuestion } from '../controllers/Admin/createQuestion.controller';
+import { getAllQuestions } from '../controllers/Admin/getAllQuestions.controller';
+import { updateQuestion } from '../controllers/Admin/updateQuestion.controller';
+import { deleteQuestion } from '../controllers/Admin/deleteQuestion.controller';
+import { getQuestionTypes } from '../controllers/Admin/getQuestionTypes.controller';
+import { getTests } from '../controllers/Admin/getTests.controller';
+import { uploadQuestionAudio } from '../controllers/Admin/uploadQuestionAudio.controller';
+import { getQuestionById } from '../controllers/Admin/getQuestionById.controller';
 
 import { protect } from '../middlewares/authenticate.middleware';
 import { isAdmin } from '../middlewares/isAdmin.middleware';
@@ -51,6 +59,7 @@ import {
   handleCourseVideoUpload,
   handleSectionVideoUpload,
   handleLessonVideoUpload,
+  handleQuestionAudioUpload,
 } from '../middlewares/upload.middleware';
 
 const router = Router();
@@ -140,6 +149,26 @@ router.post(
   protect,
   isAdmin,
   refundTransaction
+);
+
+// Question management routes
+router.post('/questions', protect, isAdmin, createQuestion);
+router.get('/questions', protect, isAdmin, getAllQuestions);
+router.get('/questions/:id', protect, isAdmin, getQuestionById);
+router.put('/questions/:id', protect, isAdmin, updateQuestion);
+router.delete('/questions/:id', protect, isAdmin, deleteQuestion);
+
+// Question types and tests routes
+router.get('/question-types', protect, isAdmin, getQuestionTypes);
+router.get('/tests', protect, isAdmin, getTests);
+
+// Question audio upload route
+router.post(
+  '/upload/question-audio',
+  protect,
+  isAdmin,
+  handleQuestionAudioUpload,
+  uploadQuestionAudio
 );
 
 export default router;

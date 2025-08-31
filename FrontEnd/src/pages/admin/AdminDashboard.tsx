@@ -429,6 +429,24 @@ const AdminDashboard: React.FC = () => {
               </div>
             </div>
           </Link>
+          <Link
+            to='/admin/questions'
+            className='bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow duration-200'
+          >
+            <div className='flex items-center space-x-4'>
+              <div className='bg-green-100 dark:bg-green-900/30 p-3 rounded-full'>
+                <Edit className='h-6 w-6 text-green-600 dark:text-green-400' />
+              </div>
+              <div>
+                <h3 className='font-semibold text-gray-900 dark:text-white'>
+                  Question Management
+                </h3>
+                <p className='text-sm text-gray-600 dark:text-gray-300'>
+                  Create, edit, and delete questions
+                </p>
+              </div>
+            </div>
+          </Link>
         </div>
       </div>
     </div>

@@ -57,6 +57,33 @@ const videoFileFilter = (
   }
 };
 
+// File filter function for audio files
+const audioFileFilter = (
+  _req: any,
+  file: Express.Multer.File,
+  cb: multer.FileFilterCallback
+) => {
+  // Check file type
+  const allowedMimes = [
+    'audio/mpeg',
+    'audio/mp3',
+    'audio/wav',
+    'audio/ogg',
+    'audio/m4a',
+    'audio/aac',
+  ];
+
+  if (allowedMimes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(
+      new Error(
+        'Invalid file type. Only MP3, WAV, OGG, M4A, and AAC audio files are allowed.'
+      )
+    );
+  }
+};
+
 // Generate unique filename for images
 const generateImageFileName = (originalName: string): string => {
   const timestamp = Date.now();
@@ -71,6 +98,14 @@ const generateVideoFileName = (originalName: string): string => {
   const randomString = Math.random().toString(36).substring(2, 15);
   const extension = path.extname(originalName);
   return `course-videos/${timestamp}-${randomString}${extension}`;
+};
+
+// Generate unique filename for audio files
+const generateAudioFileName = (originalName: string): string => {
+  const timestamp = Date.now();
+  const randomString = Math.random().toString(36).substring(2, 15);
+  const extension = path.extname(originalName);
+  return `question-audio/${timestamp}-${randomString}${extension}`;
 };
 
 // Multer S3 configuration for course images
@@ -122,6 +157,32 @@ export const courseVideoUpload = multer({
   fileFilter: videoFileFilter,
   limits: {
     fileSize: 100 * 1024 * 1024, // 100MB limit for videos
+  },
+});
+
+// Multer S3 configuration for question audio files
+// Files are uploaded as private (no ACL specified) for security
+export const questionAudioUpload = multer({
+  storage: multerS3({
+    s3: s3,
+    bucket: process.env.AWS_S3_BUCKET_NAME!,
+    key: (_req: any, file: Express.Multer.File, cb: any) => {
+      const fileName = generateAudioFileName(file.originalname);
+      cb(null, fileName);
+    },
+    contentType: multerS3.AUTO_CONTENT_TYPE,
+    metadata: (_req: any, file: Express.Multer.File, cb: any) => {
+      cb(null, {
+        fieldName: file.fieldname,
+        originalName: file.originalname,
+        uploadedAt: new Date().toISOString(),
+        type: 'question-audio',
+      });
+    },
+  }),
+  fileFilter: audioFileFilter,
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB limit for audio files
   },
 });
 

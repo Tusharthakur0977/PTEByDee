@@ -28,7 +28,7 @@ const Portal: React.FC = () => {
   const premiumTests = mockTests.filter((test) => !test.isFree);
   const [activeTab, setActiveTab] = React.useState<
     'overview' | 'practice' | 'tests'
-  >('overview');
+  >('practice');
   const [selectedQuestionType, setSelectedQuestionType] =
     React.useState<PteQuestionTypeName | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = React.useState(0);
@@ -525,17 +525,6 @@ const Portal: React.FC = () => {
         {/* Navigation Tabs */}
         <div className='flex space-x-1 bg-gray-200 dark:bg-gray-700 p-1 rounded-lg mb-8 max-w-md mx-auto'>
           <button
-            onClick={() => setActiveTab('overview')}
-            className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200 ${
-              activeTab === 'overview'
-                ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm'
-                : 'text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100'
-            }`}
-          >
-            <BarChart3 className='h-4 w-4' />
-            <span>Overview</span>
-          </button>
-          <button
             onClick={() => setActiveTab('practice')}
             className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200 ${
               activeTab === 'practice'
@@ -546,6 +535,18 @@ const Portal: React.FC = () => {
             <Zap className='h-4 w-4' />
             <span>Practice</span>
           </button>
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200 ${
+              activeTab === 'overview'
+                ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                : 'text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100'
+            }`}
+          >
+            <BarChart3 className='h-4 w-4' />
+            <span>Overview</span>
+          </button>
+
           <button
             onClick={() => setActiveTab('tests')}
             className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200 ${
