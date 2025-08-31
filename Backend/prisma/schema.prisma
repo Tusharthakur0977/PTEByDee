@@ -406,6 +406,7 @@ model Transaction {
     purchasedItem String? // What was purchased (e.g., "Premium Plan", "PTE Mock Test 3")
     createdAt     DateTime      @default(now())
 
+    @@unique([transactionId, userId])
     @@index([gateway])
     @@index([paymentStatus])
     @@index([userId, createdAt])

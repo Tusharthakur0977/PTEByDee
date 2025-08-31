@@ -37,6 +37,12 @@ import {
   syncStripeProducts,
   verifyStripeProducts,
 } from '../controllers/Admin/syncStripeProducts.controller';
+import {
+  getAllTransactions,
+  getPaymentStats,
+  getTransactionById,
+  refundTransaction,
+} from '../controllers/Admin/paymentManagement.controller';
 
 import { protect } from '../middlewares/authenticate.middleware';
 import { isAdmin } from '../middlewares/isAdmin.middleware';
@@ -124,5 +130,16 @@ router.get('/debug/cloudfront', protect, isAdmin, debugCloudFront);
 // Stripe management routes
 router.post('/stripe/sync-products', protect, isAdmin, syncStripeProducts);
 router.get('/stripe/verify-products', protect, isAdmin, verifyStripeProducts);
+
+// Payment management routes
+router.get('/payments/transactions', protect, isAdmin, getAllTransactions);
+router.get('/payments/stats', protect, isAdmin, getPaymentStats);
+router.get('/payments/transactions/:id', protect, isAdmin, getTransactionById);
+router.post(
+  '/payments/transactions/:id/refund',
+  protect,
+  isAdmin,
+  refundTransaction
+);
 
 export default router;

@@ -51,16 +51,27 @@ fi
 
 
 # --- Clean up previous application installation (recommended for clean deployments) ---
-if [ -d "$APP_DIR" ]; then
-    echo "Cleaning up previous application files in $APP_DIR..."
-    sudo rm -rf "${APP_DIR}/*" || { echo "ERROR: Failed to clean $APP_DIR."; exit 1; }
-else
+echo "Cleaning up previous application files in $APP_DIR..."
+
+# Check if the directory exists. If not, create it.
+if [ ! -d "$APP_DIR" ]; then
     echo "Application directory $APP_DIR does not exist. Creating it."
     sudo mkdir -p "$APP_DIR" || { echo "ERROR: Failed to create application directory: $APP_DIR"; exit 1; }
+    # Set ownership immediately after creation
+    sudo chown -R ubuntu:ubuntu "$APP_DIR" || { echo "ERROR: Failed to set ownership for $APP_DIR after creation."; exit 1; }
+else
+    # If the directory exists, clear its contents completely.
+    # The ":?" is a bash safety feature. If APP_DIR is unset or empty, it exits,
+    # preventing accidental deletion of the root directory.
+    echo "Removing all contents (including hidden files) from $APP_DIR..."
+    sudo rm -rf "${APP_DIR:?}"/.??* "${APP_DIR:?}"/* || { echo "ERROR: Failed to clean $APP_DIR."; exit 1; }
+    # The .??* glob matches files starting with a dot, followed by at least two characters
+    # (e.g., .env, .git, but not . or .. which are special directories).
+    echo "Cleanup complete."
 fi
 
-# Set ownership of the application directory (important for 'runas: ubuntu' in appspec.yml)
-echo "Setting ownership of $APP_DIR to ubuntu:ubuntu..."
+# Re-confirm ownership after cleanup, in case new directories were made by root during cleanup
+echo "Ensuring ownership of $APP_DIR is ubuntu:ubuntu..."
 sudo chown -R ubuntu:ubuntu "$APP_DIR" || { echo "ERROR: Failed to set ownership for $APP_DIR."; exit 1; }
 
 echo "BeforeInstall hook completed successfully."

@@ -48,7 +48,6 @@ const GoogleSignInButton: FC<GoogleSignInButtonProps> = ({
           onError={handleError}
           theme='outline'
           size='large'
-          width='100%'
           text='signin_with'
           shape='rectangular'
         />

@@ -75,43 +75,125 @@ async function handleCheckoutSessionCompleted(session: any) {
       return;
     }
 
-    // Update transaction status
-    await prisma.transaction.updateMany({
-      where: {
-        transactionId: session.id,
-        userId: userId,
-      },
-      data: {
-        paymentStatus: 'SUCCESS',
-      },
-    });
+    // Use transaction to handle race conditions with retry logic
+    let retryCount = 0;
+    const maxRetries = 3;
 
-    // Check if enrollment already exists
-    const existingEnrollment = await prisma.userCourse.findUnique({
-      where: {
-        userId_courseId: {
-          userId,
-          courseId,
-        },
-      },
-    });
+    while (retryCount < maxRetries) {
+      try {
+        await prisma.$transaction(
+          async (tx) => {
+            // Find or create transaction record
+            let transactionRecord = await tx.transaction.findFirst({
+              where: {
+                OR: [{ transactionId: session.id }, { orderId: session.id }],
+                userId: userId,
+              },
+            });
 
-    if (!existingEnrollment) {
-      // Create enrollment
-      await prisma.userCourse.create({
-        data: {
-          userId,
-          courseId,
-          progress: 0.0,
-          completed: false,
-          enrolledAt: new Date(),
-        },
-      });
+            if (transactionRecord) {
+              // Update existing transaction only if not already successful
+              if (transactionRecord.paymentStatus !== 'SUCCESS') {
+                await tx.transaction.updateMany({
+                  where: {
+                    id: transactionRecord.id,
+                    paymentStatus: { not: 'SUCCESS' },
+                  },
+                  data: {
+                    paymentStatus: 'SUCCESS',
+                  },
+                });
+                console.log(
+                  `Updated existing transaction ${transactionRecord.id} to SUCCESS`
+                );
+              } else {
+                console.log(
+                  `Transaction ${transactionRecord.id} already marked as SUCCESS`
+                );
+              }
+            } else {
+              // Create new transaction record
+              transactionRecord = await tx.transaction.create({
+                data: {
+                  userId: userId,
+                  amount: session.amount_total ? session.amount_total / 100 : 0,
+                  paymentStatus: 'SUCCESS',
+                  gateway: 'Stripe',
+                  transactionId: session.id,
+                  orderId: session.id,
+                  purchasedItem: `${
+                    session.metadata?.courseTitle || 'Course Purchase'
+                  } (${courseId})`,
+                },
+              });
+              console.log(
+                `Created new transaction record ${transactionRecord.id} for session ${session.id}`
+              );
+            }
 
-      console.log(
-        `User ${userId} enrolled in course ${courseId} via checkout session ${session.id}`
-      );
+            // Check if enrollment already exists
+            const existingEnrollment = await tx.userCourse.findUnique({
+              where: {
+                userId_courseId: {
+                  userId,
+                  courseId,
+                },
+              },
+            });
+
+            if (!existingEnrollment) {
+              // Create enrollment
+              await tx.userCourse.create({
+                data: {
+                  userId,
+                  courseId,
+                  progress: 0.0,
+                  completed: false,
+                  enrolledAt: new Date(),
+                },
+              });
+
+              console.log(
+                `User ${userId} enrolled in course ${courseId} via checkout session ${session.id}`
+              );
+            } else {
+              console.log(
+                `User ${userId} already enrolled in course ${courseId} for session ${session.id}`
+              );
+            }
+          },
+          {
+            maxWait: 5000,
+            timeout: 10000,
+          }
+        );
+        break; // Success, exit retry loop
+      } catch (error: any) {
+        retryCount++;
+        console.log(
+          `Webhook transaction attempt ${retryCount} failed for session ${session.id}:`,
+          error.message
+        );
+
+        if (error.code === 'P2034' && retryCount < maxRetries) {
+          // Write conflict, wait and retry with exponential backoff
+          await new Promise((resolve) =>
+            setTimeout(resolve, 100 * Math.pow(2, retryCount))
+          );
+          continue;
+        } else {
+          console.error(
+            `Failed to process webhook for session ${session.id} after ${retryCount} attempts:`,
+            error
+          );
+          throw error;
+        }
+      }
     }
+
+    console.log(
+      `Transaction updated for session ${session.id}, user ${userId}`
+    );
 
     // TODO: Send enrollment confirmation email
     // await sendEnrollmentConfirmationEmail(userId, courseId);
@@ -137,7 +219,10 @@ async function handlePaymentSucceeded(paymentIntent: any) {
     // Update transaction status
     await prisma.transaction.updateMany({
       where: {
-        transactionId: paymentIntent.id,
+        OR: [
+          { transactionId: paymentIntent.id },
+          { orderId: paymentIntent.id },
+        ],
         userId: userId,
       },
       data: {
@@ -186,10 +271,16 @@ async function handlePaymentFailed(paymentIntent: any) {
   try {
     console.log('Payment failed:', paymentIntent.id);
 
+    const { userId } = paymentIntent.metadata;
+
     // Update transaction status
     await prisma.transaction.updateMany({
       where: {
-        transactionId: paymentIntent.id,
+        OR: [
+          { transactionId: paymentIntent.id },
+          { orderId: paymentIntent.id },
+        ],
+        ...(userId && { userId }),
       },
       data: {
         paymentStatus: 'FAILED',
@@ -210,10 +301,16 @@ async function handlePaymentCanceled(paymentIntent: any) {
   try {
     console.log('Payment canceled:', paymentIntent.id);
 
+    const { userId } = paymentIntent.metadata;
+
     // Update transaction status
     await prisma.transaction.updateMany({
       where: {
-        transactionId: paymentIntent.id,
+        OR: [
+          { transactionId: paymentIntent.id },
+          { orderId: paymentIntent.id },
+        ],
+        ...(userId && { userId }),
       },
       data: {
         paymentStatus: 'FAILED',

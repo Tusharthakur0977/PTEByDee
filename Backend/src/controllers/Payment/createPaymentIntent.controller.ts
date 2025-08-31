@@ -135,7 +135,7 @@ export const createPaymentIntent = asyncHandler(
           paymentStatus: 'PENDING',
           gateway: 'Stripe',
           transactionId: paymentIntent.id,
-          purchasedItem: course.title,
+          purchasedItem: `${course.title} (${course.id})`,
         },
       });
 

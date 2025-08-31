@@ -90,7 +90,7 @@ export class StripeCheckoutService {
           gateway: 'Stripe',
           transactionId: session.id,
           orderId: session.id,
-          purchasedItem: course.title,
+          purchasedItem: `${course.title} (${course.id})`,
         },
       });
 
@@ -112,12 +112,16 @@ export class StripeCheckoutService {
   static async retrieveSession(sessionId: string) {
     try {
       const session = await stripe.checkout.sessions.retrieve(sessionId, {
-        expand: ['payment_intent', 'customer'],
+        expand: ['payment_intent', 'customer', 'line_items'],
       });
       return session;
     } catch (error) {
       console.error('Error retrieving checkout session:', error);
-      throw new Error('Failed to retrieve checkout session');
+      throw new Error(
+        `Failed to retrieve checkout session: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
+      );
     }
   }
 

@@ -3,8 +3,10 @@ import { confirmCheckoutSession } from '../controllers/Payment/confirmCheckoutSe
 import { confirmPayment } from '../controllers/Payment/confirmPayment.controller';
 import { createCheckoutSession } from '../controllers/Payment/createCheckoutSession.controller';
 import { createPaymentIntent } from '../controllers/Payment/createPaymentIntent.controller';
+import { getCourseDetailsForPayment } from '../controllers/Payment/getCourseDetailsForPayment.controller';
 import { getPaymentHistory } from '../controllers/Payment/getPaymentHistory.controller';
 import { stripeWebhook } from '../controllers/Payment/stripeWebhook.controller';
+import { verifyPaymentStatus } from '../controllers/Payment/verifyPaymentStatus.controller';
 import { protect } from '../middlewares/authenticate.middleware';
 
 const router = Router();
@@ -19,6 +21,8 @@ router.post(
 // Protected routes
 router.post('/create-checkout-session', protect, createCheckoutSession);
 router.post('/confirm-checkout', protect, confirmCheckoutSession);
+router.get('/verify-status/:sessionId', protect, verifyPaymentStatus);
+router.get('/course-details/:courseId', protect, getCourseDetailsForPayment);
 
 // Legacy routes (keep for backward compatibility)
 router.post('/create-intent', protect, createPaymentIntent);

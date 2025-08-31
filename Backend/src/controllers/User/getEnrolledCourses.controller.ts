@@ -4,6 +4,7 @@ import prisma from '../../config/prismaInstance';
 import { CustomRequest } from '../../types';
 import { STATUS_CODES } from '../../utils/constants';
 import { sendResponse } from '../../utils/helpers';
+import { SecureUrlService } from '../../services/secureUrlService';
 
 /**
  * @desc    Get user's enrolled courses
@@ -97,58 +98,109 @@ export const getEnrolledCourses = asyncHandler(
         orderBy: { enrolledAt: 'desc' },
       });
 
-      // Transform the data to match the frontend Course interface
-      const transformedCourses = enrolledCourses.map((enrollment) => ({
-        id: enrollment.course.id,
-        title: enrollment.course.title,
-        description: enrollment.course.description,
-        imageUrl: enrollment.course.imageUrl,
-        coursePreviewVideoUrl: enrollment.course.coursePreviewVideoUrl,
-        isFree: enrollment.course.isFree,
-        price: enrollment.course.price || 0,
-        currency: enrollment.course.currency,
-        averageRating: enrollment.course.averageRating || 0,
-        reviewCount: enrollment.course.reviewCount || 0,
-        enrollmentCount: enrollment.course._count.userCourses,
-        sectionCount: enrollment.course._count.sections,
-        createdAt: enrollment.course.createdAt,
-        updatedAt: enrollment.course.updatedAt,
-        reviews: enrollment.course.reviews,
-        sections: enrollment.course.sections,
+      // Transform the data to match the frontend Course interface with signed URLs
+      const transformedCourses = await Promise.all(
+        enrolledCourses.map(async (enrollment) => {
+          // Generate signed URL for course image
+          let imageUrl = null;
+          if (enrollment.course.imageUrl && SecureUrlService.isConfigured()) {
+            try {
+              const signedUrlResponse =
+                await SecureUrlService.generateSecureImageUrl(
+                  enrollment.course.imageUrl,
+                  {
+                    expirationHours: 24,
+                  }
+                );
+              imageUrl = signedUrlResponse.signedUrl;
+            } catch (error) {
+              console.warn(
+                `Failed to generate signed URL for course ${enrollment.course.id} image:`,
+                error
+              );
+              imageUrl = enrollment.course.imageUrl; // Fallback to original
+            }
+          } else {
+            imageUrl = enrollment.course.imageUrl;
+          }
 
-        // Frontend compatibility fields
-        students: enrollment.course._count.userCourses,
-        rating: enrollment.course.averageRating || 0,
-        level: 'All Levels',
-        duration: `${enrollment.course._count.sections} sections`,
+          // Generate signed URL for course preview video (enrolled users can access)
+          let coursePreviewVideoUrl = null;
+          if (
+            enrollment.course.coursePreviewVideoUrl &&
+            SecureUrlService.isConfigured()
+          ) {
+            try {
+              const signedUrlResponse =
+                await SecureUrlService.generateSecureVideoUrl(
+                  enrollment.course.coursePreviewVideoUrl,
+                  { expirationHours: 24 }
+                );
+              coursePreviewVideoUrl = signedUrlResponse.signedUrl;
+            } catch (error) {
+              console.warn(
+                `Failed to generate signed URL for course ${enrollment.course.id} preview video:`,
+                error
+              );
+              coursePreviewVideoUrl = enrollment.course.coursePreviewVideoUrl; // Fallback
+            }
+          } else {
+            coursePreviewVideoUrl = enrollment.course.coursePreviewVideoUrl;
+          }
 
-        // User enrollment data
-        isEnrolled: true,
-        userEnrollment: {
-          id: enrollment.id,
-          progress: enrollment.progress,
-          completed: enrollment.completed,
-          enrolledAt: enrollment.enrolledAt.toISOString(),
-          completedAt: enrollment.completedAt?.toISOString() || null,
-        },
+          return {
+            id: enrollment.course.id,
+            title: enrollment.course.title,
+            description: enrollment.course.description,
+            imageUrl,
+            coursePreviewVideoUrl,
+            isFree: enrollment.course.isFree,
+            price: enrollment.course.price || 0,
+            currency: enrollment.course.currency,
+            averageRating: enrollment.course.averageRating || 0,
+            reviewCount: enrollment.course.reviewCount || 0,
+            enrollmentCount: enrollment.course._count.userCourses,
+            sectionCount: enrollment.course._count.sections,
+            createdAt: enrollment.course.createdAt,
+            updatedAt: enrollment.course.updatedAt,
+            reviews: enrollment.course.reviews,
+            sections: enrollment.course.sections,
 
-        // Mock curriculum structure for frontend compatibility
-        curriculum: enrollment.course.sections.map((section) => ({
-          title: section.title,
-          lessons: section.lessons.map((lesson) => ({
-            title: lesson.title,
-            duration: '15 min',
-            videoUrl: lesson.videoUrl,
-            audioUrl: lesson.audioUrl,
-            type: lesson.videoUrl
-              ? 'video'
-              : lesson.audioUrl
-              ? 'audio'
-              : 'text',
-            isPreview: false, // All lessons are accessible for enrolled users
-          })),
-        })),
-      }));
+            // Frontend compatibility fields
+            students: enrollment.course._count.userCourses,
+            rating: enrollment.course.averageRating || 0,
+            level: 'All Levels',
+            duration: `${enrollment.course._count.sections} sections`,
+
+            // User enrollment data
+            isEnrolled: true,
+            userEnrollment: {
+              id: enrollment.id,
+              progress: enrollment.progress,
+              completed: enrollment.completed,
+              enrolledAt: enrollment.enrolledAt.toISOString(),
+              completedAt: enrollment.completedAt?.toISOString() || null,
+            },
+
+            // Mock curriculum structure for frontend compatibility
+            curriculum: enrollment.course.sections.map((section) => ({
+              title: section.title,
+              lessons: section.lessons.map((lesson) => ({
+                title: lesson.title,
+                duration: '15 min',
+                videoUrl: lesson.videoUrl,
+                audioUrl: lesson.audioUrl,
+                type: lesson.videoUrl
+                  ? 'video'
+                  : lesson.audioUrl
+                  ? 'audio'
+                  : 'text',
+                isPreview: false, // All lessons are accessible for enrolled users
+              })),
+            })),
+          };
+        })
+      );
 
       return sendResponse(
         res,
