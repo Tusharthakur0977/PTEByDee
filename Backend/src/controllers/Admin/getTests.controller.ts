@@ -15,7 +15,7 @@ export const getTests = asyncHandler(async (req: Request, res: Response) => {
       include: {
         _count: {
           select: {
-            questions: true,
+            // questions: true,
             testAttempts: true,
           },
         },

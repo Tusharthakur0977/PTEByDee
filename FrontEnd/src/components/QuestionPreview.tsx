@@ -119,14 +119,14 @@ const QuestionPreview: React.FC<QuestionPreviewProps> = ({
       {/* Content Preview */}
       <div className='space-y-4'>
         {/* Test Information */}
-        <div className='bg-gray-50 rounded-lg p-3'>
+        {/* <div className='bg-gray-50 rounded-lg p-3'>
           <p className='text-sm font-medium text-gray-700'>
             Test: {question.test.title}
           </p>
           <p className='text-xs text-gray-600'>
             Order: #{question.orderInTest} • Type: {question.test.testType}
           </p>
-        </div>
+        </div> */}
 
         {/* Text Content */}
         {question.textContent && (

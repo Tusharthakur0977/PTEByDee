@@ -13,6 +13,8 @@ import {
   getUserProgress,
   getUserProgressOverview,
 } from '../controllers/User/getUserProgress.controller';
+import { getQuestionTypes } from '../controllers/User/getQuestionTypes.controller';
+import { getPracticeQuestions } from '../controllers/User/getPracticeQuestions.controller';
 
 import { protect } from '../middlewares/authenticate.middleware';
 
@@ -22,6 +24,8 @@ const router = Router();
 router.get('/courses', getCourses);
 router.get('/courses/:id', getCourseById);
 router.get('/categories', getCategories);
+router.get('/question-types', getQuestionTypes);
+router.get('/practice-questions/:questionType', getPracticeQuestions);
 
 // Protected routes (User Profile Management)
 router

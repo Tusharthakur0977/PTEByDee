@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, CheckCircle, AlertCircle, RotateCcw } from 'lucide-react';
 import { PteQuestionTypeName } from '../types/pte';
-import { MockQuestion } from '../data/mockPteQuestions';
+import { PracticeQuestion as PracticeQuestionType } from '../services/portal';
 import AudioRecorder from './AudioRecorder';
 import AudioPlayer from './AudioPlayer';
 
 interface PracticeQuestionProps {
-  question: MockQuestion;
+  question: PracticeQuestionType;
   onComplete?: (response: any) => void;
   onNext?: () => void;
   className?: string;

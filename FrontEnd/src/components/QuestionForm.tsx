@@ -137,7 +137,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
 
     const requirements: any = {
       requiresAudio: [
-        'REPEAT_SENT_ENCE',
+        'REPEAT_SENTENCE',
         'RE_TELL_LECTURE',
         'ANSWER_SHORT_QUESTION',
         'SUMMARIZE_SPOKEN_TEXT',
@@ -281,7 +281,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                 </select>
               </div>
 
-              <div>
+              {/* <div>
                 <label className='block text-sm font-medium text-gray-700 mb-2'>
                   Test *
                 </label>
@@ -303,10 +303,10 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                     </option>
                   ))}
                 </select>
-              </div>
+              </div> */}
             </div>
 
-            <div className='mt-4'>
+            {/* <div className='mt-4'>
               <label className='block text-sm font-medium text-gray-700 mb-2'>
                 Order in Test
               </label>
@@ -322,7 +322,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                 className='w-32 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
                 min='1'
               />
-            </div>
+            </div> */}
           </div>
 
           {/* Question Content */}

@@ -1,10 +1,10 @@
-import { Request, Response } from 'express';
+import { PteQuestionTypeName } from '@prisma/client';
+import { Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import prisma from '../../config/prismaInstance';
+import { CustomRequest } from '../../types';
 import { STATUS_CODES } from '../../utils/constants';
 import { sendResponse } from '../../utils/helpers';
-import { CustomRequest } from '../../types';
-import { PteQuestionTypeName } from '@prisma/client';
 
 /**
  * @desc    Create a new PTE question
@@ -16,8 +16,8 @@ export const createQuestion = asyncHandler(
     const {
       questionCode,
       questionTypeId,
-      testId,
-      orderInTest,
+      // testId,
+      // orderInTest,
       textContent,
       audioKey,
       imageUrl,
@@ -32,22 +32,22 @@ export const createQuestion = asyncHandler(
 
     try {
       // Input validation
-      if (!questionCode || !questionTypeId || !testId) {
+      if (!questionCode || !questionTypeId) {
         return sendResponse(
           res,
           STATUS_CODES.BAD_REQUEST,
           null,
-          'Question code, question type ID, and test ID are required.'
+          'Question code, question type ID are required.'
         );
       }
 
       // Validate ObjectId formats
-      if (questionTypeId.length !== 24 || testId.length !== 24) {
+      if (questionTypeId.length !== 24) {
         return sendResponse(
           res,
           STATUS_CODES.BAD_REQUEST,
           null,
-          'Invalid question type ID or test ID format.'
+          'Invalid question type ID'
         );
       }
 
@@ -80,18 +80,18 @@ export const createQuestion = asyncHandler(
       }
 
       // Verify test exists
-      const test = await prisma.test.findUnique({
-        where: { id: testId },
-      });
+      // const test = await prisma.test.findUnique({
+      //   where: { id: testId },
+      // });
 
-      if (!test) {
-        return sendResponse(
-          res,
-          STATUS_CODES.NOT_FOUND,
-          null,
-          'Test not found.'
-        );
-      }
+      // if (!test) {
+      //   return sendResponse(
+      //     res,
+      //     STATUS_CODES.NOT_FOUND,
+      //     null,
+      //     'Test not found.'
+      //   );
+      // }
 
       // Validate question content based on question type
       const validationResult = validateQuestionContent(questionType.name, {
@@ -121,8 +121,8 @@ export const createQuestion = asyncHandler(
         data: {
           questionCode,
           questionTypeId,
-          testId,
-          orderInTest: orderInTest || 1,
+          // testId,
+          // orderInTest: orderInTest || 1,
           textContent: textContent || null,
           audioUrl: audioKey || null, // Store S3 key in audioUrl field
           imageUrl: imageUrl || null,
@@ -140,12 +140,12 @@ export const createQuestion = asyncHandler(
               pteSection: true,
             },
           },
-          test: {
-            select: {
-              id: true,
-              title: true,
-            },
-          },
+          // test: {
+          //   select: {
+          //     id: true,
+          //     title: true,
+          //   },
+          // },
         },
       });
 
@@ -206,7 +206,7 @@ function validateQuestionContent(
       }
       break;
 
-    case 'REPEAT_SENT_ENCE':
+    case 'REPEAT_SENTENCE':
     case 'RE_TELL_LECTURE':
     case 'ANSWER_SHORT_QUESTION':
       if (!audioKey) {

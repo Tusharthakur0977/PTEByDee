@@ -259,9 +259,9 @@ model Question {
     questionCode   String       @unique // For easy identification/referencing (e.g., "RA_001_Test1")
     questionType   QuestionType @relation(fields: [questionTypeId], references: [id])
     questionTypeId String       @db.ObjectId
-    test           Test         @relation(fields: [testId], references: [id]) // Which test this question belongs to
-    testId         String       @db.ObjectId
-    orderInTest    Int // Order of question within a specific test
+    // test           Test         @relation(fields: [testId], references: [id]) // Which test this question belongs to
+    // testId         String       @db.ObjectId
+    // orderInTest    Int // Order of question within a specific test
 
     // Question content fields - tailored for PTE Academic question types
     textContent String? // For Read Aloud, Summarize Written Text, Essay, Reading Fill in the Blanks, R&W Fill in the Blanks, Re-order Paragraphs, Highlight Incorrect Words
@@ -286,23 +286,27 @@ model Question {
     updatedAt    DateTime       @updatedAt
     UserResponse UserResponse[] // Inverse relation: a question can have many user responses across different attempts
     // Keeping this for now as it's not "non-logical", just potentially large if eager loaded.
+    // @@index([testId])
 
     @@index([questionTypeId])
-    @@index([testId])
 }
 
 // Represents a full PTE Mock Test
 model Test {
-    id            String        @id @default(auto()) @map("_id") @db.ObjectId
+    id            String   @id @default(auto()) @map("_id") @db.ObjectId
     title         String // e.g., "PTE Mock Test 1 (Academic)"
     description   String?
-    testType      String        @default("ACADEMIC") // Could be "ACADEMIC", "CORE" - helpful for filtering
+    testType      String   @default("ACADEMIC") // Could be "ACADEMIC", "CORE" - helpful for filtering
     totalDuration Int // Total duration in minutes (e.g., 120 minutes)
-    isFree        Boolean       @default(false) // Whether this test is free or requires subscription/payment
-    questions     Question[] // Questions belonging to this test
-    testAttempts  TestAttempt[]
-    createdAt     DateTime      @default(now())
-    updatedAt     DateTime      @updatedAt
+    isFree        Boolean  @default(false) // Whether this test is free or requires subscription/payment
+    
+    // Link questions to the test using a list of their IDs
+    questionIds   String[] @db.ObjectId
+    // questions     Question[] // Questions belonging to this test
+
+    testAttempts TestAttempt[]
+    createdAt    DateTime      @default(now())
+    updatedAt    DateTime      @updatedAt
 
     @@index([isFree])
     @@index([testType])
@@ -448,7 +452,7 @@ enum SubscriptionPlan {
 enum PteQuestionTypeName {
     // Speaking (AI Scored)
     READ_ALOUD
-    REPEAT_SENT_ENCE
+    REPEAT_SENTENCE
     DESCRIBE_IMAGE
     RE_TELL_LECTURE
     ANSWER_SHORT_QUESTION

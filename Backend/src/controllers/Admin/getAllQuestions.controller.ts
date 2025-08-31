@@ -86,13 +86,13 @@ export const getAllQuestions = asyncHandler(
               pteSection: true,
             },
           },
-          test: {
-            select: {
-              id: true,
-              title: true,
-              testType: true,
-            },
-          },
+          // test: {
+          //   select: {
+          //     id: true,
+          //     title: true,
+          //     testType: true,
+          //   },
+          // },
           _count: {
             select: {
               UserResponse: true,

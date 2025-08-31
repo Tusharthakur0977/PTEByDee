@@ -33,16 +33,16 @@ export const getQuestionById = asyncHandler(
               pteSection: true,
             },
           },
-          test: {
-            select: {
-              id: true,
-              title: true,
-              description: true,
-              testType: true,
-              totalDuration: true,
-              isFree: true,
-            },
-          },
+          // test: {
+          //   select: {
+          //     id: true,
+          //     title: true,
+          //     description: true,
+          //     testType: true,
+          //     totalDuration: true,
+          //     isFree: true,
+          //   },
+          // },
           UserResponse: {
             include: {
               testAttempt: {

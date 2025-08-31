@@ -17,6 +17,7 @@ import {
   Type,
 } from 'lucide-react';
 import { PteQuestionTypeName } from '../types/pte';
+import { getQuestionTypes } from '../services/portal';
 
 interface QuestionTypeSelectorProps {
   selectedType: PteQuestionTypeName | null;
@@ -29,183 +30,137 @@ const QuestionTypeSelector: React.FC<QuestionTypeSelectorProps> = ({
   onTypeSelect,
   className = '',
 }) => {
+  const [questionTypes, setQuestionTypes] = React.useState<any>({});
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    fetchQuestionTypes();
+  }, []);
+
+  const fetchQuestionTypes = async () => {
+    try {
+      setIsLoading(true);
+      const data = await getQuestionTypes();
+      setQuestionTypes(data.groupedBySection);
+    } catch (err: any) {
+      setError('Failed to load question types');
+      console.error('Error fetching question types:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className='text-center py-12'>
+        <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4'></div>
+        <p className='text-gray-600 dark:text-gray-300'>
+          Loading question types...
+        </p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className='text-center py-12'>
+        <div className='text-red-500 mb-4'>
+          <HelpCircle className='h-16 w-16 mx-auto' />
+        </div>
+        <h3 className='text-xl font-semibold text-gray-900 dark:text-white mb-2'>
+          Error Loading Question Types
+        </h3>
+        <p className='text-gray-600 dark:text-gray-300 mb-6'>{error}</p>
+        <button
+          onClick={fetchQuestionTypes}
+          className='bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200'
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
   const questionCategories = [
-    {
-      id: 'speaking',
-      title: 'Speaking',
-      icon: Mic,
-      color: 'red',
-      description: 'Practice speaking tasks with AI feedback',
-      types: [
-        {
-          type: PteQuestionTypeName.READ_ALOUD,
-          title: 'Read Aloud',
-          icon: BookOpen,
-          description: 'Read text aloud clearly and naturally',
-          duration: '40 seconds',
-        },
-        {
-          type: PteQuestionTypeName.REPEAT_SENTENCE,
-          title: 'Repeat Sentence',
-          icon: Volume2,
-          description: 'Listen and repeat sentences exactly',
-          duration: '15 seconds',
-        },
-        {
-          type: PteQuestionTypeName.DESCRIBE_IMAGE,
-          title: 'Describe Image',
-          icon: Eye,
-          description: 'Describe images in detail',
-          duration: '40 seconds',
-        },
-        {
-          type: PteQuestionTypeName.RE_TELL_LECTURE,
-          title: 'Re-tell Lecture',
-          icon: MessageSquare,
-          description: 'Listen and retell lecture content',
-          duration: '40 seconds',
-        },
-        {
-          type: PteQuestionTypeName.ANSWER_SHORT_QUESTION,
-          title: 'Answer Short Question',
-          icon: MessageSquare,
-          description: 'Answer questions with short responses',
-          duration: '10 seconds',
-        },
-      ],
-    },
-    {
-      id: 'writing',
-      title: 'Writing',
-      icon: PenTool,
-      color: 'blue',
-      description: 'Develop writing skills with structured practice',
-      types: [
-        {
-          type: PteQuestionTypeName.SUMMARIZE_WRITTEN_TEXT,
-          title: 'Summarize Written Text',
-          icon: FileText,
-          description: 'Summarize passages in one sentence',
-          duration: '10 minutes',
-        },
-        {
-          type: PteQuestionTypeName.WRITE_ESSAY,
-          title: 'Write Essay',
-          icon: Edit3,
-          description: 'Write essays on given topics',
-          duration: '20 minutes',
-        },
-      ],
-    },
-    {
-      id: 'reading',
-      title: 'Reading',
-      icon: Eye,
-      color: 'green',
-      description: 'Enhance reading comprehension and speed',
-      types: [
-        {
-          type: PteQuestionTypeName.READING_WRITING_FILL_IN_THE_BLANKS,
-          title: 'Reading & Writing Fill in Blanks',
-          icon: Edit3,
-          description: 'Fill blanks with appropriate words',
-          duration: '2-3 minutes',
-        },
-        {
-          type: PteQuestionTypeName.MULTIPLE_CHOICE_MULTIPLE_ANSWERS_READING,
-          title: 'Multiple Choice (Multiple)',
-          icon: CheckSquare,
-          description: 'Select multiple correct answers',
-          duration: '1-2 minutes',
-        },
-        {
-          type: PteQuestionTypeName.RE_ORDER_PARAGRAPHS,
-          title: 'Re-order Paragraphs',
-          icon: RotateCcw,
-          description: 'Arrange paragraphs in logical order',
-          duration: '2-3 minutes',
-        },
-        {
-          type: PteQuestionTypeName.READING_FILL_IN_THE_BLANKS,
-          title: 'Reading Fill in Blanks',
-          icon: Search,
-          description: 'Choose words from dropdown menus',
-          duration: '1-2 minutes',
-        },
-        {
-          type: PteQuestionTypeName.MULTIPLE_CHOICE_SINGLE_ANSWER_READING,
-          title: 'Multiple Choice (Single)',
-          icon: MousePointer,
-          description: 'Select one correct answer',
-          duration: '1 minute',
-        },
-      ],
-    },
-    {
-      id: 'listening',
-      title: 'Listening',
-      icon: Headphones,
-      color: 'purple',
-      description: 'Improve listening skills and comprehension',
-      types: [
-        {
-          type: PteQuestionTypeName.SUMMARIZE_SPOKEN_TEXT,
-          title: 'Summarize Spoken Text',
-          icon: FileText,
-          description: 'Listen and write summaries',
-          duration: '10 minutes',
-        },
-        {
-          type: PteQuestionTypeName.MULTIPLE_CHOICE_MULTIPLE_ANSWERS_LISTENING,
-          title: 'Multiple Choice (Multiple)',
-          icon: CheckSquare,
-          description: 'Select multiple correct answers',
-          duration: '1-2 minutes',
-        },
-        {
-          type: PteQuestionTypeName.LISTENING_FILL_IN_THE_BLANKS,
-          title: 'Listening Fill in Blanks',
-          icon: Type,
-          description: 'Type missing words while listening',
-          duration: '1-2 minutes',
-        },
-        {
-          type: PteQuestionTypeName.HIGHLIGHT_CORRECT_SUMMARY,
-          title: 'Highlight Correct Summary',
-          icon: Search,
-          description: 'Choose the best summary',
-          duration: '1 minute',
-        },
-        {
-          type: PteQuestionTypeName.MULTIPLE_CHOICE_SINGLE_ANSWER_LISTENING,
-          title: 'Multiple Choice (Single)',
-          icon: MousePointer,
-          description: 'Select one correct answer',
-          duration: '1 minute',
-        },
-        {
-          type: PteQuestionTypeName.SELECT_MISSING_WORD,
-          title: 'Select Missing Word',
-          icon: Volume2,
-          description: 'Choose the missing word',
-          duration: '30 seconds',
-        },
-        {
-          type: PteQuestionTypeName.HIGHLIGHT_INCORRECT_WORDS,
-          title: 'Highlight Incorrect Words',
-          icon: Search,
-          description: 'Click on incorrect words',
-          duration: '1-2 minutes',
-        },
-        {
-          type: PteQuestionTypeName.WRITE_FROM_DICTATION,
-          title: 'Write from Dictation',
-          icon: Type,
-          description: 'Type sentences you hear',
-          duration: '1-2 minutes',
-        },
-      ],
-    },
+    // Transform API data to match the expected structure
+    ...Object.entries(questionTypes).map(
+      ([sectionName, sectionData]: [string, any]) => {
+        const getSectionIcon = (name: string) => {
+          if (name.includes('Speaking')) return Mic;
+          if (name.includes('Writing')) return PenTool;
+          if (name.includes('Reading')) return Eye;
+          if (name.includes('Listening')) return Headphones;
+          return BookOpen;
+        };
+
+        const getSectionColor = (name: string) => {
+          if (name.includes('Speaking')) return 'red';
+          if (name.includes('Writing')) return 'blue';
+          if (name.includes('Reading')) return 'green';
+          if (name.includes('Listening')) return 'purple';
+          return 'gray';
+        };
+
+        const getQuestionTypeIcon = (typeName: string) => {
+          const iconMap: { [key: string]: any } = {
+            READ_aloud: BookOpen,
+            repeat_sentence: Volume2,
+            describe_image: Eye,
+            re_tell_lecture: MessageSquare,
+            answer_short_question: MessageSquare,
+            summarize_written_text: FileText,
+            write_essay: Edit3,
+            reading_writing_fill_in_the_blanks: Edit3,
+            multiple_choice_multiple_answers_reading: CheckSquare,
+            re_order_paragraphs: RotateCcw,
+            reading_fill_in_the_blanks: Search,
+            multiple_choice_single_answer_reading: MousePointer,
+            summarize_spoken_text: FileText,
+            multiple_choice_multiple_answers_listening: CheckSquare,
+            listening_fill_in_the_blanks: Type,
+            highlight_correct_summary: Search,
+            multiple_choice_single_answer_listening: MousePointer,
+            select_missing_word: Volume2,
+            highlight_incorrect_words: Search,
+            write_from_dictation: Type,
+          };
+          return iconMap[typeName.toLowerCase()] || FileText;
+        };
+
+        const formatDuration = (expectedTime?: number) => {
+          if (!expectedTime) return 'Variable';
+          if (expectedTime < 60) return `${expectedTime} seconds`;
+          return `${Math.floor(expectedTime / 60)} minutes`;
+        };
+
+        return {
+          id: sectionName.toLowerCase().replace(/\s+/g, '-'),
+          title: sectionName,
+          icon: getSectionIcon(sectionName),
+          color: getSectionColor(sectionName),
+          description:
+            sectionData.section.description ||
+            `Practice ${sectionName.toLowerCase()} tasks`,
+          types: sectionData.questionTypes.map((qt: QuestionTypeInfo) => ({
+            type: qt.name as PteQuestionTypeName,
+            title: qt.name
+              .split('_')
+              .map(
+                (word: string) =>
+                  word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+              )
+              .join(' '),
+            icon: getQuestionTypeIcon(qt.name),
+            description:
+              qt.description ||
+              `Practice ${qt.name.toLowerCase().replace(/_/g, ' ')} questions`,
+            duration: formatDuration(qt.expectedTimePerQuestion),
+            questionCount: qt.questionCount,
+          })),
+        };
+      }
+    ),
   ];
 
   const getColorClasses = (
@@ -356,6 +311,11 @@ const QuestionTypeSelector: React.FC<QuestionTypeSelectorProps> = ({
                               )} rounded-md text-xs font-medium`}
                             >
                               {questionType.duration}
+                              {questionType.questionCount !== undefined && (
+                                <div className='text-xs text-gray-500 dark:text-gray-400'>
+                                  {questionType.questionCount} questions
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>

@@ -19,7 +19,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import QuestionTypeSelector from '../components/QuestionTypeSelector';
 import { mockTests, pteSections } from '../data/mockPte';
-import { getQuestionsByType } from '../data/mockPteQuestions';
+import { getPracticeQuestions } from '../services/portal';
 import { PteQuestionTypeName } from '../types/pte';
 import PracticeQuestion from '../components/PracticeQuestions';
 
@@ -33,14 +33,35 @@ const Portal: React.FC = () => {
     React.useState<PteQuestionTypeName | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = React.useState(0);
   const [practiceQuestions, setPracticeQuestions] = React.useState<any[]>([]);
+  const [isLoadingQuestions, setIsLoadingQuestions] = React.useState(false);
+  const [questionError, setQuestionError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (selectedQuestionType) {
-      const questions = getQuestionsByType(selectedQuestionType);
-      setPracticeQuestions(questions);
-      setCurrentQuestionIndex(0);
+      fetchPracticeQuestions();
     }
   }, [selectedQuestionType]);
+
+  const fetchPracticeQuestions = async () => {
+    if (!selectedQuestionType) return;
+
+    try {
+      setIsLoadingQuestions(true);
+      setQuestionError(null);
+      const response = await getPracticeQuestions(selectedQuestionType, {
+        limit: 10,
+        random: true,
+      });
+      setPracticeQuestions(response.questions);
+      setCurrentQuestionIndex(0);
+    } catch (error: any) {
+      console.error('Error fetching practice questions:', error);
+      setQuestionError('Failed to load practice questions');
+      setPracticeQuestions([]);
+    } finally {
+      setIsLoadingQuestions(false);
+    }
+  };
 
   const handleQuestionComplete = (response: any) => {
     console.log('Question completed:', response);
@@ -69,6 +90,51 @@ const Portal: React.FC = () => {
           );
         }
 
+        if (isLoadingQuestions) {
+          return (
+            <div className='text-center py-12'>
+              <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4'></div>
+              <h3 className='text-xl font-semibold text-gray-900 dark:text-white mb-2'>
+                Loading Questions
+              </h3>
+              <p className='text-gray-600 dark:text-gray-300'>
+                Fetching practice questions for{' '}
+                {selectedQuestionType?.replace(/_/g, ' ').toLowerCase()}...
+              </p>
+            </div>
+          );
+        }
+
+        if (questionError) {
+          return (
+            <div className='text-center py-12'>
+              <div className='text-red-400 dark:text-red-500 mb-4'>
+                <BookOpen className='h-16 w-16 mx-auto' />
+              </div>
+              <h3 className='text-xl font-semibold text-gray-900 dark:text-white mb-2'>
+                Error Loading Questions
+              </h3>
+              <p className='text-gray-600 dark:text-gray-300 mb-6'>
+                {questionError}
+              </p>
+              <div className='space-x-4'>
+                <button
+                  onClick={fetchPracticeQuestions}
+                  className='bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200'
+                >
+                  Try Again
+                </button>
+                <button
+                  onClick={() => setSelectedQuestionType(null)}
+                  className='border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 px-6 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200'
+                >
+                  Back to Question Types
+                </button>
+              </div>
+            </div>
+          );
+        }
+
         if (practiceQuestions.length === 0) {
           return (
             <div className='text-center py-12'>
@@ -79,14 +145,22 @@ const Portal: React.FC = () => {
                 No questions available
               </h3>
               <p className='text-gray-600 dark:text-gray-300 mb-6'>
-                Questions for this type are being prepared.
+                No practice questions are available for this question type yet.
               </p>
-              <button
-                onClick={() => setSelectedQuestionType(null)}
-                className='bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200'
-              >
-                Back to Question Types
-              </button>
+              <div className='space-x-4'>
+                <button
+                  onClick={fetchPracticeQuestions}
+                  className='bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200'
+                >
+                  Refresh
+                </button>
+                <button
+                  onClick={() => setSelectedQuestionType(null)}
+                  className='border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 px-6 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200'
+                >
+                  Back to Question Types
+                </button>
+              </div>
             </div>
           );
         }

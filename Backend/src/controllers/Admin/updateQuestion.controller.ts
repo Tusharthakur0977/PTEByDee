@@ -114,12 +114,12 @@ export const updateQuestion = asyncHandler(
               pteSection: true,
             },
           },
-          test: {
-            select: {
-              id: true,
-              title: true,
-            },
-          },
+          // test: {
+          //   select: {
+          //     id: true,
+          //     title: true,
+          //   },
+          // },
           _count: {
             select: {
               UserResponse: true,
