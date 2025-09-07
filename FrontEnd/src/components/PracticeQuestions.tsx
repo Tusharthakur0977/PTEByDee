@@ -65,32 +65,7 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleSubmit = () => {
-    setIsCompleted(true);
-
-    return;
-    // Calculate score and correctness
-    const { isCorrect, score } = calculateQuestionScore(
-      question.type,
-      response,
-      question.content.correctAnswers ||
-        question.content.options?.filter((o) => o.isCorrect).map((o) => o.id)
-    );
-
-    // Submit to backend
-    submitPracticeResponse({
-      questionId: question.id,
-      questionType: question.type,
-      response,
-      timeTaken: (question.content.timeLimit || 300) - timeLeft,
-      isCorrect,
-      score,
-    }).catch((error) => {
-      console.error('Failed to submit practice response:', error);
-    });
-
-    onComplete?.({ ...response, isCorrect, score });
-  };
+  const handleSubmit = () => {};
 
   const handleReset = () => {
     setIsCompleted(false);
