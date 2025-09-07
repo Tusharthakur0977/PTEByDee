@@ -1,24 +1,22 @@
-import React, { useState, useEffect } from 'react';
 import {
+  BarChart3,
   Calendar,
-  Clock,
   CheckCircle,
-  XCircle,
-  Filter,
-  Search,
   ChevronLeft,
   ChevronRight,
-  BarChart3,
-  Target,
-  Volume2,
+  Clock,
   FileText,
   Image as ImageIcon,
+  Search,
+  Volume2,
+  XCircle,
 } from 'lucide-react';
-import { getPracticeHistory } from '../services/practice';
+import React, { useEffect, useState } from 'react';
 import type {
   PracticeHistoryFilters,
   PracticeResponse,
 } from '../services/practice';
+import { getPracticeHistory } from '../services/practice';
 import { PteQuestionTypeName } from '../types/pte';
 
 const PracticeHistory: React.FC = () => {
@@ -29,7 +27,7 @@ const PracticeHistory: React.FC = () => {
 
   const [filters, setFilters] = useState<PracticeHistoryFilters>({
     page: 1,
-    limit: 20,
+    limit: 15,
     sortBy: 'createdAt',
     sortOrder: 'desc',
   });
@@ -86,11 +84,11 @@ const PracticeHistory: React.FC = () => {
 
   if (error) {
     return (
-      <div className='text-center py-12'>
+      <div className='text-center py-8'>
         <div className='text-red-500 mb-4'>
-          <XCircle className='h-16 w-16 mx-auto' />
+          <XCircle className='h-12 w-12 mx-auto' />
         </div>
-        <h3 className='text-xl font-semibold text-gray-900 dark:text-white mb-2'>
+        <h3 className='text-lg font-semibold text-gray-900 dark:text-white mb-2'>
           Error Loading History
         </h3>
         <p className='text-gray-600 dark:text-gray-300 mb-6'>{error}</p>
@@ -106,25 +104,25 @@ const PracticeHistory: React.FC = () => {
 
   return (
     <div className='space-y-6'>
-      {/* Header */}
+      {/* Compact Header */}
       <div className='text-center'>
-        <h2 className='text-2xl font-bold text-gray-900 dark:text-white mb-2'>
+        <h2 className='text-xl font-bold text-gray-900 dark:text-white mb-2'>
           Practice History
         </h2>
-        <p className='text-gray-600 dark:text-gray-300'>
-          Review your practice sessions and track your progress
+        <p className='text-sm text-gray-600 dark:text-gray-300'>
+          Review your practice sessions and track progress
         </p>
       </div>
 
-      {/* Filters */}
-      <div className='bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6'>
-        <div className='grid grid-cols-1 md:grid-cols-4 gap-4'>
+      {/* Compact Filters */}
+      <div className='bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4'>
+        <div className='grid grid-cols-1 md:grid-cols-4 gap-3'>
           <div className='relative'>
-            <Search className='absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5' />
+            <Search className='absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4' />
             <input
               type='text'
-              placeholder='Search questions...'
-              className='w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+              placeholder='Search...'
+              className='w-full pl-9 pr-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
             />
           </div>
 
@@ -133,9 +131,9 @@ const PracticeHistory: React.FC = () => {
             onChange={(e) =>
               handleFilterChange('questionType', e.target.value || undefined)
             }
-            className='w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+            className='w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
           >
-            <option value=''>All Question Types</option>
+            <option value=''>All Types</option>
             {Object.values(PteQuestionTypeName).map((type) => (
               <option
                 key={type}
@@ -158,7 +156,7 @@ const PracticeHistory: React.FC = () => {
             onChange={(e) =>
               handleFilterChange('dateFrom', e.target.value || undefined)
             }
-            className='w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+            className='w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
           />
 
           <select
@@ -168,7 +166,7 @@ const PracticeHistory: React.FC = () => {
               handleFilterChange('sortBy', sortBy);
               handleFilterChange('sortOrder', sortOrder as 'asc' | 'desc');
             }}
-            className='w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+            className='w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
           >
             <option value='createdAt-desc'>Newest First</option>
             <option value='createdAt-asc'>Oldest First</option>
@@ -181,23 +179,23 @@ const PracticeHistory: React.FC = () => {
       </div>
 
       {/* History List */}
-      <div className='bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden'>
-        <div className='p-6 border-b dark:border-gray-700'>
-          <h3 className='text-lg font-semibold text-gray-900 dark:text-white'>
+      <div className='bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden'>
+        <div className='p-4 border-b dark:border-gray-700'>
+          <h3 className='font-semibold text-gray-900 dark:text-white'>
             Practice Responses ({pagination?.totalResponses || 0})
           </h3>
         </div>
 
         {isLoading ? (
           <div className='p-8 text-center'>
-            <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4'></div>
+            <div className='animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-4'></div>
             <p className='text-gray-600 dark:text-gray-300'>
               Loading history...
             </p>
           </div>
         ) : responses.length === 0 ? (
           <div className='p-8 text-center'>
-            <BarChart3 className='h-16 w-16 text-gray-300 dark:text-gray-600 mx-auto mb-4' />
+            <BarChart3 className='h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-4' />
             <h3 className='text-lg font-semibold text-gray-900 dark:text-white mb-2'>
               No Practice History
             </h3>
@@ -215,10 +213,10 @@ const PracticeHistory: React.FC = () => {
                 return (
                   <div
                     key={response.id}
-                    className='p-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200'
+                    className='p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200'
                   >
                     <div className='flex items-start justify-between'>
-                      <div className='flex items-start space-x-4'>
+                      <div className='flex items-start space-x-3'>
                         <div
                           className={`p-2 rounded-lg ${
                             response.isCorrect
@@ -227,7 +225,7 @@ const PracticeHistory: React.FC = () => {
                           }`}
                         >
                           <IconComponent
-                            className={`h-5 w-5 ${
+                            className={`h-4 w-4 ${
                               response.isCorrect
                                 ? 'text-green-600 dark:text-green-400'
                                 : 'text-red-600 dark:text-red-400'
@@ -235,25 +233,22 @@ const PracticeHistory: React.FC = () => {
                           />
                         </div>
                         <div className='flex-1'>
-                          <div className='flex items-center space-x-3 mb-2'>
-                            <h4 className='font-medium text-gray-900 dark:text-white'>
+                          <div className='flex items-center space-x-2 mb-1'>
+                            <h4 className='font-medium text-gray-900 dark:text-white text-sm'>
                               {response.questionCode}
                             </h4>
                             <span className='px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs font-medium rounded-full'>
                               {response.questionTypeName}
                             </span>
-                            <span className='px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs rounded-full'>
-                              {response.sectionName}
-                            </span>
                           </div>
 
                           {response.questionPreview.textContent && (
-                            <p className='text-sm text-gray-600 dark:text-gray-400 mb-2'>
+                            <p className='text-xs text-gray-600 dark:text-gray-400 mb-2 line-clamp-1'>
                               {response.questionPreview.textContent}
                             </p>
                           )}
 
-                          <div className='flex items-center space-x-4 text-xs text-gray-500 dark:text-gray-400'>
+                          <div className='flex items-center space-x-3 text-xs text-gray-500 dark:text-gray-400'>
                             <div className='flex items-center space-x-1'>
                               <Clock className='h-3 w-3' />
                               <span>
@@ -285,14 +280,14 @@ const PracticeHistory: React.FC = () => {
                       </div>
 
                       <div className='text-right'>
-                        <div className='flex items-center space-x-2 mb-2'>
+                        <div className='flex items-center space-x-2 mb-1'>
                           {response.isCorrect ? (
-                            <CheckCircle className='h-5 w-5 text-green-600 dark:text-green-400' />
+                            <CheckCircle className='h-4 w-4 text-green-600 dark:text-green-400' />
                           ) : (
-                            <XCircle className='h-5 w-5 text-red-600 dark:text-red-400' />
+                            <XCircle className='h-4 w-4 text-red-600 dark:text-red-400' />
                           )}
                           <span
-                            className={`font-semibold ${getScoreColor(
+                            className={`font-semibold text-sm ${getScoreColor(
                               response.score
                             )}`}
                           >
@@ -309,18 +304,17 @@ const PracticeHistory: React.FC = () => {
               })}
             </div>
 
-            {/* Pagination */}
+            {/* Compact Pagination */}
             {pagination && pagination.totalPages > 1 && (
-              <div className='px-6 py-4 border-t dark:border-gray-700'>
+              <div className='px-4 py-3 border-t dark:border-gray-700'>
                 <div className='flex items-center justify-between'>
                   <div className='text-sm text-gray-700 dark:text-gray-300'>
-                    Showing{' '}
-                    {(pagination.currentPage - 1) * pagination.limit + 1} to{' '}
+                    {(pagination.currentPage - 1) * pagination.limit + 1}-
                     {Math.min(
                       pagination.currentPage * pagination.limit,
                       pagination.totalResponses
                     )}{' '}
-                    of {pagination.totalResponses} responses
+                    of {pagination.totalResponses}
                   </div>
                   <div className='flex items-center space-x-2'>
                     <button
@@ -332,8 +326,8 @@ const PracticeHistory: React.FC = () => {
                     >
                       <ChevronLeft className='h-4 w-4' />
                     </button>
-                    <span className='px-4 py-2 text-gray-600 dark:text-gray-300'>
-                      Page {pagination.currentPage} of {pagination.totalPages}
+                    <span className='px-3 py-1 text-sm text-gray-600 dark:text-gray-300'>
+                      {pagination.currentPage} / {pagination.totalPages}
                     </span>
                     <button
                       onClick={() =>

@@ -1,30 +1,22 @@
 import {
-  ArrowLeft,
   ArrowRight,
   BarChart3,
   BookOpen,
   CheckCircle,
   Clock,
-  Eye,
-  Headphones,
-  Mic,
   Play,
-  Star,
-  Target,
-  Trophy,
-  Users,
   Zap,
 } from 'lucide-react';
 import React from 'react';
 import { Link } from 'react-router-dom';
+import PracticeHistory from '../components/PracticeHistory';
+import PracticeQuestion from '../components/PracticeQuestions';
+import PracticeStatsOverview from '../components/PracticeStatsOverview';
 import QuestionTypeSelector from '../components/QuestionTypeSelector';
-import { mockTests, pteSections } from '../data/mockPte';
+import { mockTests } from '../data/mockPte';
 import { getPracticeQuestions } from '../services/portal';
 import { getPracticeStats } from '../services/practice';
 import { PteQuestionTypeName } from '../types/pte';
-import PracticeQuestion from '../components/PracticeQuestions';
-import PracticeHistory from '../components/PracticeHistory';
-import PracticeStatsOverview from '../components/PracticeStatsOverview';
 
 const Portal: React.FC = () => {
   const freeTests = mockTests.filter((test) => test.isFree);
@@ -118,9 +110,9 @@ const Portal: React.FC = () => {
 
         if (isLoadingQuestions) {
           return (
-            <div className='text-center py-12'>
-              <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4'></div>
-              <h3 className='text-xl font-semibold text-gray-900 dark:text-white mb-2'>
+            <div className='text-center py-8'>
+              <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4'></div>
+              <h3 className='text-lg font-semibold text-gray-900 dark:text-white mb-2'>
                 Loading Questions
               </h3>
               <p className='text-gray-600 dark:text-gray-300'>
@@ -133,11 +125,11 @@ const Portal: React.FC = () => {
 
         if (questionError) {
           return (
-            <div className='text-center py-12'>
+            <div className='text-center py-8'>
               <div className='text-red-400 dark:text-red-500 mb-4'>
-                <BookOpen className='h-16 w-16 mx-auto' />
+                <BookOpen className='h-12 w-12 mx-auto' />
               </div>
-              <h3 className='text-xl font-semibold text-gray-900 dark:text-white mb-2'>
+              <h3 className='text-lg font-semibold text-gray-900 dark:text-white mb-2'>
                 Error Loading Questions
               </h3>
               <p className='text-gray-600 dark:text-gray-300 mb-6'>
@@ -163,11 +155,11 @@ const Portal: React.FC = () => {
 
         if (practiceQuestions.length === 0) {
           return (
-            <div className='text-center py-12'>
+            <div className='text-center py-8'>
               <div className='text-gray-400 dark:text-gray-500 mb-4'>
-                <BookOpen className='h-16 w-16 mx-auto' />
+                <BookOpen className='h-12 w-12 mx-auto' />
               </div>
-              <h3 className='text-xl font-semibold text-gray-900 dark:text-white mb-2'>
+              <h3 className='text-lg font-semibold text-gray-900 dark:text-white mb-2'>
                 No questions available
               </h3>
               <p className='text-gray-600 dark:text-gray-300 mb-6'>
@@ -193,16 +185,16 @@ const Portal: React.FC = () => {
 
         const currentQuestion = practiceQuestions[currentQuestionIndex];
         return (
-          <div className='space-y-6'>
-            <div className='flex items-center justify-between'>
+          <div className='space-y-4'>
+            <div className='flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm'>
               <button
                 onClick={() => setSelectedQuestionType(null)}
-                className='flex items-center space-x-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300'
+                className='flex items-center space-x-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium'
               >
-                <ArrowLeft className='h-4 w-4' />
+                <ArrowRight className='h-4 w-4 rotate-180' />
                 <span>Back to Question Types</span>
               </button>
-              <div className='text-sm text-gray-600 dark:text-gray-300'>
+              <div className='text-sm text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full'>
                 Question {currentQuestionIndex + 1} of{' '}
                 {practiceQuestions.length}
               </div>
@@ -233,231 +225,14 @@ const Portal: React.FC = () => {
     }
   };
 
-  const renderOverviewContent = () => (
-    <>
-      {/* Quick Stats */}
-      <div className='grid grid-cols-1 md:grid-cols-4 gap-6 mb-8'>
-        <div className='bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg'>
-          <div className='flex items-center justify-between'>
-            <div>
-              <p className='text-sm text-gray-600 dark:text-gray-400'>
-                Tests Completed
-              </p>
-              <p className='text-2xl font-bold text-gray-900 dark:text-white'>
-                12
-              </p>
-            </div>
-            <div className='bg-blue-100 dark:bg-blue-900/30 p-3 rounded-full'>
-              <Trophy className='h-6 w-6 text-blue-600 dark:text-blue-400' />
-            </div>
-          </div>
-        </div>
-
-        <div className='bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg'>
-          <div className='flex items-center justify-between'>
-            <div>
-              <p className='text-sm text-gray-600 dark:text-gray-400'>
-                Best Score
-              </p>
-              <p className='text-2xl font-bold text-gray-900 dark:text-white'>
-                85
-              </p>
-            </div>
-            <div className='bg-green-100 dark:bg-green-900/30 p-3 rounded-full'>
-              <Target className='h-6 w-6 text-green-600 dark:text-green-400' />
-            </div>
-          </div>
-        </div>
-
-        <div className='bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg'>
-          <div className='flex items-center justify-between'>
-            <div>
-              <p className='text-sm text-gray-600 dark:text-gray-400'>
-                Study Hours
-              </p>
-              <p className='text-2xl font-bold text-gray-900 dark:text-white'>
-                48
-              </p>
-            </div>
-            <div className='bg-purple-100 dark:bg-purple-900/30 p-3 rounded-full'>
-              <Clock className='h-6 w-6 text-purple-600 dark:text-purple-400' />
-            </div>
-          </div>
-        </div>
-
-        <div className='bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg'>
-          <div className='flex items-center justify-between'>
-            <div>
-              <p className='text-sm text-gray-600 dark:text-gray-400'>
-                Avg. Score
-              </p>
-              <p className='text-2xl font-bold text-gray-900 dark:text-white'>
-                78
-              </p>
-            </div>
-            <div className='bg-orange-100 dark:bg-orange-900/30 p-3 rounded-full'>
-              <BarChart3 className='h-6 w-6 text-orange-600 dark:text-orange-400' />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Test Sections Overview */}
-      <div className='mb-8'>
-        <h2 className='text-2xl font-bold text-gray-900 dark:text-white mb-6'>
-          Test Sections
-        </h2>
-        <div className='grid grid-cols-1 md:grid-cols-3 gap-6'>
-          {pteSections.map((section, index) => (
-            <div
-              key={section.id}
-              className='bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6'
-            >
-              <div className='flex items-center justify-between mb-4'>
-                <div
-                  className={`p-3 rounded-full ${
-                    index === 0
-                      ? 'bg-red-100 dark:bg-red-900/30'
-                      : index === 1
-                      ? 'bg-blue-100 dark:bg-blue-900/30'
-                      : 'bg-green-100 dark:bg-green-900/30'
-                  }`}
-                >
-                  {index === 0 ? (
-                    <Mic className={`h-6 w-6 text-red-600 dark:text-red-400`} />
-                  ) : index === 1 ? (
-                    <Eye
-                      className={`h-6 w-6 text-blue-600 dark:text-blue-400`}
-                    />
-                  ) : (
-                    <Headphones
-                      className={`h-6 w-6 text-green-600 dark:text-green-400`}
-                    />
-                  )}
-                </div>
-                <span className='text-sm text-gray-500 dark:text-gray-400'>
-                  {section.durationMinutes} min
-                </span>
-              </div>
-              <h3 className='text-lg font-semibold text-gray-900 dark:text-white mb-2'>
-                {section.name}
-              </h3>
-              <p className='text-gray-600 dark:text-gray-300 text-sm mb-4'>
-                {section.description}
-              </p>
-              <button
-                onClick={() => setActiveTab('practice')}
-                className='inline-flex items-center space-x-1 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium'
-              >
-                <span>Practice Section</span>
-                <ArrowRight className='h-4 w-4' />
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Recent Activity */}
-      <div className='mt-8'>
-        <h2 className='text-2xl font-bold text-gray-900 dark:text-white mb-6'>
-          Recent Test Activity
-        </h2>
-        <div className='bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6'>
-          <div className='space-y-4'>
-            <div className='flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg'>
-              <div className='flex items-center space-x-3'>
-                <div className='bg-green-100 dark:bg-green-900/30 p-2 rounded-full'>
-                  <CheckCircle className='h-5 w-5 text-green-600 dark:text-green-400' />
-                </div>
-                <div>
-                  <p className='font-medium text-gray-900 dark:text-white'>
-                    PTE Academic Mock Test 1
-                  </p>
-                  <p className='text-sm text-gray-500 dark:text-gray-400'>
-                    Completed • Score: 82/90
-                  </p>
-                </div>
-              </div>
-              <div className='text-right'>
-                <p className='text-sm text-gray-500 dark:text-gray-400'>
-                  2 hours ago
-                </p>
-                <Link
-                  to='/portal/test/test-1/results'
-                  className='text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300'
-                >
-                  View Results
-                </Link>
-              </div>
-            </div>
-
-            <div className='flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg'>
-              <div className='flex items-center space-x-3'>
-                <div className='bg-blue-100 dark:bg-blue-900/30 p-2 rounded-full'>
-                  <Play className='h-5 w-5 text-blue-600 dark:text-blue-400' />
-                </div>
-                <div>
-                  <p className='font-medium text-gray-900 dark:text-white'>
-                    Speaking Practice Session
-                  </p>
-                  <p className='text-sm text-gray-500 dark:text-gray-400'>
-                    In Progress • 15 min remaining
-                  </p>
-                </div>
-              </div>
-              <div className='text-right'>
-                <p className='text-sm text-gray-500 dark:text-gray-400'>
-                  1 day ago
-                </p>
-                <button
-                  onClick={() => setActiveTab('practice')}
-                  className='text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300'
-                >
-                  Continue
-                </button>
-              </div>
-            </div>
-
-            <div className='flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg'>
-              <div className='flex items-center space-x-3'>
-                <div className='bg-purple-100 dark:bg-purple-900/30 p-2 rounded-full'>
-                  <BarChart3 className='h-5 w-5 text-purple-600 dark:text-purple-400' />
-                </div>
-                <div>
-                  <p className='font-medium text-gray-900 dark:text-white'>
-                    Performance Analysis
-                  </p>
-                  <p className='text-sm text-gray-500 dark:text-gray-400'>
-                    Generated • Reading: 85, Listening: 78
-                  </p>
-                </div>
-              </div>
-              <div className='text-right'>
-                <p className='text-sm text-gray-500 dark:text-gray-400'>
-                  3 days ago
-                </p>
-                <Link
-                  to='/portal/analytics'
-                  className='text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300'
-                >
-                  View Analysis
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </>
-  );
-
   const renderTestsContent = () => (
-    <>
+    <div className='space-y-6'>
       {/* Available Tests */}
-      <div className='grid grid-cols-1 lg:grid-cols-2 gap-8'>
+      <div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
         {/* Free Tests */}
-        <div>
+        <div className='bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6'>
           <div className='flex items-center justify-between mb-6'>
-            <h2 className='text-2xl font-bold text-gray-900 dark:text-white'>
+            <h2 className='text-xl font-bold text-gray-900 dark:text-white'>
               Free Practice Tests
             </h2>
             <span className='bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 px-3 py-1 rounded-full text-sm font-medium'>
@@ -468,11 +243,11 @@ const Portal: React.FC = () => {
             {freeTests.map((test) => (
               <div
                 key={test.id}
-                className='bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6'
+                className='border dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow duration-200'
               >
-                <div className='flex items-start justify-between mb-4'>
+                <div className='flex items-start justify-between mb-3'>
                   <div className='flex-1'>
-                    <h3 className='text-lg font-semibold text-gray-900 dark:text-white mb-2'>
+                    <h3 className='font-semibold text-gray-900 dark:text-white mb-2'>
                       {test.title}
                     </h3>
                     <p className='text-gray-600 dark:text-gray-300 text-sm mb-3'>
@@ -487,38 +262,23 @@ const Portal: React.FC = () => {
                         <BookOpen className='h-4 w-4' />
                         <span>{test.questions.length} questions</span>
                       </div>
-                      <div className='flex items-center space-x-1'>
-                        <Users className='h-4 w-4' />
-                        <span>2,847 taken</span>
-                      </div>
                     </div>
                   </div>
                 </div>
-                <div className='flex items-center justify-between'>
-                  <div className='flex items-center space-x-1'>
-                    <Star className='h-4 w-4 fill-current text-yellow-400' />
-                    <span className='text-sm font-medium text-gray-900 dark:text-white'>
-                      4.8
-                    </span>
-                    <span className='text-sm text-gray-500 dark:text-gray-400'>
-                      (1,234 reviews)
-                    </span>
-                  </div>
-                  <div className='flex space-x-2'>
-                    <Link
-                      to={`/portal/test/${test.id}/instructions`}
-                      className='bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 flex items-center space-x-1'
-                    >
-                      <Play className='h-4 w-4' />
-                      <span>Start Test</span>
-                    </Link>
-                    <Link
-                      to={`/portal/test/${test.id}/results`}
-                      className='border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200'
-                    >
-                      View Results
-                    </Link>
-                  </div>
+                <div className='flex space-x-2'>
+                  <Link
+                    to={`/portal/test/${test.id}/instructions`}
+                    className='bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center space-x-1'
+                  >
+                    <Play className='h-4 w-4' />
+                    <span>Start Test</span>
+                  </Link>
+                  <Link
+                    to={`/portal/test/${test.id}/results`}
+                    className='border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200'
+                  >
+                    View Results
+                  </Link>
                 </div>
               </div>
             ))}
@@ -526,9 +286,9 @@ const Portal: React.FC = () => {
         </div>
 
         {/* Premium Tests */}
-        <div>
+        <div className='bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6'>
           <div className='flex items-center justify-between mb-6'>
-            <h2 className='text-2xl font-bold text-gray-900 dark:text-white'>
+            <h2 className='text-xl font-bold text-gray-900 dark:text-white'>
               Premium Tests
             </h2>
             <span className='bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 px-3 py-1 rounded-full text-sm font-medium'>
@@ -539,13 +299,13 @@ const Portal: React.FC = () => {
             {premiumTests.map((test) => (
               <div
                 key={test.id}
-                className='bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 relative overflow-hidden'
+                className='border dark:border-gray-700 rounded-lg p-4 relative overflow-hidden'
               >
                 <div className='absolute top-0 right-0 bg-gradient-to-l from-purple-600 to-transparent w-32 h-full opacity-10'></div>
                 <div className='relative'>
-                  <div className='flex items-start justify-between mb-4'>
+                  <div className='flex items-start justify-between mb-3'>
                     <div className='flex-1'>
-                      <h3 className='text-lg font-semibold text-gray-900 dark:text-white mb-2'>
+                      <h3 className='font-semibold text-gray-900 dark:text-white mb-2'>
                         {test.title}
                       </h3>
                       <p className='text-gray-600 dark:text-gray-300 text-sm mb-3'>
@@ -570,74 +330,68 @@ const Portal: React.FC = () => {
                         Premium Features
                       </span>
                     </div>
-                    <div className='flex space-x-2'>
-                      <button className='bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200'>
-                        Upgrade to Access
-                      </button>
-                    </div>
+                    <button className='bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200'>
+                      Upgrade to Access
+                    </button>
                   </div>
                 </div>
               </div>
             ))}
 
             {/* Upgrade Card */}
-            <div className='bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl p-6'>
-              <h3 className='text-lg font-semibold mb-2'>
-                Unlock Premium Tests
-              </h3>
-              <p className='text-purple-100 text-sm mb-4'>
+            <div className='bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg p-4'>
+              <h3 className='font-semibold mb-2'>Unlock Premium Tests</h3>
+              <p className='text-purple-100 text-sm mb-3'>
                 Get access to advanced practice tests, detailed analytics, and
                 personalized feedback.
               </p>
-              <ul className='space-y-2 text-sm text-purple-100 mb-4'>
+              <ul className='space-y-1 text-sm text-purple-100 mb-3'>
                 <li className='flex items-center space-x-2'>
-                  <CheckCircle className='h-4 w-4' />
+                  <CheckCircle className='h-3 w-3' />
                   <span>20+ Premium Practice Tests</span>
                 </li>
                 <li className='flex items-center space-x-2'>
-                  <CheckCircle className='h-4 w-4' />
+                  <CheckCircle className='h-3 w-3' />
                   <span>Detailed Performance Analytics</span>
                 </li>
                 <li className='flex items-center space-x-2'>
-                  <CheckCircle className='h-4 w-4' />
+                  <CheckCircle className='h-3 w-3' />
                   <span>AI-Powered Feedback</span>
                 </li>
               </ul>
-              <button className='bg-white text-purple-600 px-4 py-2 rounded-md text-sm font-medium hover:bg-purple-50 transition-colors duration-200'>
+              <button className='bg-white text-purple-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-50 transition-colors duration-200'>
                 Upgrade Now
               </button>
             </div>
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 
   return (
     <div className='min-h-screen bg-gray-50 dark:bg-gray-900'>
-      {/* Header */}
-      <div className='bg-gradient-to-r from-blue-600 to-purple-600 text-white py-12'>
+      {/* Compact Header */}
+      <div className='bg-gradient-to-r from-blue-600 to-purple-600 text-white py-8'>
         <div className='container mx-auto px-4'>
           <div className='text-center'>
-            <h1 className='text-4xl font-bold mb-4'>
-              PTE Academic Test Portal
-            </h1>
-            <p className='text-xl text-blue-100 max-w-2xl mx-auto'>
-              Experience real PTE Academic test conditions with our
-              comprehensive simulation platform
+            <h1 className='text-2xl font-bold mb-2'>PTE Practice Portal</h1>
+            <p className='text-blue-100 max-w-2xl mx-auto'>
+              Practice with real PTE Academic questions and get instant AI
+              feedback
             </p>
           </div>
         </div>
       </div>
 
-      <div className='container mx-auto px-4 py-8'>
-        {/* Navigation Tabs */}
-        <div className='flex space-x-1 bg-gray-200 dark:bg-gray-700 p-1 rounded-lg mb-8 max-w-xl mx-auto'>
+      <div className='container mx-auto px-4 py-6'>
+        {/* Compact Navigation Tabs */}
+        <div className='flex space-x-1 bg-white dark:bg-gray-800 p-1 rounded-lg mb-6 shadow-sm max-w-2xl mx-auto'>
           <button
             onClick={() => setActiveTab('practice')}
-            className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200 ${
+            className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-md text-sm font-medium transition-colors duration-200 ${
               activeTab === 'practice'
-                ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                ? 'bg-blue-600 text-white shadow-sm'
                 : 'text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100'
             }`}
           >
@@ -646,33 +400,31 @@ const Portal: React.FC = () => {
           </button>
           <button
             onClick={() => setActiveTab('overview')}
-            className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200 ${
+            className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-md text-sm font-medium transition-colors duration-200 ${
               activeTab === 'overview'
-                ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                ? 'bg-blue-600 text-white shadow-sm'
                 : 'text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100'
             }`}
           >
             <BarChart3 className='h-4 w-4' />
             <span>Overview</span>
           </button>
-
           <button
             onClick={() => setActiveTab('history')}
-            className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200 ${
+            className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-md text-sm font-medium transition-colors duration-200 ${
               activeTab === 'history'
-                ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                ? 'bg-blue-600 text-white shadow-sm'
                 : 'text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100'
             }`}
           >
             <Clock className='h-4 w-4' />
             <span>History</span>
           </button>
-
           <button
             onClick={() => setActiveTab('tests')}
-            className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200 ${
+            className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-md text-sm font-medium transition-colors duration-200 ${
               activeTab === 'tests'
-                ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                ? 'bg-blue-600 text-white shadow-sm'
                 : 'text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100'
             }`}
           >
@@ -682,7 +434,7 @@ const Portal: React.FC = () => {
         </div>
 
         {/* Tab Content */}
-        {renderTabContent()}
+        <div className='max-w-7xl mx-auto'>{renderTabContent()}</div>
       </div>
     </div>
   );

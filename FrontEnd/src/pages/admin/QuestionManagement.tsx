@@ -282,15 +282,15 @@ const QuestionManagement: React.FC = () => {
   return (
     <div className='min-h-screen bg-gray-50 dark:bg-gray-900'>
       {/* Header */}
-      <div className='bg-white dark:bg-gray-800 shadow-sm border-b dark:border-gray-700'>
-        <div className='container mx-auto px-4 py-6'>
+      <div className='bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700'>
+        <div className='container mx-auto px-6 py-6'>
           <div className='flex items-center justify-between'>
             <div>
               <h1 className='text-3xl font-bold text-gray-900 dark:text-white'>
                 Question Management
               </h1>
               <p className='text-gray-600 dark:text-gray-300 mt-1'>
-                Manage PTE practice questions across all sections
+                Create and manage PTE practice questions across all sections
               </p>
             </div>
             <button
@@ -304,7 +304,7 @@ const QuestionManagement: React.FC = () => {
         </div>
       </div>
 
-      <div className='container mx-auto px-4 py-8'>
+      <div className='container mx-auto px-6 py-8'>
         {/* Error Message */}
         {error && (
           <div className='bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg mb-6'>
@@ -451,7 +451,7 @@ const QuestionManagement: React.FC = () => {
                   <button
                     onClick={() => handlePageChange(pagination.currentPage - 1)}
                     disabled={!pagination.hasPrevPage}
-                    className='px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700'
+                    className='px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
                   >
                     Previous
                   </button>
@@ -461,7 +461,7 @@ const QuestionManagement: React.FC = () => {
                   <button
                     onClick={() => handlePageChange(pagination.currentPage + 1)}
                     disabled={!pagination.hasNextPage}
-                    className='px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700'
+                    className='px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
                   >
                     Next
                   </button>

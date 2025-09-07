@@ -1,5 +1,5 @@
-import openai from '../config/openAi';
 import { PteQuestionTypeName } from '@prisma/client';
+import openai from '../config/openAi';
 
 interface QuestionEvaluationResult {
   score: number; // 0-100
@@ -320,48 +320,67 @@ async function evaluateSummarizeWrittenText(
   userResponse: any,
   timeTakenSeconds?: number
 ): Promise<QuestionEvaluationResult> {
-  console.log(userResponse, 'LLLL');
-
   const userText = userResponse.text || '';
   const wordCount = userText
     .split(/\s+/)
     .filter((word: string | any[]) => word.length > 0).length;
 
-  console.log(wordCount, 'MMMM');
-
   const prompt = `
-    Evaluate this PTE Summarize Written Text response:
+    You are an official PTE Academic grader. Your task is to evaluate a user's summary of a provided text, strictly following the PTE Academic scoring rubric. The final score should be on a scale of 10-90.
+
+    **Original Text:**
+    "${question.textContent}"
+
+    **User's Summary:**
+    "${userText}"
+
+    **Word Count:** ${wordCount}
+
+    Evaluate the user's summary based on the following four scoring traits from the official PTE rubric:
+
+    1.  **Content (0-4 points):**
+        -   **4 points:** The summary is comprehensive, accurate, and captures all main ideas. It uses effective paraphrasing to remove extraneous details and synthesizes ideas smoothly.
+        -   **3 points:** The summary is adequate, but may have minor omissions or an unclear synthesis of ideas. Paraphrasing is used but not consistently well.
+        -   **2 points:** The summary is partial, demonstrating basic comprehension. It relies heavily on repeating excerpts from the original text without synthesis.
+        -   **1 point:** The summary is relevant but lacks a meaningful summarization. Ideas are disconnected, and main points are misrepresented or omitted.
+        -   **0 points:** The response is too limited or demonstrates no comprehension.
+
+    2.  **Form (0-1 point):**
+        -   **1 point:** The response is a single, complete sentence. The word count is between 5 and 75 words.
+        -   **0 points:** The response is not a single sentence, or the word count is outside the 5-75 word range, or it is written in all capital letters.
+
+    3.  **Grammar (0-2 points):**
+        -   **2 points:** The response has correct grammatical structure.
+        -   **1 point:** The response contains grammatical errors that do not hinder communication.
+        -   **0 points:** The response has defective grammatical structure that could hinder communication.
+
+    4.  **Vocabulary (0-2 points):**
+        -   **2 points:** The response uses appropriate word choice.
+        -   **1 point:** The response contains lexical errors that do not hinder communication.
+        -   **0 points:** The response has defective word choice that could hinder communication.
     
-    Original Text: "${question.textContent}"
-    User Summary: "${userText}"
-    Word Count: ${wordCount} (Required: ${question.wordCountMin}-${
-    question.wordCountMax
-  } words)
-    Time Taken: ${timeTakenSeconds || 'Not specified'} seconds
-    
-    Evaluate based on:
-    1. Content accuracy - captures main ideas (0-30 points)
-    2. Grammar and vocabulary (0-25 points)
-    3. Word count compliance (0-20 points)
-    4. Coherence and cohesion (0-25 points)
-    
-    Provide detailed feedback on summary quality and adherence to requirements.
-    
-    Format as JSON: {
-      "score": number,
-      "isCorrect": boolean,
-      "feedback": "string",
+    Now, provide your evaluation and final score. Do not include any additional text outside of the JSON object.
+
+    **JSON Format:**
+    {
+      "score": number, // Calculate an overall score (10-90) based on the traits above
+      "isCorrect": boolean, // A simple true/false based on score
+      "feedback": "string", // A concise summary of performance based on the rubric
       "detailedAnalysis": {
-        "contentAccuracy": number,
-        "grammar": number,
-        "wordCount": number,
-        "coherence": number,
+        "contentPoints": number,
+        "formPoints": number,
+        "grammarPoints": number,
+        "vocabularyPoints": number,
         "actualWordCount": number,
-        "wordCountCompliant": boolean
+        "isSingleSentence": boolean
       },
-      "suggestions": ["suggestion1", "suggestion2", "suggestion3"]
+      "suggestions": [
+        "string", // 3-4 actionable tips for improvement
+        "string",
+        "string"
+      ]
     }
-  `;
+`;
 
   try {
     const response = await openai.chat.completions.create({
@@ -398,31 +417,90 @@ async function evaluateWriteEssay(
   userResponse: any,
   timeTakenSeconds?: number
 ): Promise<QuestionEvaluationResult> {
-  const userText = userResponse.textResponse || '';
+  const userText = userResponse.text || '';
   const wordCount = userText
     .split(/\s+/)
     .filter((word: string | any[]) => word.length > 0).length;
 
   const prompt = `
-    Evaluate this PTE Write Essay response:
-    
-    Essay Prompt: "${question.textContent}"
-    User Essay: "${userText}"
-    Word Count: ${wordCount} (Required: ${question.wordCountMin}-${
-    question.wordCountMax
-  } words)
-    Time Taken: ${timeTakenSeconds || 'Not specified'} seconds
-    
-    Evaluate based on:
-    1. Content and ideas development (0-25 points)
-    2. Organization and structure (0-25 points)
-    3. Grammar and vocabulary (0-25 points)
-    4. Word count and task response (0-25 points)
-    
-    Provide comprehensive feedback on essay quality, structure, and language use.
-    
-    Format as JSON with detailed analysis including specific areas for improvement.
-  `;
+    You are an official PTE Academic Writing grader. Your task is to evaluate a user's essay, strictly following the official PTE Academic scoring rubric. The final score should be on a scale of 10-90.
+
+    **Essay Prompt:**
+    "${question.textContent}"
+
+    **User's Essay:**
+    "${userText}"
+
+    **Word Count:** ${wordCount}
+
+    Analyze the user's essay and provide a detailed score report by evaluating each trait and its corresponding score points from the rubric:
+
+    1.  **Content (0-6 points):**
+        -   **6 points:** The essay fully addresses the prompt in depth, with a convincing, well-supported argument using relevant examples.
+        -   **5 points:** Adequately addresses the prompt, with a persuasive argument and relevant ideas. Supporting details are mostly present.
+        -   **4 points:** Addresses the main point, but lacks depth or nuance. Supporting details are inconsistent.
+        -   **3 points:** Relevant to the prompt but does not adequately address main points. Supporting details are often missing or inappropriate.
+        -   **2 points:** Addresses the prompt superficially with generic statements or heavy reliance on the prompt's language.
+        -   **1 point:** Demonstrates an incomplete understanding of the prompt. Ideas are disjointed.
+        -   **0 points:** The essay does not properly deal with the prompt.
+
+    2.  **Form (0-2 points):**
+        -   **2 points:** Length is between 200 and 300 words.
+        -   **1 point:** Length is between 120-199 or 301-380 words.
+        -   **0 points:** Length is less than 120 or more than 380 words, or the essay is improperly formatted (e.g., all caps, no punctuation).
+
+    3.  **Development, Structure and Coherence (0-6 points):**
+        -   **6 points:** Effective logical structure. The argument is clear, cohesive, and developed systematically with a well-developed introduction and conclusion.
+        -   **5 points:** Conventional and appropriate structure. The argument is clear, with logical paragraphs and a clear introduction and conclusion.
+        -   **4 points:** Conventional structure is mostly present but may be difficult to follow. Some elements lack development or links between them are weak.
+        -   **3 points:** Traces of conventional structure are present, but the essay is composed of simple or disconnected ideas.
+        -   **2 points:** Little recognizable structure. Ideas are disorganized and difficult to follow.
+        -   **1 point:** Response consists of disconnected ideas with no hierarchy or coherence.
+        -   **0 points:** No recognizable structure.
+
+    4.  **Grammar (0-2 points):**
+        -   **2 points:** Shows consistent grammatical control of complex language. Errors are rare.
+        -   **1 point:** Shows a relatively high degree of grammatical control. No mistakes that would lead to misunderstandings.
+        -   **0 points:** Contains mainly simple structures or several basic mistakes.
+
+    5.  **General Linguistic Range (0-6 points):**
+        -   **6 points:** A variety of expressions and vocabulary are used appropriately with ease and precision. No signs of limitations.
+        -   **5 points:** A variety of expressions and vocabulary are used appropriately. Ideas are expressed clearly without much sign of restriction.
+        -   **4 points:** The range of expression and vocabulary is sufficient for basic ideas, but limitations are evident with complex ideas.
+        -   **3 points:** The range of expression and vocabulary is narrow and simple. Communication is restricted to simple ideas.
+        -   **2 points:** Limited vocabulary and simple expressions dominate. Communication is compromised and ideas are unclear.
+        -   **1 point:** Vocabulary and linguistic expression are highly restricted. Communication has significant limitations.
+        -   **0 points:** Meaning is not accessible.
+
+    6. **Spelling (0-2 points):**
+        -   **2 points:** Correct spelling.
+        -   **1 point:** One spelling error.
+        -   **0 points:** More than one spelling error.
+
+    Now, provide a detailed score report in a single JSON object. Do not include any additional text outside of the JSON.
+
+    **JSON Format:**
+    {
+      "overallScore": number, // Overall score on a 10-90 scale based on a weighted calculation of the scores below
+      "isCorrect": boolean, // True if overallScore is 65 or higher
+      "feedback": "string", // A concise summary of performance, mentioning main strengths and weaknesses.
+      "detailedAnalysis": {
+        "contentPoints": number,
+        "formPoints": number,
+        "developmentStructureAndCoherencePoints": number,
+        "grammarPoints": number,
+        "generalLinguisticRangePoints": number,
+        "spellingPoints": number,
+        "actualWordCount": number,
+        "wordCountCompliant": boolean // True if word count is in the 200-300 range
+      },
+      "suggestions": [
+        "string", // 3-4 actionable tips
+        "string",
+        "string"
+      ]
+    }
+`;
 
   try {
     const response = await openai.chat.completions.create({
@@ -432,9 +510,10 @@ async function evaluateWriteEssay(
     });
 
     const evaluation = JSON.parse(response.choices[0].message.content || '{}');
+
     return {
-      score: evaluation.score || 0,
-      isCorrect: evaluation.score >= 65,
+      score: evaluation.overallScore || 0,
+      isCorrect: evaluation.isCorrect,
       feedback: evaluation.feedback || 'No feedback available',
       detailedAnalysis: evaluation.detailedAnalysis || {},
       suggestions: evaluation.suggestions || [],
