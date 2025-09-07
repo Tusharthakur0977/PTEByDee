@@ -58,17 +58,14 @@ export const deleteUser = asyncHandler(async (req: Request, res: Response) => {
         where: { userId: id },
       });
 
-      // Delete test attempts and responses
+      // Delete user responses (standalone question responses)
+      await tx.userResponse.deleteMany({
+        where: { userId: id },
+      });
+
+      // Delete test attempts and AI reports
       const testAttemptIds = user.testAttempts.map((ta) => ta.id);
       if (testAttemptIds.length > 0) {
-        await tx.userResponse.deleteMany({
-          where: {
-            testAttemptId: {
-              in: testAttemptIds,
-            },
-          },
-        });
-
         await tx.aIReport.deleteMany({
           where: {
             testAttemptId: {

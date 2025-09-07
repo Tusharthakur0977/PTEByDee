@@ -21,7 +21,7 @@ export const createQuestion = asyncHandler(
       // orderInTest,
       textContent,
       audioKey,
-      imageUrl,
+      imageKey,
       options,
       correctAnswers,
       wordCountMin,
@@ -106,7 +106,7 @@ export const createQuestion = asyncHandler(
       const validationResult = validateQuestionContent(questionType.name, {
         textContent,
         audioKey,
-        imageUrl,
+        imageKey,
         options,
         correctAnswers,
         wordCountMin,
@@ -134,7 +134,7 @@ export const createQuestion = asyncHandler(
           // orderInTest: orderInTest || 1,
           textContent: textContent || null,
           audioUrl: audioKey || null, // Store S3 key in audioUrl field
-          imageUrl: imageUrl || null,
+          imageUrl: imageKey || null, // Store S3 key in imageUrl field
           options: options || null,
           correctAnswers: correctAnswers || null,
           wordCountMin: wordCountMin || null,
@@ -196,7 +196,7 @@ function validateQuestionContent(
   const {
     textContent,
     audioKey,
-    imageUrl,
+    imageKey,
     options,
     correctAnswers,
     wordCountMin,
@@ -227,7 +227,7 @@ function validateQuestionContent(
       break;
 
     case 'DESCRIBE_IMAGE':
-      if (!imageUrl) {
+      if (!imageKey) {
         return {
           isValid: false,
           message: 'Image is required for Describe Image questions.',

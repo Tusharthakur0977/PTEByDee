@@ -33,30 +33,7 @@ export const getQuestionById = asyncHandler(
               pteSection: true,
             },
           },
-          // test: {
-          //   select: {
-          //     id: true,
-          //     title: true,
-          //     description: true,
-          //     testType: true,
-          //     totalDuration: true,
-          //     isFree: true,
-          //   },
-          // },
           UserResponse: {
-            include: {
-              testAttempt: {
-                include: {
-                  user: {
-                    select: {
-                      id: true,
-                      name: true,
-                      email: true,
-                    },
-                  },
-                },
-              },
-            },
             orderBy: { createdAt: 'desc' },
             take: 10, // Latest 10 responses
           },
@@ -122,9 +99,7 @@ export const getQuestionById = asyncHandler(
       // Calculate response statistics
       const responseStats = {
         totalResponses: question._count.UserResponse,
-        uniqueUsers: new Set(
-          question.UserResponse.map((r) => r.testAttempt.userId)
-        ).size,
+        uniqueUsers: new Set(question.UserResponse.map((r) => r.userId)).size,
         averageScore:
           question.UserResponse.length > 0
             ? question.UserResponse.filter(

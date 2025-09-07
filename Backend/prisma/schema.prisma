@@ -25,6 +25,7 @@ model User {
     deletedAt         DateTime? // For soft deletes
     practiceSessions  PracticeSession[]
     practiceResponses PracticeResponse[]
+    questionResponses QuestionResponse[]
 
     // --- Google OAuth Fields ---
     googleId           String? @unique
@@ -44,6 +45,7 @@ model User {
     CourseReview        CourseReview[]
     UserLessonProgress  UserLessonProgress[]
     UserSectionProgress UserSectionProgress[]
+    userResponses       UserResponse[]
 }
 
 // Practice session model for tracking daily practice
@@ -325,6 +327,7 @@ model Question {
     updatedAt        DateTime           @updatedAt
     UserResponse     UserResponse[] // Inverse relation: a question can have many user responses across different attempts
     PracticeResponse PracticeResponse[] // Relation to practice responses
+    QuestionResponse QuestionResponse[] // Relation to standalone question responses
     // Keeping this for now as it's not "non-logical", just potentially large if eager loaded.
     // @@index([testId])
 
@@ -374,8 +377,7 @@ model TestAttempt {
     vocabularyScore    Int? // 10-90
     discourseScore     Int? // 10-90 (for coherence/cohesion)
     spellingScore      Int? // 10-90
-    // User's answers/responses for each question
-    responses          UserResponse[]
+    // User's answers/responses for each question (removed for standalone question practice)
     feedback           AIReport? // One-to-one with AIReport
     rawPteScoreJson    Json? // To store the full detailed PTE score breakdown from AI if available
     status             String         @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED, REVIEW_PENDING (if human review needed)
@@ -386,13 +388,13 @@ model TestAttempt {
     @@index([status])
 }
 
-// Stores the user's specific answer for each question within a TestAttempt
+// Stores the user's specific answer for individual questions (standalone practice)
 model UserResponse {
-    id            String      @id @default(auto()) @map("_id") @db.ObjectId
-    testAttempt   TestAttempt @relation(fields: [testAttemptId], references: [id], onDelete: Cascade)
-    testAttemptId String      @db.ObjectId
-    question      Question    @relation(fields: [questionId], references: [id])
-    questionId    String      @db.ObjectId
+    id         String   @id @default(auto()) @map("_id") @db.ObjectId
+    user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    userId     String   @db.ObjectId
+    question   Question @relation(fields: [questionId], references: [id])
+    questionId String   @db.ObjectId
 
     // User's response data - highly dependent on question type
     textResponse     String? // For Essay, Summarize Written Text, Fill in the Blanks (typed answer)
@@ -410,8 +412,39 @@ model UserResponse {
     createdAt        DateTime @default(now())
     updatedAt        DateTime @updatedAt
 
-    @@unique([testAttemptId, questionId]) // A user can only respond to a question once per attempt
-    @@index([testAttemptId])
+    @@index([userId])
+    @@index([questionId])
+    @@index([userId, questionId])
+}
+
+// New model for standalone question responses (not part of a test)
+model QuestionResponse {
+    id               String   @id @default(auto()) @map("_id") @db.ObjectId
+    userId           String   @db.ObjectId
+    user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    questionId       String   @db.ObjectId
+    question         Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+    
+    // User's response data
+    textResponse     String?
+    audioResponseUrl String?
+    selectedOptions  String[]
+    orderedItems     String[]
+    highlightedWords String[]
+    
+    // AI Evaluation results
+    score            Float    @default(0) // 0-100 score from AI evaluation
+    isCorrect        Boolean  @default(false)
+    aiFeedback       String? // AI-generated feedback
+    detailedAnalysis Json? // Detailed analysis from AI
+    suggestions      String[] // AI suggestions for improvement
+    
+    timeTakenSeconds Int      @default(0)
+    createdAt        DateTime @default(now())
+    updatedAt        DateTime @updatedAt
+
+    @@index([userId, questionId])
+    @@index([userId, createdAt])
     @@index([questionId])
 }
 

@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  ReactNode,
+} from 'react';
 
 export interface UploadProgress {
   id: string;
@@ -38,45 +44,58 @@ interface UploadProviderProps {
 export const UploadProvider: React.FC<UploadProviderProps> = ({ children }) => {
   const [uploads, setUploads] = useState<UploadProgress[]>([]);
 
-  const addUpload = useCallback((upload: Omit<UploadProgress, 'id' | 'startTime'>) => {
-    const id = `upload_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const newUpload: UploadProgress = {
-      ...upload,
-      id,
-      startTime: Date.now(),
-    };
+  const addUpload = useCallback(
+    (upload: Omit<UploadProgress, 'id' | 'startTime'>) => {
+      const id = `upload_${Date.now()}_${Math.random()
+        .toString(36)
+        .substr(2, 9)}`;
+      const newUpload: UploadProgress = {
+        ...upload,
+        id,
+        startTime: Date.now(),
+      };
 
-    setUploads(prev => [...prev, newUpload]);
-    return id;
+      setUploads((prev) => [...prev, newUpload]);
+      return id;
+    },
+    []
+  );
+
+  const updateUpload = useCallback(
+    (id: string, updates: Partial<UploadProgress>) => {
+      setUploads((prev) =>
+        prev.map((upload) =>
+          upload.id === id ? { ...upload, ...updates } : upload
+        )
+      );
+    },
+    []
+  );
+
+  const removeUpload = useCallback((id: string) => {
+    setUploads((prev) => prev.filter((upload) => upload.id !== id));
   }, []);
 
-  const updateUpload = useCallback((id: string, updates: Partial<UploadProgress>) => {
-    setUploads(prev => 
-      prev.map(upload => 
-        upload.id === id ? { ...upload, ...updates } : upload
+  const clearCompleted = useCallback(() => {
+    setUploads((prev) =>
+      prev.filter(
+        (upload) => upload.status !== 'completed' && upload.status !== 'error'
       )
     );
   }, []);
 
-  const removeUpload = useCallback((id: string) => {
-    setUploads(prev => prev.filter(upload => upload.id !== id));
-  }, []);
-
-  const clearCompleted = useCallback(() => {
-    setUploads(prev => prev.filter(upload => 
-      upload.status !== 'completed' && upload.status !== 'error'
-    ));
-  }, []);
-
   const getActiveUploads = useCallback(() => {
-    return uploads.filter(upload => upload.status === 'uploading');
+    return uploads.filter((upload) => upload.status === 'uploading');
   }, [uploads]);
 
   const getTotalProgress = useCallback(() => {
     const activeUploads = getActiveUploads();
     if (activeUploads.length === 0) return 0;
-    
-    const totalProgress = activeUploads.reduce((sum, upload) => sum + upload.progress, 0);
+
+    const totalProgress = activeUploads.reduce(
+      (sum, upload) => sum + upload.progress,
+      0
+    );
     return Math.round(totalProgress / activeUploads.length);
   }, [getActiveUploads]);
 
@@ -91,9 +110,7 @@ export const UploadProvider: React.FC<UploadProviderProps> = ({ children }) => {
   };
 
   return (
-    <UploadContext.Provider value={value}>
-      {children}
-    </UploadContext.Provider>
+    <UploadContext.Provider value={value}>{children}</UploadContext.Provider>
   );
 };
 
@@ -125,6 +142,10 @@ export const useFileUpload = () => {
           fieldName = 'sectionVideo';
         } else if (endpoint.includes('lesson-video')) {
           fieldName = 'lessonVideo';
+        } else if (endpoint.includes('question-audio')) {
+          fieldName = 'questionAudio';
+        } else if (endpoint.includes('question-image')) {
+          fieldName = 'questionImage';
         } else if (fileType === 'video') {
           fieldName = 'courseVideo';
         }

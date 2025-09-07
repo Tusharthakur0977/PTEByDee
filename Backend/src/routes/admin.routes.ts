@@ -61,7 +61,9 @@ import {
   handleSectionVideoUpload,
   handleLessonVideoUpload,
   handleQuestionAudioUpload,
+  handleQuestionImageUpload,
 } from '../middlewares/upload.middleware';
+import { uploadQuestionImage } from '../controllers/Admin/uploadImageQuestion.controller';
 
 const router = Router();
 
@@ -176,6 +178,15 @@ router.post(
   isAdmin,
   handleQuestionAudioUpload,
   uploadQuestionAudio
+);
+
+// Question image upload route
+router.post(
+  '/upload/question-image',
+  protect,
+  isAdmin,
+  handleQuestionImageUpload,
+  uploadQuestionImage
 );
 
 export default router;

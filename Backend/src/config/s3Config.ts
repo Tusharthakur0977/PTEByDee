@@ -108,6 +108,14 @@ const generateAudioFileName = (originalName: string): string => {
   return `question-audio/${timestamp}-${randomString}${extension}`;
 };
 
+// Generate unique filename for question images
+const generateQuestionImageFileName = (originalName: string): string => {
+  const timestamp = Date.now();
+  const randomString = Math.random().toString(36).substring(2, 15);
+  const extension = path.extname(originalName);
+  return `question-images/${timestamp}-${randomString}${extension}`;
+};
+
 // Multer S3 configuration for course images
 // Files are uploaded as private (no ACL specified) for security
 export const courseImageUpload = multer({
@@ -183,6 +191,32 @@ export const questionAudioUpload = multer({
   fileFilter: audioFileFilter,
   limits: {
     fileSize: 50 * 1024 * 1024, // 50MB limit for audio files
+  },
+});
+
+// Multer S3 configuration for question images
+// Files are uploaded as private (no ACL specified) for security
+export const questionImageUpload = multer({
+  storage: multerS3({
+    s3: s3,
+    bucket: process.env.AWS_S3_BUCKET_NAME!,
+    key: (_req: any, file: Express.Multer.File, cb: any) => {
+      const fileName = generateQuestionImageFileName(file.originalname);
+      cb(null, fileName);
+    },
+    contentType: multerS3.AUTO_CONTENT_TYPE,
+    metadata: (_req: any, file: Express.Multer.File, cb: any) => {
+      cb(null, {
+        fieldName: file.fieldname,
+        originalName: file.originalname,
+        uploadedAt: new Date().toISOString(),
+        type: 'question-image',
+      });
+    },
+  }),
+  fileFilter: imageFileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit for question images
   },
 });
 

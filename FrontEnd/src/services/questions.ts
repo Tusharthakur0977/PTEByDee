@@ -7,7 +7,7 @@ export interface CreateQuestionData {
   orderInTest?: number;
   textContent?: string;
   audioKey?: string;
-  imageUrl?: string;
+  imageKey?: string;
   options?: any;
   correctAnswers?: any;
   wordCountMin?: number;
@@ -113,6 +113,21 @@ class QuestionsService {
     formData.append('questionAudio', file);
 
     const response = await api.post('/admin/upload/question-audio', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  }
+
+  /**
+   * Upload image file for question
+   */
+  async uploadQuestionImage(file: File) {
+    const formData = new FormData();
+    formData.append('questionImage', file);
+
+    const response = await api.post('/admin/upload/question-image', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },

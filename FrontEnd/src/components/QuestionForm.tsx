@@ -1,18 +1,18 @@
 import {
   FileText,
+  GripVertical,
   HelpCircle,
   Pause,
   Play,
+  Plus,
+  Trash2,
   Upload,
   Volume2,
   X,
-  Plus,
-  Trash2,
-  Move,
-  GripVertical,
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import api from '../services/api';
+import QuestionImageUpload from './QuestionImageUpload';
 
 interface QuestionFormProps {
   question?: any;
@@ -36,7 +36,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
     orderInTest: question?.orderInTest || 1,
     textContent: question?.textContent || '',
     audioKey: question?.audioUrl || '',
-    imageUrl: question?.imageUrl || '',
+    imageKey: question?.imageUrl || '',
     options: question?.options || [],
     correctAnswers: question?.correctAnswers || [],
     wordCountMin: question?.wordCountMin || null,
@@ -964,37 +964,18 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
               {/* Image URL */}
               {requirements.requiresImage && (
                 <div className='mb-6'>
-                  <label className='block text-sm font-medium text-gray-700 mb-2'>
-                    Image URL *
-                  </label>
-                  <div className='space-y-3'>
-                    <input
-                      type='url'
-                      value={formData.imageUrl}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          imageUrl: e.target.value,
-                        }))
-                      }
-                      className='w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
-                      placeholder='https://example.com/image.jpg'
-                      required
-                    />
-                    {formData.imageUrl && (
-                      <div className='border border-gray-200 rounded-lg p-3'>
-                        <img
-                          src={formData.imageUrl}
-                          alt='Question preview'
-                          className='max-w-full h-48 object-contain mx-auto rounded-lg'
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display =
-                              'none';
-                          }}
-                        />
-                      </div>
-                    )}
-                  </div>
+                  <QuestionImageUpload
+                    onImageUpload={(imageData) => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        imageKey: imageData.imageKey,
+                      }));
+                    }}
+                    currentImageUrl={formData.imageKey}
+                    currentImageKey={formData.imageKey}
+                    label='Question Image'
+                    required={true}
+                  />
                 </div>
               )}
 

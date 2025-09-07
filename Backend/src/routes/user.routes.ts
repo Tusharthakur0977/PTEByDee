@@ -18,6 +18,11 @@ import { getPracticeQuestions } from '../controllers/User/getPracticeQuestions.c
 import { submitPracticeResponse } from '../controllers/User/submitPracticeResponse.controller';
 import { getPracticeHistory } from '../controllers/User/getPracticeHistory.controller';
 import { getPracticeStats } from '../controllers/User/getPracticeStats.controller';
+import { submitQuestionResponse } from '../controllers/User/submitQuestionResponse.controller';
+import {
+  getUserResponses,
+  getUserResponseStats,
+} from '../controllers/User/getUserResponses.controller';
 
 import { protect } from '../middlewares/authenticate.middleware';
 
@@ -49,6 +54,11 @@ router.get('/progress/overview', protect, getUserProgressOverview);
 router.post('/practice/submit-response', protect, submitPracticeResponse);
 router.get('/practice/history', protect, getPracticeHistory);
 router.get('/practice/stats', protect, getPracticeStats);
+
+// Question response routes
+router.post('/questions/submit-response', protect, submitQuestionResponse);
+router.get('/responses', protect, getUserResponses);
+router.get('/responses/stats', protect, getUserResponseStats);
 
 // Secure video URL generation for enrolled users
 router.post('/secure-video-url', protect, getSecureVideoUrl);

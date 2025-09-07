@@ -1,13 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { Clock, CheckCircle, AlertCircle, RotateCcw, X } from 'lucide-react';
-import { PteQuestionTypeName } from '../types/pte';
+import { AlertCircle, CheckCircle, Clock, RotateCcw, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 import { PracticeQuestion as PracticeQuestionType } from '../services/portal';
-import AudioRecorder from './AudioRecorder';
+import { submitQuestionResponse } from '../services/questionResponse';
+import { PteQuestionTypeName } from '../types/pte';
 import AudioPlayer from './AudioPlayer';
-import {
-  submitPracticeResponse,
-  calculateQuestionScore,
-} from '../services/practice';
+import AudioRecorder from './AudioRecorder';
+import QuestionResponseEvaluator from './QuestionResponseEvaluator';
 
 interface PracticeQuestionProps {
   question: PracticeQuestionType;
@@ -65,7 +63,37 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleSubmit = () => {};
+  const handleSubmit = async () => {
+    if (isCompleted) return;
+
+    try {
+      setIsCompleted(true);
+
+      // Prepare response data based on question type
+      const responseData = {
+        questionId: question.id,
+        userResponse: response,
+        timeTakenSeconds: (question.content.timeLimit || 300) - timeLeft,
+      };
+
+      // Submit for evaluation
+      const result = await submitQuestionResponse(responseData);
+
+      // Update local state with evaluation results
+      setResponse({
+        ...response,
+        evaluation: result.evaluation,
+      });
+
+      // Call completion callback
+      onComplete?.(result);
+    } catch (error) {
+      console.error('Error submitting response:', error);
+      setIsCompleted(false);
+      // Show error to user
+      alert('Failed to submit response. Please try again.');
+    }
+  };
 
   const handleReset = () => {
     setIsCompleted(false);
@@ -899,6 +927,16 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
           )}
         </div>
       </div>
+
+      {/* Evaluation Results */}
+      {isCompleted && response.evaluation && (
+        <div className='mt-8'>
+          <QuestionResponseEvaluator
+            evaluation={response.evaluation}
+            questionType={question.type}
+          />
+        </div>
+      )}
     </div>
   );
 };

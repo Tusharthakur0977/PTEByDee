@@ -3,6 +3,7 @@ import {
   courseImageUpload,
   courseVideoUpload,
   questionAudioUpload,
+  questionImageUpload,
 } from '../config/s3Config';
 import { sendResponse } from '../utils/helpers';
 import { STATUS_CODES } from '../utils/constants';
@@ -329,6 +330,72 @@ export const handleQuestionAudioUpload = (
         STATUS_CODES.INTERNAL_SERVER_ERROR,
         null,
         'An error occurred while uploading the audio file. Please try again.'
+      );
+    }
+
+    // No error, proceed to next middleware
+    next();
+  });
+};
+
+/**
+ * Middleware to handle question image upload with proper error handling
+ */
+export const handleQuestionImageUpload = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const upload = questionImageUpload.single('questionImage');
+
+  upload(req, res, (error: any) => {
+    if (error) {
+      console.error('Multer question image upload error:', error);
+
+      // Handle specific multer errors
+      if (error.code === 'LIMIT_FILE_SIZE') {
+        return sendResponse(
+          res,
+          STATUS_CODES.BAD_REQUEST,
+          null,
+          'File size too large. Maximum size allowed is 5MB.'
+        );
+      }
+
+      if (error.message && error.message.includes('Invalid file type')) {
+        return sendResponse(
+          res,
+          STATUS_CODES.BAD_REQUEST,
+          null,
+          'Invalid file type. Only JPEG, PNG, and WebP images are allowed.'
+        );
+      }
+
+      // Handle AWS S3 errors
+      if (error.code === 'NoSuchBucket') {
+        return sendResponse(
+          res,
+          STATUS_CODES.INTERNAL_SERVER_ERROR,
+          null,
+          'S3 bucket not found. Please check AWS configuration.'
+        );
+      }
+
+      if (error.code === 'AccessDenied') {
+        return sendResponse(
+          res,
+          STATUS_CODES.INTERNAL_SERVER_ERROR,
+          null,
+          'Access denied to S3 bucket. Please check AWS credentials.'
+        );
+      }
+
+      // Generic error
+      return sendResponse(
+        res,
+        STATUS_CODES.INTERNAL_SERVER_ERROR,
+        null,
+        'An error occurred while uploading the question image. Please try again.'
       );
     }
 

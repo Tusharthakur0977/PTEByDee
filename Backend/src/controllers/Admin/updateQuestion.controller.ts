@@ -20,7 +20,7 @@ export const updateQuestion = asyncHandler(
       orderInTest,
       textContent,
       audioKey,
-      imageUrl,
+      imageKey,
       options,
       correctAnswers,
       wordCountMin,
@@ -87,7 +87,7 @@ export const updateQuestion = asyncHandler(
       if (textContent !== undefined)
         updateData.textContent = textContent || null;
       if (audioKey !== undefined) updateData.audioUrl = audioKey || null;
-      if (imageUrl !== undefined) updateData.imageUrl = imageUrl || null;
+      if (imageKey !== undefined) updateData.imageUrl = imageKey || null;
       if (options !== undefined) updateData.options = options || null;
       if (correctAnswers !== undefined)
         updateData.correctAnswers = correctAnswers || null;
