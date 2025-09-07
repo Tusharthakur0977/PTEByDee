@@ -6,6 +6,10 @@ import {
   Upload,
   Volume2,
   X,
+  Plus,
+  Trash2,
+  Move,
+  GripVertical,
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import api from '../services/api';
@@ -40,6 +44,9 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
     durationMillis: question?.durationMillis || null,
     originalTextWithErrors: question?.originalTextWithErrors || '',
     incorrectWords: question?.incorrectWords || [],
+    // New fields for enhanced question types
+    paragraphs: question?.paragraphs || [],
+    blanks: question?.blanks || [],
   });
 
   const [loading, setLoading] = useState(false);
@@ -47,6 +54,29 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
   const [selectedQuestionType, setSelectedQuestionType] = useState<any>(null);
   const [audioPreview, setAudioPreview] = useState<string | null>(null);
   const [playingAudio, setPlayingAudio] = useState(false);
+  const [autoGenerateCode, setAutoGenerateCode] = useState(!question); // Auto-generate for new questions
+  const [previewQuestionCode, setPreviewQuestionCode] = useState('');
+  const [loadingPreview, setLoadingPreview] = useState(false);
+
+  // Fetch preview question code when question type changes
+  const fetchPreviewQuestionCode = async (questionTypeId: string) => {
+    if (!questionTypeId || !autoGenerateCode) return;
+
+    setLoadingPreview(true);
+    try {
+      const response = await api.get(
+        `/admin/questions/next-code/${questionTypeId}`
+      );
+      if (response.data.success) {
+        setPreviewQuestionCode(response.data.data.nextQuestionCode);
+      }
+    } catch (error) {
+      console.error('Error fetching preview question code:', error);
+      setPreviewQuestionCode('');
+    } finally {
+      setLoadingPreview(false);
+    }
+  };
 
   useEffect(() => {
     if (formData.questionTypeId) {
@@ -54,14 +84,27 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
         .flatMap((section: any) => section.questionTypes)
         .find((qt: any) => qt.id === formData.questionTypeId);
       setSelectedQuestionType(foundType || null);
+
+      // Fetch preview question code for new questions
+      if (autoGenerateCode) {
+        fetchPreviewQuestionCode(formData.questionTypeId);
+      }
     }
-  }, [formData.questionTypeId, questionTypes]);
+  }, [formData.questionTypeId, questionTypes, autoGenerateCode]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await onSubmit(formData);
+      // Prepare submission data
+      const submissionData = { ...formData };
+
+      // If auto-generating code, don't send questionCode (let backend generate it)
+      if (autoGenerateCode) {
+        delete submissionData.questionCode;
+      }
+
+      await onSubmit(submissionData);
     } finally {
       setLoading(false);
     }
@@ -88,7 +131,6 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
         audioKey: response.data.audioKey,
       }));
 
-      // Set preview URL if available
       if (response.data.audioUrl) {
         setAudioPreview(response.data.audioUrl);
       }
@@ -114,9 +156,10 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
     }
   };
 
+  // Enhanced option management
   const addOption = () => {
     const newOptions = [...(formData.options || [])];
-    newOptions.push({ text: '', isCorrect: false });
+    newOptions.push({ id: `option_${Date.now()}`, text: '', isCorrect: false });
     setFormData((prev) => ({ ...prev, options: newOptions }));
   };
 
@@ -130,6 +173,100 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
     const newOptions = [...(formData.options || [])];
     newOptions.splice(index, 1);
     setFormData((prev) => ({ ...prev, options: newOptions }));
+  };
+
+  // Paragraph management for RE_ORDER_PARAGRAPHS
+  const addParagraph = () => {
+    const newParagraphs = [...(formData.paragraphs || [])];
+    newParagraphs.push({
+      id: `para_${Date.now()}`,
+      text: '',
+      correctOrder: newParagraphs.length + 1,
+    });
+    setFormData((prev) => ({ ...prev, paragraphs: newParagraphs }));
+  };
+
+  const updateParagraph = (index: number, field: string, value: any) => {
+    const newParagraphs = [...(formData.paragraphs || [])];
+    newParagraphs[index] = { ...newParagraphs[index], [field]: value };
+    setFormData((prev) => ({ ...prev, paragraphs: newParagraphs }));
+  };
+
+  const removeParagraph = (index: number) => {
+    const newParagraphs = [...(formData.paragraphs || [])];
+    newParagraphs.splice(index, 1);
+    // Update correct order for remaining paragraphs
+    newParagraphs.forEach((para, idx) => {
+      para.correctOrder = idx + 1;
+    });
+    setFormData((prev) => ({ ...prev, paragraphs: newParagraphs }));
+  };
+
+  const moveParagraph = (index: number, direction: 'up' | 'down') => {
+    const newParagraphs = [...(formData.paragraphs || [])];
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+
+    if (newIndex >= 0 && newIndex < newParagraphs.length) {
+      [newParagraphs[index], newParagraphs[newIndex]] = [
+        newParagraphs[newIndex],
+        newParagraphs[index],
+      ];
+      // Update correct order
+      newParagraphs.forEach((para, idx) => {
+        para.correctOrder = idx + 1;
+      });
+      setFormData((prev) => ({ ...prev, paragraphs: newParagraphs }));
+    }
+  };
+
+  // Blank management for FILL_IN_THE_BLANKS questions
+  const addBlank = () => {
+    const newBlanks = [...(formData.blanks || [])];
+    newBlanks.push({
+      id: `blank_${Date.now()}`,
+      position: newBlanks.length + 1,
+      options: [''],
+      correctAnswer: '',
+    });
+    setFormData((prev) => ({ ...prev, blanks: newBlanks }));
+  };
+
+  const updateBlank = (index: number, field: string, value: any) => {
+    const newBlanks = [...(formData.blanks || [])];
+    newBlanks[index] = { ...newBlanks[index], [field]: value };
+    setFormData((prev) => ({ ...prev, blanks: newBlanks }));
+  };
+
+  const removeBlank = (index: number) => {
+    const newBlanks = [...(formData.blanks || [])];
+    newBlanks.splice(index, 1);
+    // Update positions
+    newBlanks.forEach((blank, idx) => {
+      blank.position = idx + 1;
+    });
+    setFormData((prev) => ({ ...prev, blanks: newBlanks }));
+  };
+
+  const addBlankOption = (blankIndex: number) => {
+    const newBlanks = [...(formData.blanks || [])];
+    newBlanks[blankIndex].options.push('');
+    setFormData((prev) => ({ ...prev, blanks: newBlanks }));
+  };
+
+  const updateBlankOption = (
+    blankIndex: number,
+    optionIndex: number,
+    value: string
+  ) => {
+    const newBlanks = [...(formData.blanks || [])];
+    newBlanks[blankIndex].options[optionIndex] = value;
+    setFormData((prev) => ({ ...prev, blanks: newBlanks }));
+  };
+
+  const removeBlankOption = (blankIndex: number, optionIndex: number) => {
+    const newBlanks = [...(formData.blanks || [])];
+    newBlanks[blankIndex].options.splice(optionIndex, 1);
+    setFormData((prev) => ({ ...prev, blanks: newBlanks }));
   };
 
   const getQuestionTypeRequirements = () => {
@@ -147,6 +284,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
         'HIGHLIGHT_CORRECT_SUMMARY',
         'SELECT_MISSING_WORD',
         'WRITE_FROM_DICTATION',
+        'HIGHLIGHT_INCORRECT_WORDS',
       ].includes(selectedQuestionType.name),
 
       requiresImage: selectedQuestionType.name === 'DESCRIBE_IMAGE',
@@ -160,7 +298,6 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
         'READING_FILL_IN_THE_BLANKS',
         'READING_WRITING_FILL_IN_THE_BLANKS',
         'RE_ORDER_PARAGRAPHS',
-        'HIGHLIGHT_INCORRECT_WORDS',
       ].includes(selectedQuestionType.name),
 
       requiresOptions: [
@@ -180,6 +317,14 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
 
       requiresIncorrectWords:
         selectedQuestionType.name === 'HIGHLIGHT_INCORRECT_WORDS',
+
+      requiresParagraphs: selectedQuestionType.name === 'RE_ORDER_PARAGRAPHS',
+
+      requiresBlanks: [
+        'READING_FILL_IN_THE_BLANKS',
+        'READING_WRITING_FILL_IN_THE_BLANKS',
+        'LISTENING_FILL_IN_THE_BLANKS',
+      ].includes(selectedQuestionType.name),
     };
 
     return requirements;
@@ -187,9 +332,335 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
 
   const requirements = getQuestionTypeRequirements();
 
+  const renderQuestionTypeSpecificFields = () => {
+    if (!selectedQuestionType) return null;
+
+    switch (selectedQuestionType.name) {
+      case 'RE_ORDER_PARAGRAPHS':
+        return (
+          <div className='mb-6'>
+            <div className='flex items-center justify-between mb-3'>
+              <label className='block text-sm font-medium text-gray-700'>
+                Paragraphs (in correct order) *
+              </label>
+              <button
+                type='button'
+                onClick={addParagraph}
+                className='px-3 py-1 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700 transition-colors flex items-center space-x-1'
+              >
+                <Plus className='w-3 h-3' />
+                <span>Add Paragraph</span>
+              </button>
+            </div>
+
+            <div className='space-y-3'>
+              {(formData.paragraphs || []).map(
+                (paragraph: any, index: number) => (
+                  <div
+                    key={paragraph.id}
+                    className='flex items-start gap-3 p-3 border border-gray-200 rounded-lg bg-white'
+                  >
+                    <div className='flex flex-col space-y-1'>
+                      <button
+                        type='button'
+                        onClick={() => moveParagraph(index, 'up')}
+                        disabled={index === 0}
+                        className='p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50'
+                      >
+                        ↑
+                      </button>
+                      <GripVertical className='w-4 h-4 text-gray-400' />
+                      <button
+                        type='button'
+                        onClick={() => moveParagraph(index, 'down')}
+                        disabled={index === formData.paragraphs.length - 1}
+                        className='p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50'
+                      >
+                        ↓
+                      </button>
+                    </div>
+                    <div className='flex-1'>
+                      <div className='flex items-center justify-between mb-2'>
+                        <span className='text-sm font-medium text-gray-700'>
+                          Paragraph {index + 1}
+                        </span>
+                        <span className='text-xs text-gray-500'>
+                          Order: {paragraph.correctOrder}
+                        </span>
+                      </div>
+                      <textarea
+                        value={paragraph.text || ''}
+                        onChange={(e) =>
+                          updateParagraph(index, 'text', e.target.value)
+                        }
+                        className='w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                        placeholder={`Enter paragraph ${index + 1} text`}
+                        rows={3}
+                        required
+                      />
+                    </div>
+                    <button
+                      type='button'
+                      onClick={() => removeParagraph(index)}
+                      className='p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors'
+                    >
+                      <Trash2 className='w-4 h-4' />
+                    </button>
+                  </div>
+                )
+              )}
+            </div>
+
+            {(formData.paragraphs || []).length === 0 && (
+              <p className='text-sm text-gray-500 text-center py-4'>
+                No paragraphs added yet. Click "Add Paragraph" to create the
+                text segments.
+              </p>
+            )}
+          </div>
+        );
+
+      case 'READING_FILL_IN_THE_BLANKS':
+      case 'READING_WRITING_FILL_IN_THE_BLANKS':
+      case 'LISTENING_FILL_IN_THE_BLANKS':
+        return (
+          <div className='space-y-6'>
+            {/* Text with blanks */}
+            <div className='mb-6'>
+              <label className='block text-sm font-medium text-gray-700 mb-2'>
+                Text Content with Blanks *
+              </label>
+              <textarea
+                value={formData.textContent}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    textContent: e.target.value,
+                  }))
+                }
+                className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                rows={6}
+                placeholder='Enter text with _____ for blanks. Example: The weather is _____ today and it will be _____ tomorrow.'
+                required
+              />
+              <p className='text-xs text-gray-500 mt-1'>
+                Use _____ (5 underscores) to mark blanks in the text
+              </p>
+            </div>
+
+            {/* Blank options */}
+            <div className='mb-6'>
+              <div className='flex items-center justify-between mb-3'>
+                <label className='block text-sm font-medium text-gray-700'>
+                  Blank Options *
+                </label>
+                <button
+                  type='button'
+                  onClick={addBlank}
+                  className='px-3 py-1 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700 transition-colors flex items-center space-x-1'
+                >
+                  <Plus className='w-3 h-3' />
+                  <span>Add Blank</span>
+                </button>
+              </div>
+
+              <div className='space-y-4'>
+                {(formData.blanks || []).map(
+                  (blank: any, blankIndex: number) => (
+                    <div
+                      key={blank.id}
+                      className='border border-gray-200 rounded-lg p-4 bg-gray-50'
+                    >
+                      <div className='flex items-center justify-between mb-3'>
+                        <h4 className='text-sm font-medium text-gray-700'>
+                          Blank {blank.position}
+                        </h4>
+                        <button
+                          type='button'
+                          onClick={() => removeBlank(blankIndex)}
+                          className='text-red-600 hover:text-red-700'
+                        >
+                          <Trash2 className='w-4 h-4' />
+                        </button>
+                      </div>
+
+                      <div className='space-y-3'>
+                        <div>
+                          <label className='block text-xs font-medium text-gray-600 mb-1'>
+                            Correct Answer *
+                          </label>
+                          <input
+                            type='text'
+                            value={blank.correctAnswer || ''}
+                            onChange={(e) =>
+                              updateBlank(
+                                blankIndex,
+                                'correctAnswer',
+                                e.target.value
+                              )
+                            }
+                            className='w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-indigo-500 focus:border-transparent'
+                            placeholder='Enter the correct answer'
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <div className='flex items-center justify-between mb-2'>
+                            <label className='block text-xs font-medium text-gray-600'>
+                              Distractor Options
+                            </label>
+                            <button
+                              type='button'
+                              onClick={() => addBlankOption(blankIndex)}
+                              className='text-xs text-indigo-600 hover:text-indigo-700'
+                            >
+                              + Add Option
+                            </button>
+                          </div>
+                          <div className='space-y-2'>
+                            {blank.options?.map(
+                              (option: string, optionIndex: number) => (
+                                <div
+                                  key={optionIndex}
+                                  className='flex items-center space-x-2'
+                                >
+                                  <input
+                                    type='text'
+                                    value={option}
+                                    onChange={(e) =>
+                                      updateBlankOption(
+                                        blankIndex,
+                                        optionIndex,
+                                        e.target.value
+                                      )
+                                    }
+                                    className='flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:border-transparent'
+                                    placeholder={`Distractor option ${
+                                      optionIndex + 1
+                                    }`}
+                                  />
+                                  <button
+                                    type='button'
+                                    onClick={() =>
+                                      removeBlankOption(blankIndex, optionIndex)
+                                    }
+                                    className='text-red-600 hover:text-red-700'
+                                  >
+                                    <X className='w-3 h-3' />
+                                  </button>
+                                </div>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                )}
+              </div>
+
+              {(formData.blanks || []).length === 0 && (
+                <p className='text-sm text-gray-500 text-center py-4'>
+                  No blanks configured yet. Add blanks to match the _____ in
+                  your text.
+                </p>
+              )}
+            </div>
+          </div>
+        );
+
+      case 'HIGHLIGHT_INCORRECT_WORDS':
+        return (
+          <div className='space-y-6'>
+            <div className='mb-6'>
+              <label className='block text-sm font-medium text-gray-700 mb-2'>
+                Original Text with Errors *
+              </label>
+              <textarea
+                value={formData.originalTextWithErrors}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    originalTextWithErrors: e.target.value,
+                  }))
+                }
+                className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                rows={4}
+                placeholder='Enter the text with intentional errors that students need to identify...'
+                required
+              />
+            </div>
+
+            <div className='mb-6'>
+              <label className='block text-sm font-medium text-gray-700 mb-2'>
+                Incorrect Words *
+              </label>
+              <div className='space-y-2'>
+                {(formData.incorrectWords || []).map(
+                  (word: string, index: number) => (
+                    <div
+                      key={index}
+                      className='flex items-center space-x-2'
+                    >
+                      <input
+                        type='text'
+                        value={word}
+                        onChange={(e) => {
+                          const newWords = [...(formData.incorrectWords || [])];
+                          newWords[index] = e.target.value;
+                          setFormData((prev) => ({
+                            ...prev,
+                            incorrectWords: newWords,
+                          }));
+                        }}
+                        className='flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                        placeholder={`Incorrect word ${index + 1}`}
+                        required
+                      />
+                      <button
+                        type='button'
+                        onClick={() => {
+                          const newWords = [...(formData.incorrectWords || [])];
+                          newWords.splice(index, 1);
+                          setFormData((prev) => ({
+                            ...prev,
+                            incorrectWords: newWords,
+                          }));
+                        }}
+                        className='p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors'
+                      >
+                        <X className='w-4 h-4' />
+                      </button>
+                    </div>
+                  )
+                )}
+                <button
+                  type='button'
+                  onClick={() => {
+                    const newWords = [...(formData.incorrectWords || []), ''];
+                    setFormData((prev) => ({
+                      ...prev,
+                      incorrectWords: newWords,
+                    }));
+                  }}
+                  className='w-full px-3 py-2 border-2 border-dashed border-gray-300 rounded-md text-gray-600 hover:border-gray-400 hover:text-gray-700 transition-colors'
+                >
+                  + Add Incorrect Word
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4'>
-      <div className='bg-white rounded-xl shadow-xl max-w-5xl w-full max-h-[95vh] overflow-y-auto'>
+      <div className='bg-white rounded-xl shadow-xl max-w-6xl w-full max-h-[95vh] overflow-y-auto'>
         <div className='sticky top-0 bg-white px-6 py-4 border-b border-gray-200 rounded-t-xl'>
           <div className='flex items-center justify-between'>
             <h2 className='text-xl font-semibold text-gray-900'>
@@ -215,26 +686,79 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
               Basic Information
             </h3>
 
-            <div className='grid grid-cols-1 md:grid-cols-3 gap-6'>
+            <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
               <div>
-                <label className='block text-sm font-medium text-gray-700 mb-2'>
-                  Question Code *
-                </label>
-                <input
-                  type='text'
-                  value={formData.questionCode}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      questionCode: e.target.value,
-                    }))
-                  }
-                  className='w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
-                  placeholder='e.g., RA_001_Test1'
-                  required
-                />
+                <div className='flex items-center justify-between mb-2'>
+                  <label className='block text-sm font-medium text-gray-700'>
+                    Question Code {!autoGenerateCode && '*'}
+                  </label>
+                  <div className='flex items-center gap-2'>
+                    <input
+                      type='checkbox'
+                      id='autoGenerateCode'
+                      checked={autoGenerateCode}
+                      onChange={(e) => {
+                        setAutoGenerateCode(e.target.checked);
+                        if (e.target.checked) {
+                          setFormData((prev) => ({
+                            ...prev,
+                            questionCode: '',
+                          }));
+                          if (formData.questionTypeId) {
+                            fetchPreviewQuestionCode(formData.questionTypeId);
+                          }
+                        } else {
+                          setPreviewQuestionCode('');
+                        }
+                      }}
+                      className='rounded border-gray-300 text-indigo-600 focus:ring-indigo-500'
+                    />
+                    <label
+                      htmlFor='autoGenerateCode'
+                      className='text-sm text-gray-600'
+                    >
+                      Auto-generate
+                    </label>
+                  </div>
+                </div>
+
+                {autoGenerateCode ? (
+                  <div className='w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50'>
+                    {loadingPreview ? (
+                      <div className='flex items-center gap-2 text-gray-500'>
+                        <div className='animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600'></div>
+                        <span className='text-sm'>Generating code...</span>
+                      </div>
+                    ) : previewQuestionCode ? (
+                      <span className='text-gray-700 font-mono'>
+                        {previewQuestionCode}
+                      </span>
+                    ) : (
+                      <span className='text-gray-500 text-sm'>
+                        Select a question type to preview code
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <input
+                    type='text'
+                    value={formData.questionCode}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        questionCode: e.target.value,
+                      }))
+                    }
+                    className='w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                    placeholder='e.g., RA_001'
+                    required
+                  />
+                )}
+
                 <p className='text-xs text-gray-500 mt-1'>
-                  Unique identifier for this question
+                  {autoGenerateCode
+                    ? 'Question code will be automatically generated based on question type'
+                    : 'Unique identifier for this question'}
                 </p>
               </div>
 
@@ -280,49 +804,33 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                   )}
                 </select>
               </div>
-
-              {/* <div>
-                <label className='block text-sm font-medium text-gray-700 mb-2'>
-                  Test *
-                </label>
-                <select
-                  value={formData.testId}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, testId: e.target.value }))
-                  }
-                  className='w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
-                  required
-                >
-                  <option value=''>Select Test</option>
-                  {tests.map((test) => (
-                    <option
-                      key={test.id}
-                      value={test.id}
-                    >
-                      {test.title} ({test.testType})
-                    </option>
-                  ))}
-                </select>
-              </div> */}
             </div>
 
-            {/* <div className='mt-4'>
+            <div className='mt-4'>
               <label className='block text-sm font-medium text-gray-700 mb-2'>
-                Order in Test
+                Duration (seconds)
               </label>
               <input
                 type='number'
-                value={formData.orderInTest}
+                value={
+                  formData.durationMillis
+                    ? Math.round(formData.durationMillis / 1000)
+                    : ''
+                }
                 onChange={(e) =>
                   setFormData((prev) => ({
                     ...prev,
-                    orderInTest: parseInt(e.target.value),
+                    durationMillis: parseInt(e.target.value) * 1000 || null,
                   }))
                 }
-                className='w-32 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                className='w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
                 min='1'
+                placeholder='e.g., 40 for 40 seconds'
               />
-            </div> */}
+              <p className='text-xs text-gray-500 mt-1'>
+                Time limit for this question (optional)
+              </p>
+            </div>
           </div>
 
           {/* Question Content */}
@@ -334,26 +842,27 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
               </h3>
 
               {/* Text Content */}
-              {requirements.requiresText && (
-                <div className='mb-6'>
-                  <label className='block text-sm font-medium text-gray-700 mb-2'>
-                    Text Content *
-                  </label>
-                  <textarea
-                    value={formData.textContent}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        textContent: e.target.value,
-                      }))
-                    }
-                    className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
-                    rows={8}
-                    placeholder='Enter the text content for this question...'
-                    required
-                  />
-                </div>
-              )}
+              {requirements.requiresText &&
+                !requirements.requiresParagraphs && (
+                  <div className='mb-6'>
+                    <label className='block text-sm font-medium text-gray-700 mb-2'>
+                      Text Content *
+                    </label>
+                    <textarea
+                      value={formData.textContent}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          textContent: e.target.value,
+                        }))
+                      }
+                      className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                      rows={8}
+                      placeholder='Enter the text content for this question...'
+                      required
+                    />
+                  </div>
+                )}
 
               {/* Audio Upload */}
               {requirements.requiresAudio && (
@@ -409,9 +918,13 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                     ) : (
                       <div className='text-center'>
                         <Upload className='w-12 h-12 text-blue-400 mx-auto mb-3' />
-                        <p className='text-sm text-gray-600 mb-3'>
-                          Upload audio file for this question
+                        <h3 className='text-lg font-medium text-gray-900 mb-2'>
+                          Upload Audio File
+                        </h3>
+                        <p className='text-sm text-gray-600 mb-4'>
+                          Drag and drop your audio file here, or click to browse
                         </p>
+
                         <input
                           type='file'
                           accept='audio/*'
@@ -423,6 +936,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                           id='audio-upload'
                           disabled={uploadingAudio}
                         />
+
                         <label
                           htmlFor='audio-upload'
                           className={`inline-flex items-center gap-2 px-6 py-3 border border-blue-300 rounded-lg shadow-sm text-sm font-medium text-blue-700 bg-white hover:bg-blue-50 cursor-pointer transition-colors ${
@@ -436,9 +950,11 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                             ? 'Uploading...'
                             : 'Choose Audio File'}
                         </label>
-                        <p className='text-xs text-gray-500 mt-3'>
-                          Supported: MP3, WAV, OGG, M4A, AAC (Max: 50MB)
-                        </p>
+
+                        <div className='mt-4 text-xs text-gray-500 space-y-1'>
+                          <p>Supported formats: MP3, WAV, OGG, M4A, AAC</p>
+                          <p>Maximum file size: 50MB</p>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -544,7 +1060,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                     {(formData.options || []).map(
                       (option: any, index: number) => (
                         <div
-                          key={index}
+                          key={option.id || index}
                           className='flex items-center gap-3 p-3 border border-gray-200 rounded-lg bg-white'
                         >
                           <input
@@ -586,82 +1102,8 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                 </div>
               )}
 
-              {/* Incorrect Words for Highlight Questions */}
-              {requirements.requiresIncorrectWords && (
-                <div className='mb-6'>
-                  <label className='block text-sm font-medium text-gray-700 mb-2'>
-                    Original Text with Errors *
-                  </label>
-                  <textarea
-                    value={formData.originalTextWithErrors}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        originalTextWithErrors: e.target.value,
-                      }))
-                    }
-                    className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
-                    rows={4}
-                    placeholder='Enter the text with intentional errors that students need to identify...'
-                    required
-                  />
-
-                  <div className='mt-3'>
-                    <label className='block text-sm font-medium text-gray-700 mb-2'>
-                      Incorrect Words (JSON Array) *
-                    </label>
-                    <input
-                      type='text'
-                      value={
-                        formData.incorrectWords
-                          ? JSON.stringify(formData.incorrectWords)
-                          : ''
-                      }
-                      onChange={(e) => {
-                        try {
-                          const parsed = JSON.parse(e.target.value);
-                          setFormData((prev) => ({
-                            ...prev,
-                            incorrectWords: parsed,
-                          }));
-                        } catch {
-                          // Invalid JSON, keep the text for editing
-                        }
-                      }}
-                      className='w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono text-sm'
-                      placeholder='["word1", "word2", "word3"]'
-                      required
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Duration */}
-              <div className='mb-6'>
-                <label className='block text-sm font-medium text-gray-700 mb-2'>
-                  Duration (seconds)
-                </label>
-                <input
-                  type='number'
-                  value={
-                    formData.durationMillis
-                      ? Math.round(formData.durationMillis / 1000)
-                      : ''
-                  }
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      durationMillis: parseInt(e.target.value) * 1000 || null,
-                    }))
-                  }
-                  className='w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
-                  min='1'
-                  placeholder='e.g., 40 for 40 seconds'
-                />
-                <p className='text-xs text-gray-500 mt-1'>
-                  Time limit for this question (optional)
-                </p>
-              </div>
+              {/* Question Type Specific Fields */}
+              {renderQuestionTypeSpecificFields()}
             </div>
           )}
 
@@ -697,6 +1139,12 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                     • Original text with errors and incorrect words list are
                     required
                   </li>
+                )}
+                {requirements.requiresParagraphs && (
+                  <li>• Multiple paragraphs in correct order are required</li>
+                )}
+                {requirements.requiresBlanks && (
+                  <li>• Blank options and correct answers are required</li>
                 )}
               </ul>
             </div>

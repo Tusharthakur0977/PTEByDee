@@ -2481,6 +2481,11 @@ once@^1.4.0:
   dependencies:
     wrappy "1"
 
+openai@^5.19.1:
+  version "5.19.1"
+  resolved "https://registry.npmjs.org/openai/-/openai-5.19.1.tgz"
+  integrity sha512-zSqnUF7oR9ksmpusKkpUgkNrj8Sl57U+OyzO8jzc7LUjTMg4DRfR3uCm+EIMA6iw06sRPNp4t7ojp3sCpEUZRQ==
+
 parse-json@^8.0.0:
   version "8.3.0"
   resolved "https://registry.npmjs.org/parse-json/-/parse-json-8.3.0.tgz"

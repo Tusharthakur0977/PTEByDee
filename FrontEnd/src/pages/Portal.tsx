@@ -20,14 +20,17 @@ import { Link } from 'react-router-dom';
 import QuestionTypeSelector from '../components/QuestionTypeSelector';
 import { mockTests, pteSections } from '../data/mockPte';
 import { getPracticeQuestions } from '../services/portal';
+import { getPracticeStats } from '../services/practice';
 import { PteQuestionTypeName } from '../types/pte';
 import PracticeQuestion from '../components/PracticeQuestions';
+import PracticeHistory from '../components/PracticeHistory';
+import PracticeStatsOverview from '../components/PracticeStatsOverview';
 
 const Portal: React.FC = () => {
   const freeTests = mockTests.filter((test) => test.isFree);
   const premiumTests = mockTests.filter((test) => !test.isFree);
   const [activeTab, setActiveTab] = React.useState<
-    'overview' | 'practice' | 'tests'
+    'overview' | 'practice' | 'tests' | 'history'
   >('practice');
   const [selectedQuestionType, setSelectedQuestionType] =
     React.useState<PteQuestionTypeName | null>(null);
@@ -35,12 +38,32 @@ const Portal: React.FC = () => {
   const [practiceQuestions, setPracticeQuestions] = React.useState<any[]>([]);
   const [isLoadingQuestions, setIsLoadingQuestions] = React.useState(false);
   const [questionError, setQuestionError] = React.useState<string | null>(null);
+  const [practiceStats, setPracticeStats] = React.useState<any>(null);
+  const [isLoadingStats, setIsLoadingStats] = React.useState(false);
+
+  React.useEffect(() => {
+    if (activeTab === 'overview') {
+      fetchPracticeStats();
+    }
+  }, [activeTab]);
 
   React.useEffect(() => {
     if (selectedQuestionType) {
       fetchPracticeQuestions();
     }
   }, [selectedQuestionType]);
+
+  const fetchPracticeStats = async () => {
+    try {
+      setIsLoadingStats(true);
+      const stats = await getPracticeStats();
+      setPracticeStats(stats);
+    } catch (error) {
+      console.error('Error fetching practice stats:', error);
+    } finally {
+      setIsLoadingStats(false);
+    }
+  };
 
   const fetchPracticeQuestions = async () => {
     if (!selectedQuestionType) return;
@@ -65,7 +88,10 @@ const Portal: React.FC = () => {
 
   const handleQuestionComplete = (response: any) => {
     console.log('Question completed:', response);
-    // Here you would typically save the response to your backend
+    // Refresh stats if we're on overview tab
+    if (activeTab === 'overview') {
+      fetchPracticeStats();
+    }
   };
 
   const handleNextQuestion = () => {
@@ -190,11 +216,20 @@ const Portal: React.FC = () => {
         );
       }
 
+      case 'history':
+        return <PracticeHistory />;
+
       case 'tests':
         return renderTestsContent();
 
       default:
-        return renderOverviewContent();
+        return (
+          <PracticeStatsOverview
+            stats={practiceStats}
+            isLoading={isLoadingStats}
+            onRefresh={fetchPracticeStats}
+          />
+        );
     }
   };
 
@@ -597,7 +632,7 @@ const Portal: React.FC = () => {
 
       <div className='container mx-auto px-4 py-8'>
         {/* Navigation Tabs */}
-        <div className='flex space-x-1 bg-gray-200 dark:bg-gray-700 p-1 rounded-lg mb-8 max-w-md mx-auto'>
+        <div className='flex space-x-1 bg-gray-200 dark:bg-gray-700 p-1 rounded-lg mb-8 max-w-xl mx-auto'>
           <button
             onClick={() => setActiveTab('practice')}
             className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200 ${
@@ -619,6 +654,18 @@ const Portal: React.FC = () => {
           >
             <BarChart3 className='h-4 w-4' />
             <span>Overview</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200 ${
+              activeTab === 'history'
+                ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                : 'text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100'
+            }`}
+          >
+            <Clock className='h-4 w-4' />
+            <span>History</span>
           </button>
 
           <button

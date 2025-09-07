@@ -15,6 +15,9 @@ import {
 } from '../controllers/User/getUserProgress.controller';
 import { getQuestionTypes } from '../controllers/User/getQuestionTypes.controller';
 import { getPracticeQuestions } from '../controllers/User/getPracticeQuestions.controller';
+import { submitPracticeResponse } from '../controllers/User/submitPracticeResponse.controller';
+import { getPracticeHistory } from '../controllers/User/getPracticeHistory.controller';
+import { getPracticeStats } from '../controllers/User/getPracticeStats.controller';
 
 import { protect } from '../middlewares/authenticate.middleware';
 
@@ -41,6 +44,11 @@ router.get('/enrolled-courses', protect, getEnrolledCourses);
 router.post('/lessons/:lessonId/progress', protect, updateLessonProgress);
 router.get('/courses/:courseId/progress', protect, getUserProgress);
 router.get('/progress/overview', protect, getUserProgressOverview);
+
+// Practice routes
+router.post('/practice/submit-response', protect, submitPracticeResponse);
+router.get('/practice/history', protect, getPracticeHistory);
+router.get('/practice/stats', protect, getPracticeStats);
 
 // Secure video URL generation for enrolled users
 router.post('/secure-video-url', protect, getSecureVideoUrl);

@@ -1,7 +1,7 @@
 import api from './api';
 
 export interface CreateQuestionData {
-  questionCode: string;
+  questionCode?: string; // Made optional for auto-generation
   questionTypeId: string;
   testId: string;
   orderInTest?: number;
@@ -92,6 +92,16 @@ class QuestionsService {
    */
   async getTests() {
     const response = await api.get('/admin/tests');
+    return response.data;
+  }
+
+  /**
+   * Get the next question code for a specific question type
+   */
+  async getNextQuestionCode(questionTypeId: string) {
+    const response = await api.get(
+      `/admin/questions/next-code/${questionTypeId}`
+    );
     return response.data;
   }
 

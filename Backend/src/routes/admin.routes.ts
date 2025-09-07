@@ -51,6 +51,7 @@ import { getQuestionTypes } from '../controllers/Admin/getQuestionTypes.controll
 import { getTests } from '../controllers/Admin/getTests.controller';
 import { uploadQuestionAudio } from '../controllers/Admin/uploadQuestionAudio.controller';
 import { getQuestionById } from '../controllers/Admin/getQuestionById.controller';
+import { getNextQuestionCode } from '../controllers/Admin/getNextQuestionCode.controller';
 
 import { protect } from '../middlewares/authenticate.middleware';
 import { isAdmin } from '../middlewares/isAdmin.middleware';
@@ -154,6 +155,12 @@ router.post(
 // Question management routes
 router.post('/questions', protect, isAdmin, createQuestion);
 router.get('/questions', protect, isAdmin, getAllQuestions);
+router.get(
+  '/questions/next-code/:questionTypeId',
+  protect,
+  isAdmin,
+  getNextQuestionCode
+);
 router.get('/questions/:id', protect, isAdmin, getQuestionById);
 router.put('/questions/:id', protect, isAdmin, updateQuestion);
 router.delete('/questions/:id', protect, isAdmin, deleteQuestion);

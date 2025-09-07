@@ -9,20 +9,22 @@ datasource db {
 
 // --- CORE USER & SUBSCRIPTION MODELS ---
 model User {
-    id            String         @id @default(auto()) @map("_id") @db.ObjectId
-    name          String
-    email         String         @unique
-    isVerified    Boolean        @default(false)
-    createdAt     DateTime       @default(now())
-    updatedAt     DateTime       @default(now()) @updatedAt
-    role          UserRole       @default(USER)
-    otpCodes      OtpCode[]
-    subscription  Subscription?
-    testAttempts  TestAttempt[]
-    courses       UserCourse[]
-    transactions  Transaction[]
-    notifications Notification[]
-    deletedAt     DateTime? // For soft deletes
+    id                String             @id @default(auto()) @map("_id") @db.ObjectId
+    name              String
+    email             String             @unique
+    isVerified        Boolean            @default(false)
+    createdAt         DateTime           @default(now())
+    updatedAt         DateTime           @default(now()) @updatedAt
+    role              UserRole           @default(USER)
+    otpCodes          OtpCode[]
+    subscription      Subscription?
+    testAttempts      TestAttempt[]
+    courses           UserCourse[]
+    transactions      Transaction[]
+    notifications     Notification[]
+    deletedAt         DateTime? // For soft deletes
+    practiceSessions  PracticeSession[]
+    practiceResponses PracticeResponse[]
 
     // --- Google OAuth Fields ---
     googleId           String? @unique
@@ -42,6 +44,43 @@ model User {
     CourseReview        CourseReview[]
     UserLessonProgress  UserLessonProgress[]
     UserSectionProgress UserSectionProgress[]
+}
+
+// Practice session model for tracking daily practice
+model PracticeSession {
+    id                String             @id @default(auto()) @map("_id") @db.ObjectId
+    userId            String             @db.ObjectId
+    user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+    sessionDate       DateTime // Date of practice session (normalized to start of day)
+    totalQuestions    Int                @default(0)
+    correctAnswers    Int                @default(0)
+    totalTimeSpent    Int                @default(0) // in seconds
+    createdAt         DateTime           @default(now())
+    updatedAt         DateTime           @updatedAt
+    practiceResponses PracticeResponse[]
+
+    @@unique([userId, sessionDate])
+}
+
+// Individual practice response model
+model PracticeResponse {
+    id                String              @id @default(auto()) @map("_id") @db.ObjectId
+    userId            String              @db.ObjectId
+    user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+    questionId        String              @db.ObjectId
+    question          Question            @relation(fields: [questionId], references: [id], onDelete: Cascade)
+    practiceSessionId String              @db.ObjectId
+    practiceSession   PracticeSession     @relation(fields: [practiceSessionId], references: [id], onDelete: Cascade)
+    questionType      PteQuestionTypeName
+    userResponse      Json // Store the user's response (text, selected options, etc.)
+    timeTakenSeconds  Int                 @default(0)
+    isCorrect         Boolean             @default(false)
+    score             Float               @default(0) // Score for this question (0-1 or 0-100 depending on scoring system)
+    createdAt         DateTime            @default(now())
+
+    @@index([userId, questionType])
+    @@index([userId, createdAt])
+    @@index([practiceSessionId])
 }
 
 // New OTP Code model
@@ -282,9 +321,10 @@ model Question {
     originalTextWithErrors String? // The text shown to the user with errors to highlight
     incorrectWords         Json? // e.g., ["word1", "word2"] - actual incorrect words in the original text to mark
 
-    createdAt    DateTime       @default(now())
-    updatedAt    DateTime       @updatedAt
-    UserResponse UserResponse[] // Inverse relation: a question can have many user responses across different attempts
+    createdAt        DateTime           @default(now())
+    updatedAt        DateTime           @updatedAt
+    UserResponse     UserResponse[] // Inverse relation: a question can have many user responses across different attempts
+    PracticeResponse PracticeResponse[] // Relation to practice responses
     // Keeping this for now as it's not "non-logical", just potentially large if eager loaded.
     // @@index([testId])
 
@@ -293,15 +333,15 @@ model Question {
 
 // Represents a full PTE Mock Test
 model Test {
-    id            String   @id @default(auto()) @map("_id") @db.ObjectId
+    id            String  @id @default(auto()) @map("_id") @db.ObjectId
     title         String // e.g., "PTE Mock Test 1 (Academic)"
     description   String?
-    testType      String   @default("ACADEMIC") // Could be "ACADEMIC", "CORE" - helpful for filtering
+    testType      String  @default("ACADEMIC") // Could be "ACADEMIC", "CORE" - helpful for filtering
     totalDuration Int // Total duration in minutes (e.g., 120 minutes)
-    isFree        Boolean  @default(false) // Whether this test is free or requires subscription/payment
-    
+    isFree        Boolean @default(false) // Whether this test is free or requires subscription/payment
+
     // Link questions to the test using a list of their IDs
-    questionIds   String[] @db.ObjectId
+    questionIds String[] @db.ObjectId
     // questions     Question[] // Questions belonging to this test
 
     testAttempts TestAttempt[]

@@ -5,6 +5,7 @@ import prisma from '../../config/prismaInstance';
 import { CustomRequest } from '../../types';
 import { STATUS_CODES } from '../../utils/constants';
 import { sendResponse } from '../../utils/helpers';
+import { generateQuestionCode } from '../../utils/questionCodeGenerator';
 
 /**
  * @desc    Create a new PTE question
@@ -14,7 +15,7 @@ import { sendResponse } from '../../utils/helpers';
 export const createQuestion = asyncHandler(
   async (req: CustomRequest, res: Response) => {
     const {
-      questionCode,
+      questionCode: providedQuestionCode, // Allow optional manual override
       questionTypeId,
       // testId,
       // orderInTest,
@@ -32,12 +33,12 @@ export const createQuestion = asyncHandler(
 
     try {
       // Input validation
-      if (!questionCode || !questionTypeId) {
+      if (!questionTypeId) {
         return sendResponse(
           res,
           STATUS_CODES.BAD_REQUEST,
           null,
-          'Question code, question type ID are required.'
+          'Question type ID is required.'
         );
       }
 
@@ -51,18 +52,26 @@ export const createQuestion = asyncHandler(
         );
       }
 
-      // Check if question code already exists
-      const existingQuestion = await prisma.question.findUnique({
-        where: { questionCode },
-      });
+      // Generate question code automatically or use provided one
+      let questionCode: string;
+      if (providedQuestionCode && providedQuestionCode.trim()) {
+        // If question code is provided, check if it already exists
+        const existingQuestion = await prisma.question.findUnique({
+          where: { questionCode: providedQuestionCode.trim() },
+        });
 
-      if (existingQuestion) {
-        return sendResponse(
-          res,
-          STATUS_CODES.CONFLICT,
-          null,
-          'Question code already exists. Please use a unique code.'
-        );
+        if (existingQuestion) {
+          return sendResponse(
+            res,
+            STATUS_CODES.CONFLICT,
+            null,
+            'Question code already exists. Please use a unique code.'
+          );
+        }
+        questionCode = providedQuestionCode.trim();
+      } else {
+        // Generate automatic question code
+        questionCode = await generateQuestionCode(questionTypeId);
       }
 
       // Verify question type exists

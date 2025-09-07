@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, CheckCircle, AlertCircle, RotateCcw } from 'lucide-react';
+import { Clock, CheckCircle, AlertCircle, RotateCcw, X } from 'lucide-react';
 import { PteQuestionTypeName } from '../types/pte';
 import { PracticeQuestion as PracticeQuestionType } from '../services/portal';
 import AudioRecorder from './AudioRecorder';
 import AudioPlayer from './AudioPlayer';
+import {
+  submitPracticeResponse,
+  calculateQuestionScore,
+} from '../services/practice';
 
 interface PracticeQuestionProps {
   question: PracticeQuestionType;
@@ -63,7 +67,29 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
 
   const handleSubmit = () => {
     setIsCompleted(true);
-    onComplete?.(response);
+
+    return;
+    // Calculate score and correctness
+    const { isCorrect, score } = calculateQuestionScore(
+      question.type,
+      response,
+      question.content.correctAnswers ||
+        question.content.options?.filter((o) => o.isCorrect).map((o) => o.id)
+    );
+
+    // Submit to backend
+    submitPracticeResponse({
+      questionId: question.id,
+      questionType: question.type,
+      response,
+      timeTaken: (question.content.timeLimit || 300) - timeLeft,
+      isCorrect,
+      score,
+    }).catch((error) => {
+      console.error('Failed to submit practice response:', error);
+    });
+
+    onComplete?.({ ...response, isCorrect, score });
   };
 
   const handleReset = () => {
@@ -222,11 +248,18 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 />
               </div>
             )}
-            <div className='space-y-3'>
+            <div className='space-y-4'>
+              <h4 className='font-medium text-gray-900 dark:text-white text-lg'>
+                Choose the correct answer:
+              </h4>
               {question.content.options?.map((option) => (
                 <label
                   key={option.id}
-                  className='flex items-start space-x-3 p-4 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer'
+                  className={`flex items-start space-x-4 p-6 border-2 rounded-xl cursor-pointer transition-all duration-200 ${
+                    response.selectedOption === option.id
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30'
+                      : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
                 >
                   <input
                     type='radio'
@@ -239,9 +272,9 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                         selectedOption: e.target.value,
                       })
                     }
-                    className='mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300'
+                    className='mt-1 h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300'
                   />
-                  <span className='text-gray-900 dark:text-white'>
+                  <span className='text-gray-900 dark:text-white leading-relaxed'>
                     {option.text}
                   </span>
                 </label>
@@ -269,11 +302,18 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 />
               </div>
             )}
-            <div className='space-y-3'>
+            <div className='space-y-4'>
+              <h4 className='font-medium text-gray-900 dark:text-white text-lg'>
+                Choose all correct answers:
+              </h4>
               {question.content.options?.map((option) => (
                 <label
                   key={option.id}
-                  className='flex items-start space-x-3 p-4 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer'
+                  className={`flex items-start space-x-4 p-6 border-2 rounded-xl cursor-pointer transition-all duration-200 ${
+                    response.selectedOptions?.includes(option.id)
+                      ? 'border-green-500 bg-green-50 dark:bg-green-900/30'
+                      : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
                 >
                   <input
                     type='checkbox'
@@ -297,9 +337,9 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                         });
                       }
                     }}
-                    className='mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+                    className='mt-1 h-5 w-5 text-green-600 focus:ring-green-500 border-gray-300 rounded'
                   />
-                  <span className='text-gray-900 dark:text-white'>
+                  <span className='text-gray-900 dark:text-white leading-relaxed'>
                     {option.text}
                   </span>
                 </label>
@@ -311,36 +351,45 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
       case PteQuestionTypeName.RE_ORDER_PARAGRAPHS:
         return (
           <div className='space-y-6'>
-            <div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
+            <div className='grid grid-cols-1 lg:grid-cols-2 gap-8'>
               <div>
-                <h4 className='font-medium text-gray-900 dark:text-white mb-3'>
+                <h4 className='font-semibold text-gray-900 dark:text-white mb-4 text-lg'>
                   Available Paragraphs
                 </h4>
-                <div className='space-y-2'>
+                <div className='space-y-3 min-h-[300px] p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600'>
                   {question.content.paragraphs
                     ?.filter((p) => !response.orderedParagraphs?.includes(p.id))
                     .map((paragraph) => (
                       <div
                         key={paragraph.id}
-                        className='p-3 bg-gray-100 dark:bg-gray-700 rounded-lg cursor-move'
+                        className='p-4 bg-white dark:bg-gray-800 rounded-lg cursor-move shadow-sm hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-600'
                         draggable
                         onDragStart={(e) =>
                           e.dataTransfer.setData('text/plain', paragraph.id)
                         }
                       >
-                        <p className='text-sm text-gray-900 dark:text-white'>
+                        <p className='text-sm text-gray-900 dark:text-white leading-relaxed'>
                           {paragraph.text}
                         </p>
                       </div>
                     ))}
+                  {question.content.paragraphs?.filter(
+                    (p) => !response.orderedParagraphs?.includes(p.id)
+                  ).length === 0 && (
+                    <div className='flex items-center justify-center h-full text-gray-500 dark:text-gray-400'>
+                      <p className='text-center'>
+                        All paragraphs have been ordered
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
               <div>
-                <h4 className='font-medium text-gray-900 dark:text-white mb-3'>
+                <h4 className='font-semibold text-gray-900 dark:text-white mb-4 text-lg'>
                   Correct Order
                 </h4>
                 <div
-                  className='min-h-40 p-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg space-y-2'
+                  className='min-h-[300px] p-4 border-2 border-dashed border-blue-300 dark:border-blue-600 rounded-lg space-y-3 bg-blue-50 dark:bg-blue-900/20'
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => {
                     e.preventDefault();
@@ -352,6 +401,13 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                     });
                   }}
                 >
+                  {response.orderedParagraphs?.length === 0 && (
+                    <div className='flex items-center justify-center h-full text-gray-500 dark:text-gray-400'>
+                      <p className='text-center'>
+                        Drag paragraphs here in the correct order
+                      </p>
+                    </div>
+                  )}
                   {response.orderedParagraphs?.map(
                     (paragraphId: string, index: number) => {
                       const paragraph = question.content.paragraphs?.find(
@@ -360,12 +416,17 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                       return (
                         <div
                           key={paragraphId}
-                          className='p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg'
+                          className='p-4 bg-blue-100 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-700 shadow-sm'
                         >
-                          <div className='flex justify-between items-start'>
-                            <p className='text-sm text-gray-900 dark:text-white'>
-                              {paragraph?.text}
-                            </p>
+                          <div className='flex justify-between items-start gap-3'>
+                            <div className='flex items-start space-x-3'>
+                              <span className='bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded-full min-w-[24px] text-center'>
+                                {index + 1}
+                              </span>
+                              <p className='text-sm text-gray-900 dark:text-white leading-relaxed'>
+                                {paragraph?.text}
+                              </p>
+                            </div>
                             <button
                               onClick={() => {
                                 const orderedParagraphs =
@@ -374,9 +435,9 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                                   );
                                 setResponse({ ...response, orderedParagraphs });
                               }}
-                              className='text-red-600 hover:text-red-800 ml-2'
+                              className='text-red-600 hover:text-red-800 p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors'
                             >
-                              ×
+                              <X className='w-4 h-4' />
                             </button>
                           </div>
                         </div>
@@ -390,6 +451,52 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
         );
 
       case PteQuestionTypeName.READING_FILL_IN_THE_BLANKS:
+        return (
+          <div className='space-y-6'>
+            <div className='bg-white dark:bg-gray-800 p-6 rounded-lg border-2 border-gray-200 dark:border-gray-600'>
+              <h4 className='font-medium text-gray-900 dark:text-white mb-4 text-lg'>
+                Click on each blank to select the correct word:
+              </h4>
+              <div className='text-lg leading-relaxed'>
+                {question.content.text
+                  ?.split('_____')
+                  .map((part, index, array) => (
+                    <span key={index}>
+                      {part}
+                      {index < array.length - 1 && (
+                        <select
+                          value={response.blanks?.[`blank${index + 1}`] || ''}
+                          onChange={(e) =>
+                            setResponse({
+                              ...response,
+                              blanks: {
+                                ...response.blanks,
+                                [`blank${index + 1}`]: e.target.value,
+                              },
+                            })
+                          }
+                          className='mx-2 px-3 py-2 border-2 border-green-300 dark:border-green-600 rounded-lg bg-green-50 dark:bg-green-900/20 text-gray-900 dark:text-white min-w-[120px] focus:ring-2 focus:ring-green-500 focus:border-green-500'
+                        >
+                          <option value=''>Select...</option>
+                          {question.content.blanks?.[index]?.options.map(
+                            (option) => (
+                              <option
+                                key={option}
+                                value={option}
+                              >
+                                {option}
+                              </option>
+                            )
+                          )}
+                        </select>
+                      )}
+                    </span>
+                  ))}
+              </div>
+            </div>
+          </div>
+        );
+
       case PteQuestionTypeName.READING_WRITING_FILL_IN_THE_BLANKS:
         return (
           <div className='space-y-6'>
@@ -412,7 +519,7 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                               },
                             })
                           }
-                          className='mx-2 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+                          className='mx-2 px-3 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white min-w-[120px]'
                         >
                           <option value=''>Select...</option>
                           {question.content.blanks?.[index]?.options.map(
@@ -431,6 +538,29 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                   ))}
               </div>
             </div>
+
+            {/* Available words for drag and drop */}
+            <div className='bg-gray-50 dark:bg-gray-700 p-4 rounded-lg'>
+              <h4 className='font-medium text-gray-900 dark:text-white mb-3'>
+                Available Words
+              </h4>
+              <div className='flex flex-wrap gap-2'>
+                {question.content.blanks
+                  ?.flatMap((blank) => blank.options)
+                  .map((word, index) => (
+                    <span
+                      key={index}
+                      className='px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-md text-sm cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors'
+                      draggable
+                      onDragStart={(e) =>
+                        e.dataTransfer.setData('text/plain', word)
+                      }
+                    >
+                      {word}
+                    </span>
+                  ))}
+              </div>
+            </div>
           </div>
         );
 
@@ -444,7 +574,10 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
               />
             </div>
             <div className='bg-white dark:bg-gray-800 p-6 rounded-lg border-2 border-gray-200 dark:border-gray-600'>
-              <div className='text-base leading-relaxed text-gray-900 dark:text-white'>
+              <h4 className='font-medium text-gray-900 dark:text-white mb-4 text-lg'>
+                Type the missing words:
+              </h4>
+              <div className='text-lg leading-relaxed'>
                 {question.content.text
                   ?.split('_____')
                   .map((part, index, array) => (
@@ -463,7 +596,7 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                               },
                             })
                           }
-                          className='mx-2 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white w-24'
+                          className='mx-2 px-3 py-2 border-2 border-blue-300 dark:border-blue-600 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-gray-900 dark:text-white min-w-[120px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
                           placeholder='...'
                         />
                       )}
@@ -517,11 +650,18 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 title='Listen to the recording'
               />
             </div>
-            <div className='space-y-3'>
+            <div className='space-y-4'>
+              <h4 className='font-medium text-gray-900 dark:text-white text-lg'>
+                Choose the best summary:
+              </h4>
               {question.content.options?.map((option) => (
                 <label
                   key={option.id}
-                  className='flex items-start space-x-3 p-4 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer'
+                  className={`flex items-start space-x-4 p-6 border-2 rounded-xl cursor-pointer transition-all duration-200 ${
+                    response.selectedSummary === option.id
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30'
+                      : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
                 >
                   <input
                     type='radio'
@@ -534,11 +674,13 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                         selectedSummary: e.target.value,
                       })
                     }
-                    className='mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300'
+                    className='mt-2 h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300'
                   />
-                  <span className='text-gray-900 dark:text-white'>
-                    {option.text}
-                  </span>
+                  <div className='flex-1'>
+                    <p className='text-gray-900 dark:text-white leading-relaxed'>
+                      {option.text}
+                    </p>
+                  </div>
                 </label>
               ))}
             </div>
@@ -554,22 +696,27 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 title='Listen and select the missing word'
               />
             </div>
-            <div className='grid grid-cols-2 gap-3'>
-              {question.content.options?.map((option) => (
-                <button
-                  key={option.id}
-                  onClick={() =>
-                    setResponse({ ...response, selectedWord: option.id })
-                  }
-                  className={`p-4 border rounded-lg text-center transition-colors duration-200 ${
-                    response.selectedWord === option.id
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                      : 'border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-white'
-                  }`}
-                >
-                  {option.text}
-                </button>
-              ))}
+            <div className='space-y-4'>
+              <h4 className='font-medium text-gray-900 dark:text-white text-lg text-center'>
+                Select the missing word:
+              </h4>
+              <div className='grid grid-cols-2 md:grid-cols-4 gap-4'>
+                {question.content.options?.map((option) => (
+                  <button
+                    key={option.id}
+                    onClick={() =>
+                      setResponse({ ...response, selectedWord: option.id })
+                    }
+                    className={`p-6 border-2 rounded-xl text-center transition-all duration-200 font-medium ${
+                      response.selectedWord === option.id
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 shadow-lg'
+                        : 'border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-white'
+                    }`}
+                  >
+                    {option.text}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         );
@@ -584,7 +731,10 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
               />
             </div>
             <div className='bg-white dark:bg-gray-800 p-6 rounded-lg border-2 border-gray-200 dark:border-gray-600'>
-              <div className='text-base leading-relaxed'>
+              <h4 className='font-medium text-gray-900 dark:text-white mb-4 text-lg'>
+                Click on words that are different from what you heard:
+              </h4>
+              <div className='text-lg leading-relaxed'>
                 {question.content.text
                   ?.split(' ')
                   .map((word, index) => (
@@ -607,20 +757,23 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                           });
                         }
                       }}
-                      className={`cursor-pointer px-1 rounded ${
+                      className={`cursor-pointer px-2 py-1 mx-1 rounded-md transition-all duration-200 ${
                         response.highlightedWords?.includes(word)
-                          ? 'bg-red-200 dark:bg-red-900/50 text-red-800 dark:text-red-300'
-                          : 'text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700'
+                          ? 'bg-red-200 dark:bg-red-900/50 text-red-800 dark:text-red-300 shadow-sm'
+                          : 'text-gray-900 dark:text-white hover:bg-yellow-100 dark:hover:bg-yellow-900/30'
                       }`}
                     >
                       {word}
                     </span>
                   ))
-                  .reduce((prev, curr) => (
-                    <>
+                  .reduce((prev, curr, index) => (
+                    <React.Fragment key={index}>
                       {prev} {curr}
-                    </>
+                    </React.Fragment>
                   ))}
+              </div>
+              <div className='mt-4 text-sm text-gray-600 dark:text-gray-400'>
+                Selected words: {response.highlightedWords?.length || 0}
               </div>
             </div>
           </div>
@@ -635,9 +788,9 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 title='Listen and type the sentence'
               />
             </div>
-            <div>
-              <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
-                Type what you hear:
+            <div className='bg-white dark:bg-gray-800 p-6 rounded-lg border-2 border-gray-200 dark:border-gray-600'>
+              <label className='block text-lg font-medium text-gray-700 dark:text-gray-300 mb-4'>
+                Type exactly what you hear:
               </label>
               <input
                 type='text'
@@ -645,9 +798,14 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 onChange={(e) =>
                   setResponse({ ...response, text: e.target.value })
                 }
-                className='w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+                className='w-full p-4 text-lg border-2 border-blue-300 dark:border-blue-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-gray-900 dark:text-white'
                 placeholder='Type the sentence here...'
               />
+              <div className='mt-2 text-sm text-gray-600 dark:text-gray-400'>
+                Words typed:{' '}
+                {response.text?.split(' ').filter((w: string) => w.length > 0)
+                  .length || 0}
+              </div>
             </div>
           </div>
         );
