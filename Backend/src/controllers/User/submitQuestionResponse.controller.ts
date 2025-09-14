@@ -2,9 +2,14 @@ import { Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import prisma from '../../config/prismaInstance';
 import { evaluateQuestionResponse } from '../../services/questionEvaluationService';
+import {
+  transcribeAudioWithRetry,
+  validateAudioFile,
+} from '../../services/audioTranscriptionService';
 import { CustomRequest } from '../../types';
 import { STATUS_CODES } from '../../utils/constants';
 import { sendResponse } from '../../utils/helpers';
+import { PteQuestionTypeName } from '@prisma/client';
 
 /**
  * @desc    Submit and evaluate question response using OpenAI
@@ -67,10 +72,67 @@ export const submitQuestionResponse = asyncHandler(
         );
       }
 
+      // Handle audio transcription for speaking questions
+      let processedUserResponse = userResponse;
+      let transcribedText: string | null = null;
+
+      // Check if this is an audio-based question that needs transcription
+      const audioBasedQuestions = [
+        PteQuestionTypeName.READ_ALOUD,
+        PteQuestionTypeName.REPEAT_SENTENCE,
+        PteQuestionTypeName.DESCRIBE_IMAGE,
+        PteQuestionTypeName.RE_TELL_LECTURE,
+        PteQuestionTypeName.ANSWER_SHORT_QUESTION,
+      ];
+
+      if (audioBasedQuestions.includes(question.questionType.name as any)) {
+        // Check if audio response is provided
+        if (userResponse.audioResponseUrl) {
+          // Validate audio file
+          if (!validateAudioFile(userResponse.audioResponseUrl)) {
+            return sendResponse(
+              res,
+              STATUS_CODES.BAD_REQUEST,
+              null,
+              'Invalid audio file format or location.'
+            );
+          }
+
+          try {
+            // Transcribe audio using OpenAI Whisper
+            const transcriptionResult = await transcribeAudioWithRetry(
+              userResponse.audioResponseUrl
+            );
+            transcribedText = transcriptionResult.text;
+
+            // For evaluation, pass the transcribed text
+            processedUserResponse = {
+              ...userResponse,
+              textResponse: transcribedText,
+            };
+          } catch (error: any) {
+            console.error('Audio transcription failed:', error);
+            return sendResponse(
+              res,
+              STATUS_CODES.INTERNAL_SERVER_ERROR,
+              null,
+              `Audio transcription failed: ${error.message}`
+            );
+          }
+        } else {
+          return sendResponse(
+            res,
+            STATUS_CODES.BAD_REQUEST,
+            null,
+            'Audio response is required for this question type.'
+          );
+        }
+      }
+
       // Evaluate the response using OpenAI
       const evaluation = await evaluateQuestionResponse(
         question,
-        userResponse,
+        processedUserResponse,
         timeTakenSeconds
       );
 
@@ -81,7 +143,7 @@ export const submitQuestionResponse = asyncHandler(
           data: {
             userId,
             questionId,
-            textResponse: userResponse.textResponse || null,
+            textResponse: transcribedText || userResponse.textResponse || null,
             audioResponseUrl: userResponse.audioResponseUrl || null,
             selectedOptions: userResponse.selectedOptions || [],
             orderedItems: userResponse.orderedItems || [],

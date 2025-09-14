@@ -23,6 +23,7 @@ import {
   getUserResponses,
   getUserResponseStats,
 } from '../controllers/User/getUserResponses.controller';
+import { uploadAudio } from '../controllers/User/uploadAudio.controller';
 
 import { protect } from '../middlewares/authenticate.middleware';
 
@@ -59,6 +60,9 @@ router.get('/practice/stats', protect, getPracticeStats);
 router.post('/questions/submit-response', protect, submitQuestionResponse);
 router.get('/responses', protect, getUserResponses);
 router.get('/responses/stats', protect, getUserResponseStats);
+
+// Audio upload for question responses
+router.post('/upload-audio', protect, uploadAudio);
 
 // Secure video URL generation for enrolled users
 router.post('/secure-video-url', protect, getSecureVideoUrl);

@@ -1,15 +1,20 @@
 import { useState, useRef, useCallback } from 'react';
+import api from '../services/api';
 
 interface UseAudioRecorderReturn {
   isRecording: boolean;
   isPaused: boolean;
   recordingTime: number;
   audioURL: string | null;
+  audioBlob: Blob | null;
+  isUploading: boolean;
+  uploadProgress: number;
   startRecording: () => Promise<void>;
   stopRecording: () => void;
   pauseRecording: () => void;
   resumeRecording: () => void;
   clearRecording: () => void;
+  uploadAudio: () => Promise<string | null>;
   isSupported: boolean;
 }
 
@@ -18,6 +23,9 @@ export const useAudioRecorder = (): UseAudioRecorderReturn => {
   const [isPaused, setIsPaused] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioURL, setAudioURL] = useState<string | null>(null);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -77,6 +85,7 @@ export const useAudioRecorder = (): UseAudioRecorderReturn => {
         });
         const url = URL.createObjectURL(blob);
         setAudioURL(url);
+        setAudioBlob(blob);
 
         // Clean up stream
         if (streamRef.current) {
@@ -126,20 +135,64 @@ export const useAudioRecorder = (): UseAudioRecorderReturn => {
       URL.revokeObjectURL(audioURL);
       setAudioURL(null);
     }
+    setAudioBlob(null);
     setRecordingTime(0);
+    setUploadProgress(0);
     chunksRef.current = [];
   }, [audioURL]);
+
+  const uploadAudio = useCallback(async (): Promise<string | null> => {
+    if (!audioBlob) {
+      throw new Error('No audio recording available to upload');
+    }
+
+    try {
+      setIsUploading(true);
+      setUploadProgress(0);
+
+      // Create FormData for file upload
+      const formData = new FormData();
+      const fileName = `recording_${Date.now()}.webm`;
+      formData.append('audio', audioBlob, fileName);
+
+      // Upload to backend
+      const response = await api.post('/user/upload-audio', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total) {
+            const progress = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            );
+            setUploadProgress(progress);
+          }
+        },
+      });
+
+      setIsUploading(false);
+      return response.data.data.audioKey; // Return S3 key
+    } catch (error) {
+      setIsUploading(false);
+      console.error('Error uploading audio:', error);
+      throw error;
+    }
+  }, [audioBlob]);
 
   return {
     isRecording,
     isPaused,
     recordingTime,
     audioURL,
+    audioBlob,
+    isUploading,
+    uploadProgress,
     startRecording,
     stopRecording,
     pauseRecording,
     resumeRecording,
     clearRecording,
+    uploadAudio,
     isSupported,
   };
 };

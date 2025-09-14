@@ -21,7 +21,17 @@ export const getQuestionTypes = asyncHandler(
             },
           },
         },
-        orderBy: [{ pteSection: { name: 'asc' } }, { name: 'asc' }],
+        // Sort by the pteSection's order, then by the questionType's name
+        orderBy: [
+          {
+            pteSection: {
+              order: 'asc', // Sort sections by the new 'order' field
+            },
+          },
+          {
+            name: 'asc', // Then sort question types alphabetically within each section
+          },
+        ],
       });
 
       // Group by PTE section for better organization

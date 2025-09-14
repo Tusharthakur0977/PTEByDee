@@ -1,6 +1,7 @@
 import {
   generateImageSignedUrl,
   generateVideoSignedUrl,
+  generateAudioSignedUrl,
   extractS3KeyFromUrl,
   checkCloudFrontConfiguration,
 } from '../config/cloudFrontConfig';
@@ -35,9 +36,9 @@ export class SecureUrlService {
 
     const { expirationHours = 24 } = options;
     const s3Key = extractS3KeyFromUrl(imageUrl);
-    
+
     const signedUrl = generateImageSignedUrl(s3Key, expirationHours);
-    
+
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + expirationHours);
 
@@ -64,9 +65,38 @@ export class SecureUrlService {
 
     const { expirationHours = 24 } = options;
     const s3Key = extractS3KeyFromUrl(videoUrl);
-    
+
     const signedUrl = generateVideoSignedUrl(s3Key, expirationHours);
-    
+
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + expirationHours);
+
+    return {
+      signedUrl,
+      expiresAt: expiresAt.toISOString(),
+      expirationHours,
+    };
+  }
+
+  /**
+   * Generate a secure signed URL for an audio file
+   * @param audioUrl - The S3 URL or key of the audio file
+   * @param options - Configuration options for the signed URL
+   * @returns Promise with signed URL and expiration info
+   */
+  static async generateSecureAudioUrl(
+    audioUrl: string,
+    options: SecureUrlOptions = {}
+  ): Promise<SecureUrlResponse> {
+    if (!checkCloudFrontConfiguration()) {
+      throw new Error('CloudFront is not properly configured');
+    }
+
+    const { expirationHours = 24 } = options;
+    const s3Key = extractS3KeyFromUrl(audioUrl);
+
+    const signedUrl = generateAudioSignedUrl(s3Key, expirationHours);
+
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + expirationHours);
 
@@ -87,10 +117,10 @@ export class SecureUrlService {
     imageUrls: string[],
     options: SecureUrlOptions = {}
   ): Promise<SecureUrlResponse[]> {
-    const promises = imageUrls.map(url => 
+    const promises = imageUrls.map((url) =>
       this.generateSecureImageUrl(url, options)
     );
-    
+
     return Promise.all(promises);
   }
 
@@ -104,10 +134,10 @@ export class SecureUrlService {
     videoUrls: string[],
     options: SecureUrlOptions = {}
   ): Promise<SecureUrlResponse[]> {
-    const promises = videoUrls.map(url => 
+    const promises = videoUrls.map((url) =>
       this.generateSecureVideoUrl(url, options)
     );
-    
+
     return Promise.all(promises);
   }
 

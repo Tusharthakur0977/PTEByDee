@@ -1,5 +1,5 @@
 import { AlertCircle, CheckCircle, Clock, RotateCcw, X } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { PracticeQuestion as PracticeQuestionType } from '../services/portal';
 import { submitQuestionResponse } from '../services/questionResponse';
 import { PteQuestionTypeName } from '../types/pte';
@@ -20,6 +20,8 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
   onNext,
   className = '',
 }) => {
+  console.log(question, 'EEEE');
+
   const [timeLeft, setTimeLeft] = useState(question.content.timeLimit || 300);
   const [isCompleted, setIsCompleted] = useState(false);
   const [response, setResponse] = useState<any>({});
@@ -30,41 +32,19 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
     !!question.content.preparationTime
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isProcessingAudio, setIsProcessingAudio] = useState(false);
+  const [isAudioReady, setIsAudioReady] = useState(false);
 
-  // Timer effect
-  useEffect(() => {
-    if (isPreparationPhase && preparationTime > 0) {
-      const timer = setTimeout(
-        () => setPreparationTime(preparationTime - 1),
-        1000
-      );
-      return () => clearTimeout(timer);
-    } else if (isPreparationPhase && preparationTime === 0) {
-      setIsPreparationPhase(false);
-      setTimeLeft(
-        question.content.recordingTime || question.content.timeLimit || 300
-      );
-    } else if (!isPreparationPhase && timeLeft > 0 && !isCompleted) {
-      const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
-      return () => clearTimeout(timer);
-    } else if (timeLeft === 0 && !isCompleted) {
-      handleSubmit();
-    }
-  }, [
-    timeLeft,
-    preparationTime,
-    isPreparationPhase,
-    isCompleted,
-    question.content,
-  ]);
+  // Check if current question is audio-based
+  const isAudioBasedQuestion = [
+    'READ_ALOUD',
+    'REPEAT_SENTENCE',
+    'DESCRIBE_IMAGE',
+    'RE_TELL_LECTURE',
+    'ANSWER_SHORT_QUESTION',
+  ].includes(question.type);
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     if (isCompleted || isSubmitting) return;
 
     try {
@@ -102,15 +82,82 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
         evaluation: {
           score: 0,
           isCorrect: false,
-          feedback: 'Failed to submit response. Please try again.',
-          detailedAnalysis: { error: true },
-          suggestions: ['Check your internet connection and try again.'],
+          feedback: 'An error occurred while evaluating your response.',
+          detailedAnalysis: {},
+          suggestions: ['Please try again.'],
         },
       });
       setIsCompleted(true);
     } finally {
       setIsSubmitting(false);
     }
+  }, [
+    isCompleted,
+    isSubmitting,
+    question.id,
+    question.content.timeLimit,
+    response,
+    timeLeft,
+    onComplete,
+  ]);
+
+  // Timer effect
+  useEffect(() => {
+    if (isPreparationPhase && preparationTime > 0) {
+      const timer = setTimeout(
+        () => setPreparationTime(preparationTime - 1),
+        1000
+      );
+      return () => clearTimeout(timer);
+    } else if (isPreparationPhase && preparationTime === 0) {
+      setIsPreparationPhase(false);
+      setTimeLeft(
+        question.content.recordingTime || question.content.timeLimit || 300
+      );
+    } else if (!isPreparationPhase && timeLeft > 0 && !isCompleted) {
+      const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
+      return () => clearTimeout(timer);
+    } else if (timeLeft === 0 && !isCompleted) {
+      // For audio-based questions, don't auto-submit when time runs out
+      // Let user manually submit after reviewing their recording
+      if (!isAudioBasedQuestion) {
+        handleSubmit();
+      }
+    }
+  }, [
+    timeLeft,
+    preparationTime,
+    isPreparationPhase,
+    isCompleted,
+    question.content,
+    isAudioBasedQuestion,
+    handleSubmit,
+  ]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleAudioRecordingComplete = (audioKey: string) => {
+    setIsProcessingAudio(true);
+    setResponse({ audioResponseUrl: audioKey });
+
+    // Show processing message for a moment, then mark audio as ready for review
+    setTimeout(() => {
+      setIsProcessingAudio(false);
+      setIsAudioReady(true);
+    }, 2000);
+  };
+
+  // Manual submit handler for audio questions
+  const handleManualSubmit = () => {
+    if (isAudioBasedQuestion && !response.audioResponseUrl) {
+      alert('Please record your audio response first.');
+      return;
+    }
+    handleSubmit();
   };
 
   const handleReset = () => {
@@ -133,9 +180,22 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
             </div>
             {!isPreparationPhase && (
               <AudioRecorder
-                onRecordingComplete={(audioURL) => setResponse({ audioURL })}
+                onRecordingComplete={handleAudioRecordingComplete}
                 maxDuration={question.content.recordingTime}
+                autoUpload={true}
               />
+            )}
+
+            {/* Audio Processing Status */}
+            {isProcessingAudio && (
+              <div className='bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-700'>
+                <div className='flex items-center justify-center space-x-3'>
+                  <div className='animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600'></div>
+                  <span className='text-blue-800 dark:text-blue-200 font-medium'>
+                    Processing your recording for evaluation...
+                  </span>
+                </div>
+              </div>
             )}
           </div>
         );
@@ -152,8 +212,9 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
             </div>
             {!isPreparationPhase && (
               <AudioRecorder
-                onRecordingComplete={(audioURL) => setResponse({ audioURL })}
+                onRecordingComplete={handleAudioRecordingComplete}
                 maxDuration={question.content.recordingTime}
+                autoUpload={true}
               />
             )}
           </div>
@@ -171,8 +232,9 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
             </div>
             {!isPreparationPhase && (
               <AudioRecorder
-                onRecordingComplete={(audioURL) => setResponse({ audioURL })}
+                onRecordingComplete={handleAudioRecordingComplete}
                 maxDuration={question.content.recordingTime}
+                autoUpload={true}
               />
             )}
           </div>
@@ -190,8 +252,9 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
             </div>
             {!isPreparationPhase && (
               <AudioRecorder
-                onRecordingComplete={(audioURL) => setResponse({ audioURL })}
+                onRecordingComplete={handleAudioRecordingComplete}
                 maxDuration={question.content.recordingTime}
+                autoUpload={true}
               />
             )}
           </div>
@@ -209,8 +272,9 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
             </div>
             {!isPreparationPhase && (
               <AudioRecorder
-                onRecordingComplete={(audioURL) => setResponse({ audioURL })}
+                onRecordingComplete={handleAudioRecordingComplete}
                 maxDuration={question.content.recordingTime}
+                autoUpload={true}
               />
             )}
           </div>
@@ -951,21 +1015,73 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
 
           <div className='flex space-x-3'>
             {!isCompleted && !isPreparationPhase && (
-              <button
-                onClick={handleSubmit}
-                disabled={isSubmitting}
-                className='bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed'
-              >
-                {isSubmitting ? (
-                  <div className='flex items-center space-x-2'>
-                    <div className='animate-spin rounded-full h-4 w-4 border-b-2 border-white'></div>
-                    <span>Evaluating...</span>
-                  </div>
+              <>
+                {/* For audio-based questions, only show submit button when audio is ready */}
+                {isAudioBasedQuestion ? (
+                  isAudioReady && (
+                    <button
+                      onClick={handleManualSubmit}
+                      disabled={isSubmitting}
+                      className='bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed'
+                    >
+                      {isSubmitting ? (
+                        <div className='flex items-center space-x-2'>
+                          <div className='animate-spin rounded-full h-4 w-4 border-b-2 border-white'></div>
+                          <span>Processing & Evaluating...</span>
+                        </div>
+                      ) : (
+                        'Submit Audio Response'
+                      )}
+                    </button>
+                  )
                 ) : (
-                  'Submit'
+                  /* For non-audio questions, show regular submit button */
+                  <button
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                    className='bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed'
+                  >
+                    {isSubmitting ? (
+                      <div className='flex items-center space-x-2'>
+                        <div className='animate-spin rounded-full h-4 w-4 border-b-2 border-white'></div>
+                        <span>Evaluating...</span>
+                      </div>
+                    ) : (
+                      'Submit'
+                    )}
+                  </button>
                 )}
-              </button>
+              </>
             )}
+
+            {/* Helper message for audio questions */}
+            {!isCompleted &&
+              !isPreparationPhase &&
+              isAudioBasedQuestion &&
+              !isAudioReady &&
+              !isProcessingAudio && (
+                <div className='bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-700'>
+                  <p className='text-blue-800 dark:text-blue-200 text-sm font-medium'>
+                    📝 Record your audio response, then review it before
+                    submitting for evaluation.
+                  </p>
+                </div>
+              )}
+
+            {/* Audio ready for review message */}
+            {!isCompleted &&
+              !isPreparationPhase &&
+              isAudioBasedQuestion &&
+              isAudioReady &&
+              !isSubmitting && (
+                <div className='bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-700'>
+                  <p className='text-green-800 dark:text-green-200 text-sm font-medium'>
+                    ✅ Audio recorded successfully! Review your recording above
+                    and click "Submit Audio Response" when ready.
+                  </p>
+                </div>
+              )}
+
             {isCompleted && onNext && (
               <button
                 onClick={onNext}

@@ -1,30 +1,51 @@
 import React from 'react';
-import { Mic, Square, Pause, Play, RotateCcw, Volume2 } from 'lucide-react';
+import {
+  Mic,
+  Square,
+  Pause,
+  Play,
+  RotateCcw,
+  Volume2,
+  Upload,
+  CheckCircle,
+  AlertCircle,
+} from 'lucide-react';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 
 interface AudioRecorderProps {
-  onRecordingComplete?: (audioURL: string) => void;
+  onRecordingComplete?: (audioKey: string) => void;
   maxDuration?: number; // in seconds
   className?: string;
+  autoUpload?: boolean; // Automatically upload after recording
 }
 
 const AudioRecorder: React.FC<AudioRecorderProps> = ({
   onRecordingComplete,
   maxDuration = 300, // 5 minutes default
   className = '',
+  autoUpload = true,
 }) => {
   const {
     isRecording,
     isPaused,
     recordingTime,
     audioURL,
+    audioBlob,
+    isUploading,
+    uploadProgress,
     startRecording,
     stopRecording,
     pauseRecording,
     resumeRecording,
     clearRecording,
+    uploadAudio,
     isSupported,
   } = useAudioRecorder();
+
+  const [uploadStatus, setUploadStatus] = React.useState<
+    'idle' | 'success' | 'error'
+  >('idle');
+  const [uploadError, setUploadError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (maxDuration && recordingTime >= maxDuration) {
@@ -32,11 +53,31 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
     }
   }, [recordingTime, maxDuration, stopRecording]);
 
+  // Auto-upload when recording is complete
   React.useEffect(() => {
-    if (audioURL && onRecordingComplete) {
-      onRecordingComplete(audioURL);
+    if (audioURL && autoUpload) {
+      handleUpload();
     }
-  }, [audioURL, onRecordingComplete]);
+  }, [audioURL, autoUpload]);
+
+  const handleUpload = async () => {
+    if (!audioBlob) return;
+
+    try {
+      setUploadStatus('idle');
+      setUploadError(null);
+
+      const audioKey = await uploadAudio();
+      if (audioKey) {
+        setUploadStatus('success');
+        onRecordingComplete?.(audioKey);
+      }
+    } catch (error: any) {
+      setUploadStatus('error');
+      setUploadError(error.message || 'Upload failed');
+      console.error('Upload error:', error);
+    }
+  };
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -136,9 +177,68 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
         </div>
       )}
 
+      {/* Upload Progress */}
+      {isUploading && (
+        <div className='bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-700'>
+          <div className='flex items-center justify-center space-x-3 mb-3'>
+            <Upload className='h-5 w-5 text-blue-600 dark:text-blue-400 animate-pulse' />
+            <span className='text-blue-800 dark:text-blue-200 font-medium'>
+              Uploading audio...
+            </span>
+          </div>
+          <div className='w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2'>
+            <div
+              className='bg-blue-600 h-2 rounded-full transition-all duration-300'
+              style={{ width: `${uploadProgress}%` }}
+            />
+          </div>
+          <div className='text-center mt-2 text-sm text-blue-600 dark:text-blue-400'>
+            {uploadProgress}%
+          </div>
+        </div>
+      )}
+
+      {/* Upload Status */}
+      {uploadStatus === 'success' && (
+        <div className='bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-700'>
+          <div className='flex items-center justify-center space-x-3'>
+            <CheckCircle className='h-5 w-5 text-green-600 dark:text-green-400' />
+            <span className='text-green-800 dark:text-green-200 font-medium'>
+              Audio uploaded successfully!
+            </span>
+          </div>
+        </div>
+      )}
+
+      {uploadStatus === 'error' && (
+        <div className='bg-red-50 dark:bg-red-900/20 p-4 rounded-lg border border-red-200 dark:border-red-700'>
+          <div className='flex items-center justify-center space-x-3 mb-2'>
+            <AlertCircle className='h-5 w-5 text-red-600 dark:text-red-400' />
+            <span className='text-red-800 dark:text-red-200 font-medium'>
+              Upload failed
+            </span>
+          </div>
+          {uploadError && (
+            <p className='text-sm text-red-600 dark:text-red-400 text-center'>
+              {uploadError}
+            </p>
+          )}
+          {!autoUpload && (
+            <div className='text-center mt-3'>
+              <button
+                onClick={handleUpload}
+                className='px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors'
+              >
+                Try Again
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Audio Playback */}
-      {audioURL && (
-        <div className='bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 p-6 rounded-xl border border-green-200 dark:border-green-800'>
+      {audioURL && !isUploading && (
+        <div className='bg-green-50 dark:bg-green-900/20 p-6 rounded-lg border border-green-200 dark:border-green-700'>
           <div className='flex items-center justify-center space-x-3 mb-4'>
             <div className='bg-green-600 p-2 rounded-lg'>
               <Volume2 className='h-5 w-5 text-white' />

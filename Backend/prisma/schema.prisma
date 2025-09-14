@@ -281,6 +281,7 @@ model PteSection {
     description     String?
     durationMinutes Int // Expected duration for this section in a real test
     questionTypes   QuestionType[] // All question types that belong to this section
+    order           Int?
 }
 
 // Defines a specific type of question (e.g., Read Aloud, Essay, Multiple Choice Single Answer)

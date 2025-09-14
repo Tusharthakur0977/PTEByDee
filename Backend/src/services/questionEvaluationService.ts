@@ -142,55 +142,99 @@ export async function evaluateQuestionResponse(
  */
 async function evaluateReadAloud(
   question: Question,
-  userResponse: any,
+  userResponse: any, // userResponse should contain textResponse (transcribed text)
   timeTakenSeconds?: number
 ): Promise<QuestionEvaluationResult> {
+  const transcribedText = userResponse.textResponse;
+  // The new, detailed prompt for the AI evaluator
   const prompt = `
-    Evaluate this PTE Read Aloud response:
-    
-    Original Text: "${question.textContent}"
-    User Audio Response: [Audio file provided - assume clear pronunciation]
-    Time Taken: ${timeTakenSeconds || 'Not specified'} seconds
-    
-    Evaluate based on:
-    1. Pronunciation clarity (0-25 points)
-    2. Fluency and rhythm (0-25 points)
-    3. Content accuracy (0-25 points)
-    4. Stress and intonation (0-25 points)
-    
-    Provide:
-    - Overall score (0-100)
-    - Specific feedback on pronunciation, fluency, and areas for improvement
-    - 3 actionable suggestions for improvement
-    
-    Format as JSON: {
-      "score": number,
-      "isCorrect": boolean,
-      "feedback": "string",
-      "detailedAnalysis": {
-        "pronunciation": number,
-        "fluency": number,
-        "content": number,
-        "intonation": number
+    **Your Role:** You are an expert AI evaluator for the PTE Academic test. Your task is to analyze a user's "Read Aloud" speaking performance with extreme precision.
+
+    **Objective:** You will be given an original text and a transcription of a user's spoken response. Compare the transcription word-for-word to the original, score it based on official PTE criteria for Content, Pronunciation, and Oral Fluency, and provide detailed, actionable feedback. You must infer pronunciation and fluency issues based on the transcription's accuracy, hesitations (like 'uh', 'um'), and omissions.
+
+    ---
+    ### **Evaluation and Scoring Instructions**
+
+    **1. Content Analysis:**
+    * Compare the \`transcribedText\` to the \`originalText\` to perform a \`wordAnalysis\`.
+    * For each word, assign a \`status\`: 'correct', 'mispronounced' (if a word is a near-match but incorrect), 'omitted', or 'inserted'.
+    * The **Content score** is the total number of words from the original text that are correctly spoken.
+
+    **2. Pronunciation and Oral Fluency Scoring (0-5 scale):**
+    * **Pronunciation:** Score based on the accuracy of the transcribed words. A high number of mispronounced, omitted, or inserted words indicates lower pronunciation quality.
+        * 5: Perfect transcription.
+        * 4: One or two minor errors in transcription.
+        * 3: Several errors that suggest pronunciation issues but the text is mostly understandable.
+        * 2: Many errors, making the text difficult to follow.
+        * 1: The transcription is mostly incorrect, indicating very poor pronunciation.
+    * **Oral Fluency:** Score based on filler words ('uh', 'um'), hesitations (inferred from odd phrasing or breaks), and pace (if time is provided).
+        * 5: Smooth, natural flow with no fillers.
+        * 4: Mostly smooth with one minor hesitation.
+        * 3: Noticeable hesitations or filler words that disrupt the flow.
+        * 2: Uneven, slow, or fragmented speech.
+        * 1: Very halting speech with many pauses or fillers.
+
+    ---
+    ### **Required Output Format**
+    Your final output **must** be a single JSON object. Do not include any text or explanations outside of the JSON structure.
+
+    \`\`\`json
+    {
+      "scores": {
+        "content": { "score": 0, "maxScore": 0 },
+        "pronunciation": 0,
+        "oralFluency": 0,
+        "estimatedPTE": 0
       },
-      "suggestions": ["suggestion1", "suggestion2", "suggestion3"]
+      "analysis": {
+        "recognizedText": "",
+        "wordAnalysis": []
+      },
+      "feedback": {
+        "summary": "",
+        "suggestions": []
+      }
     }
+    \`\`\`
+    ---
+
+    **BEGIN EVALUATION**
+
+    * **Original Text**: "${question.textContent}"
+    * **Transcribed User Text**: "${transcribedText}"
+    * **Time Taken**: ${timeTakenSeconds || 'Not specified'} seconds
   `;
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.3,
+      model: 'gpt-4-turbo', // Use a model that supports JSON mode
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a helpful assistant designed to output JSON.',
+        },
+        { role: 'user', content: prompt },
+      ],
+      response_format: { type: 'json_object' }, // Enable JSON mode
+      temperature: 0.2,
     });
 
     const evaluation = JSON.parse(response.choices[0].message.content || '{}');
+
+    // Map the detailed AI response to the function's return structure
     return {
-      score: evaluation.score || 0,
-      isCorrect: evaluation.score >= 65, // PTE passing threshold
-      feedback: evaluation.feedback || 'No feedback available',
-      detailedAnalysis: evaluation.detailedAnalysis || {},
-      suggestions: evaluation.suggestions || [],
+      score: evaluation.scores.estimatedPTE || 0,
+      isCorrect: (evaluation.scores.estimatedPTE || 0) >= 65, // Example passing threshold
+      feedback: evaluation.feedback.summary || 'No feedback available.',
+      detailedAnalysis: {
+        contentScore: evaluation.scores.content.score,
+        contentMaxScore: evaluation.scores.content.maxScore,
+        pronunciationScore: evaluation.scores.pronunciation,
+        fluencyScore: evaluation.scores.oralFluency,
+        recognizedText: evaluation.analysis.recognizedText,
+        wordByWordAnalysis: evaluation.analysis.wordAnalysis,
+      },
+      suggestions: evaluation.feedback.suggestions || [],
     };
   } catch (error) {
     console.error('OpenAI evaluation error for Read Aloud:', error);

@@ -71,6 +71,14 @@ export const generateVideoSignedUrl = (
   return generateSignedUrl(videoKey, expirationHours);
 };
 
+// Generate signed URL for audio files
+export const generateAudioSignedUrl = (
+  audioKey: string,
+  expirationHours: number = 24
+): string => {
+  return generateSignedUrl(audioKey, expirationHours);
+};
+
 // Check if CloudFront is properly configured
 export const checkCloudFrontConfiguration = (): boolean => {
   try {

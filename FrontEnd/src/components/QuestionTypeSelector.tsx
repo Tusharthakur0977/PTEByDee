@@ -42,6 +42,7 @@ const QuestionTypeSelector: React.FC<QuestionTypeSelectorProps> = ({
     try {
       setIsLoading(true);
       const data = await getQuestionTypes();
+
       setQuestionTypes(data.groupedBySection);
     } catch (err: any) {
       setError('Failed to load question types');
@@ -194,6 +195,9 @@ const QuestionTypeSelector: React.FC<QuestionTypeSelectorProps> = ({
     };
     return colorMap[color as keyof typeof colorMap]?.[variant] || '';
   };
+
+  console.log(questionCategories);
+  
 
   return (
     <div className={`space-y-6 ${className}`}>
