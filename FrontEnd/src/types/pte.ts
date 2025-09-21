@@ -20,6 +20,7 @@ export interface Question {
   questionTypeId: string;
   testId: string;
   orderInTest: number;
+  difficultyLevel: 'EASY' | 'MEDIUM' | 'HARD';
   textContent?: string;
   audioUrl?: string;
   imageUrl?: string;
@@ -123,4 +124,46 @@ export enum PteQuestionTypeName {
   SELECT_MISSING_WORD = 'SELECT_MISSING_WORD',
   HIGHLIGHT_INCORRECT_WORDS = 'HIGHLIGHT_INCORRECT_WORDS',
   WRITE_FROM_DICTATION = 'WRITE_FROM_DICTATION',
+}
+
+export interface QuestionResponse {
+  id: string;
+  questionId: string;
+  userId: string;
+  textResponse?: string;
+  audioResponseUrl?: string;
+  selectedOptions: string[];
+  orderedItems: string[];
+  highlightedWords: string[];
+  score: number;
+  isCorrect: boolean;
+  aiFeedback?: string;
+  detailedAnalysis?: any;
+  suggestions: string[];
+  timeTakenSeconds: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface QuestionWithResponses {
+  id: string;
+  questionCode: string;
+  questionType: PteQuestionTypeName;
+  difficultyLevel: 'EASY' | 'MEDIUM' | 'HARD';
+  textContent?: string;
+  audioUrl?: string;
+  imageUrl?: string;
+  options?: any;
+  correctAnswers?: any;
+  wordCountMin?: number;
+  wordCountMax?: number;
+  durationMillis?: number;
+  originalTextWithErrors?: string;
+  incorrectWords?: any;
+  createdAt: string;
+  updatedAt: string;
+  userResponses: QuestionResponse[];
+  hasUserResponses: boolean;
+  lastAttemptedAt?: string;
+  bestScore?: number;
 }

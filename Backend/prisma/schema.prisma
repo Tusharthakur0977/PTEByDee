@@ -301,6 +301,7 @@ model Question {
     questionCode   String       @unique // For easy identification/referencing (e.g., "RA_001_Test1")
     questionType   QuestionType @relation(fields: [questionTypeId], references: [id])
     questionTypeId String       @db.ObjectId
+   difficultyLevel DifficultyLevel @default(MEDIUM) // New field for difficulty
     // test           Test         @relation(fields: [testId], references: [id]) // Which test this question belongs to
     // testId         String       @db.ObjectId
     // orderInTest    Int // Order of question within a specific test
@@ -333,6 +334,7 @@ model Question {
     // @@index([testId])
 
     @@index([questionTypeId])
+   @@index([difficultyLevel])
 }
 
 // Represents a full PTE Mock Test
@@ -564,4 +566,11 @@ enum OtpType {
     LOGIN
     REGISTRATION
     PASSWORD_RESET
+}
+
+// Enum for question difficulty levels
+enum DifficultyLevel {
+    EASY
+    MEDIUM
+    HARD
 }

@@ -13,8 +13,13 @@ import PracticeHistory from '../components/PracticeHistory';
 import PracticeQuestion from '../components/PracticeQuestions';
 import PracticeStatsOverview from '../components/PracticeStatsOverview';
 import QuestionTypeSelector from '../components/QuestionTypeSelector';
+import QuestionSidebar from '../components/QuestionSidebar';
+import QuestionResponseHistory from '../components/QuestionResponseHistory';
 import { mockTests } from '../data/mockPte';
-import { getPracticeQuestions } from '../services/portal';
+import {
+  getPracticeQuestions,
+  getQuestionWithResponses,
+} from '../services/portal';
 import { getPracticeStats } from '../services/practice';
 import { PteQuestionTypeName } from '../types/pte';
 
@@ -33,6 +38,17 @@ const Portal: React.FC = () => {
   const [practiceStats, setPracticeStats] = React.useState<any>(null);
   const [isLoadingStats, setIsLoadingStats] = React.useState(false);
 
+  // New state for enhanced features
+  const [showQuestionSidebar, setShowQuestionSidebar] = React.useState(false);
+  const [selectedQuestionId, setSelectedQuestionId] = React.useState<
+    string | null
+  >(null);
+  const [showResponseHistory, setShowResponseHistory] = React.useState(false);
+  const [practiceFilters, setPracticeFilters] = React.useState({
+    practiceStatus: 'all' as 'practiced' | 'unpracticed' | 'all',
+    difficultyLevel: 'all' as 'EASY' | 'MEDIUM' | 'HARD' | 'all',
+  });
+
   React.useEffect(() => {
     if (activeTab === 'overview') {
       fetchPracticeStats();
@@ -44,6 +60,12 @@ const Portal: React.FC = () => {
       fetchPracticeQuestions();
     }
   }, [selectedQuestionType]);
+
+  React.useEffect(() => {
+    if (selectedQuestionType) {
+      fetchPracticeQuestions();
+    }
+  }, [selectedQuestionType, practiceFilters]);
 
   const fetchPracticeStats = async () => {
     try {
@@ -63,10 +85,24 @@ const Portal: React.FC = () => {
     try {
       setIsLoadingQuestions(true);
       setQuestionError(null);
-      const response = await getPracticeQuestions(selectedQuestionType, {
+
+      const options: any = {
         limit: 10,
         random: true,
-      });
+      };
+
+      if (practiceFilters.difficultyLevel !== 'all') {
+        options.difficultyLevel = practiceFilters.difficultyLevel;
+      }
+
+      if (practiceFilters.practiceStatus !== 'all') {
+        options.practiceStatus = practiceFilters.practiceStatus;
+      }
+
+      const response = await getPracticeQuestions(
+        selectedQuestionType,
+        options
+      );
       setPracticeQuestions(response.questions);
       setCurrentQuestionIndex(0);
     } catch (error: any) {
@@ -93,21 +129,56 @@ const Portal: React.FC = () => {
       // End of practice session
       setSelectedQuestionType(null);
       setCurrentQuestionIndex(0);
+      setShowQuestionSidebar(false);
+      setSelectedQuestionId(null);
+      setShowResponseHistory(false);
     }
   };
 
+  const handleQuestionSelect = (questionId: string) => {
+    setSelectedQuestionId(questionId);
+    setShowResponseHistory(true);
+    setShowQuestionSidebar(false);
+  };
+
+  const handleFilterChange = (filters: {
+    practiceStatus: 'practiced' | 'unpracticed' | 'all';
+    difficultyLevel: 'EASY' | 'MEDIUM' | 'HARD' | 'all';
+  }) => {
+    setPracticeFilters(filters);
+  };
   const renderTabContent = () => {
     switch (activeTab) {
       case 'practice': {
         if (!selectedQuestionType) {
           return (
-            <QuestionTypeSelector
-              selectedType={selectedQuestionType}
-              onTypeSelect={setSelectedQuestionType}
-            />
+            <div className='relative'>
+              <QuestionTypeSelector
+                selectedType={selectedQuestionType}
+                onTypeSelect={(type) => {
+                  setSelectedQuestionType(type);
+                  setShowQuestionSidebar(false);
+                  setSelectedQuestionId(null);
+                  setShowResponseHistory(false);
+                }}
+              />
+            </div>
           );
         }
 
+        if (showResponseHistory && selectedQuestionId) {
+          return (
+            <div className='relative'>
+              <QuestionResponseHistory
+                questionId={selectedQuestionId}
+                onClose={() => {
+                  setShowResponseHistory(false);
+                  setSelectedQuestionId(null);
+                }}
+              />
+            </div>
+          );
+        }
         if (isLoadingQuestions) {
           return (
             <div className='text-center py-8'>
@@ -188,15 +259,63 @@ const Portal: React.FC = () => {
           <div className='space-y-4'>
             <div className='flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm'>
               <button
-                onClick={() => setSelectedQuestionType(null)}
+                onClick={() => {
+                  setSelectedQuestionType(null);
+                  setShowQuestionSidebar(false);
+                  setSelectedQuestionId(null);
+                  setShowResponseHistory(false);
+                }}
                 className='flex items-center space-x-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium'
               >
                 <ArrowRight className='h-4 w-4 rotate-180' />
                 <span>Back to Question Types</span>
               </button>
-              <div className='text-sm text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full'>
-                Question {currentQuestionIndex + 1} of{' '}
-                {practiceQuestions.length}
+              <div className='flex items-center space-x-3'>
+                {/* Filters */}
+                <div className='flex items-center space-x-2'>
+                  <select
+                    value={practiceFilters.practiceStatus}
+                    onChange={(e) =>
+                      handleFilterChange({
+                        ...practiceFilters,
+                        practiceStatus: e.target.value as any,
+                      })
+                    }
+                    className='text-xs px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+                  >
+                    <option value='all'>All</option>
+                    <option value='practiced'>Practiced</option>
+                    <option value='unpracticed'>New</option>
+                  </select>
+                  <select
+                    value={practiceFilters.difficultyLevel}
+                    onChange={(e) =>
+                      handleFilterChange({
+                        ...practiceFilters,
+                        difficultyLevel: e.target.value as any,
+                      })
+                    }
+                    className='text-xs px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+                  >
+                    <option value='all'>All Levels</option>
+                    <option value='EASY'>Easy</option>
+                    <option value='MEDIUM'>Medium</option>
+                    <option value='HARD'>Hard</option>
+                  </select>
+                </div>
+
+                <button
+                  onClick={() => setShowQuestionSidebar(true)}
+                  className='flex items-center space-x-1 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium'
+                >
+                  <BarChart3 className='h-4 w-4' />
+                  <span>All Questions</span>
+                </button>
+
+                <div className='text-sm text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full'>
+                  Question {currentQuestionIndex + 1} of{' '}
+                  {practiceQuestions.length}
+                </div>
               </div>
             </div>
             <PracticeQuestion
@@ -436,6 +555,20 @@ const Portal: React.FC = () => {
         {/* Tab Content */}
         <div className='max-w-7xl mx-auto'>{renderTabContent()}</div>
       </div>
+
+      {/* Question Sidebar */}
+      {selectedQuestionType && (
+        <QuestionSidebar
+          isOpen={showQuestionSidebar}
+          onClose={() => setShowQuestionSidebar(false)}
+          questionType={selectedQuestionType}
+          selectedQuestionId={selectedQuestionId!}
+          onQuestionSelect={handleQuestionSelect}
+          practiceStatus={practiceFilters.practiceStatus}
+          difficultyLevel={practiceFilters.difficultyLevel}
+          onFilterChange={handleFilterChange}
+        />
+      )}
     </div>
   );
 };

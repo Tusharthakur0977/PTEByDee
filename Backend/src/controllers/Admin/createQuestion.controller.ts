@@ -20,6 +20,7 @@ export const createQuestion = asyncHandler(
     const {
       questionCode: providedQuestionCode, // Allow optional manual override
       questionTypeId,
+      difficultyLevel = 'MEDIUM', // Default to MEDIUM if not provided
       textContent,
       audioKey,
       imageKey,
@@ -222,6 +223,7 @@ export const createQuestion = asyncHandler(
         data: {
           questionCode,
           questionTypeId,
+          difficultyLevel,
           textContent: finalContent || audioTranscript || null,
           audioUrl: audioKey || null, // Store S3 key in audioUrl field
           imageUrl: imageKey || null, // Store S3 key in imageUrl field

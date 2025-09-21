@@ -34,6 +34,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
     questionTypeId: question?.questionType?.id || '',
     testId: question?.test?.id || '',
     orderInTest: question?.orderInTest || 1,
+    difficultyLevel: question?.difficultyLevel || 'MEDIUM',
     textContent: question?.textContent || '',
     audioKey: question?.audioUrl || '',
     imageKey: question?.imageUrl || '',
@@ -833,6 +834,31 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                     )
                   )}
                 </select>
+              </div>
+
+              <div>
+                <label className='block text-sm font-medium text-gray-700 mb-2'>
+                  Difficulty Level *
+                </label>
+                <select
+                  value={formData.difficultyLevel}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      difficultyLevel: e.target.value,
+                    }))
+                  }
+                  className='w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                  required
+                >
+                  <option value='EASY'>Easy</option>
+                  <option value='MEDIUM'>Medium</option>
+                  <option value='HARD'>Hard</option>
+                </select>
+                <p className='text-xs text-gray-500 mt-1'>
+                  Easy: Basic level questions | Medium: Standard difficulty |
+                  Hard: Advanced level questions
+                </p>
               </div>
             </div>
 

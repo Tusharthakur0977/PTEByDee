@@ -5,6 +5,7 @@ export interface CreateQuestionData {
   questionTypeId: string;
   testId: string;
   orderInTest?: number;
+  difficultyLevel?: 'EASY' | 'MEDIUM' | 'HARD';
   textContent?: string;
   audioKey?: string;
   imageKey?: string;

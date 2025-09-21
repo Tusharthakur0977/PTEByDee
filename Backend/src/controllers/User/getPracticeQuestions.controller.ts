@@ -13,7 +13,12 @@ import { SecureUrlService } from '../../services/secureUrlService';
 export const getPracticeQuestions = asyncHandler(
   async (req: Request, res: Response) => {
     const { questionType } = req.params;
-    const { limit = '10', random = 'true' } = req.query;
+    const {
+      limit = '10',
+      random = 'true',
+      difficultyLevel,
+      practiceStatus,
+    } = req.query;
 
     try {
       if (!questionType) {
@@ -44,14 +49,75 @@ export const getPracticeQuestions = asyncHandler(
         );
       }
 
+      // Try to get user ID from token if provided (optional authentication)
+      let userId: string | undefined;
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        try {
+          const token = authHeader.split(' ')[1];
+          const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+          const user = await prisma.user.findUnique({
+            where: { id: decoded.id },
+            select: { id: true },
+          });
+          if (user) {
+            userId = user.id;
+          }
+        } catch (error) {
+          // Invalid token, continue as unauthenticated user
+        }
+      }
+
+      // Build where clause
+      const whereClause: any = {
+        questionTypeId: questionTypeRecord.id,
+      };
+
+      // Add difficulty filter
+      if (difficultyLevel && difficultyLevel !== 'all') {
+        whereClause.difficultyLevel = difficultyLevel;
+      }
+
+      // Add practice status filter (only if user is authenticated)
+      if (userId && practiceStatus && practiceStatus !== 'all') {
+        if (practiceStatus === 'practiced') {
+          // Questions that have user responses
+          const practiceQuestionIds = await prisma.questionResponse.findMany({
+            where: { userId },
+            select: { questionId: true },
+            distinct: ['questionId'],
+          });
+
+          if (practiceQuestionIds.length > 0) {
+            whereClause.id = {
+              in: practiceQuestionIds.map((pq) => pq.questionId),
+            };
+          } else {
+            // No practiced questions, return empty result
+            whereClause.id = 'non-existent-id';
+          }
+        } else if (practiceStatus === 'unpracticed') {
+          // Questions that don't have user responses
+          const practiceQuestionIds = await prisma.questionResponse.findMany({
+            where: { userId },
+            select: { questionId: true },
+            distinct: ['questionId'],
+          });
+
+          if (practiceQuestionIds.length > 0) {
+            whereClause.id = {
+              notIn: practiceQuestionIds.map((pq) => pq.questionId),
+            };
+          }
+          // If no practiced questions, all questions are unpracticed (no additional filter needed)
+        }
+      }
       // Get questions for this type
-      let questions;
+      let questions: any;
       if (random === 'true') {
         // Get random questions
         const totalQuestions = await prisma.question.count({
-          where: {
-            questionTypeId: questionTypeRecord.id,
-          },
+          where: whereClause,
         });
 
         if (totalQuestions === 0) {
@@ -72,22 +138,26 @@ export const getPracticeQuestions = asyncHandler(
         const randomSkip = Math.floor(Math.random() * (maxSkip + 1));
 
         questions = await prisma.question.findMany({
-          where: {
-            questionTypeId: questionTypeRecord.id,
-          },
+          where: whereClause,
           include: {
             questionType: {
               include: {
                 pteSection: true,
               },
             },
-            // test: {
-            //   select: {
-            //     id: true,
-            //     title: true,
-            //     testType: true,
-            //   },
-            // },
+            ...(userId &&
+              {
+                // questionResponses: {
+                //   where: { userId },
+                //   select: {
+                //     id: true,
+                //     score: true,
+                //     createdAt: true,
+                //   },
+                //   orderBy: { createdAt: 'desc' },
+                //   take: 1,
+                // } as any, // Explicitly type as any to avoid 'never' type issue
+              }),
           },
           skip: randomSkip,
           take: limitNumber,
@@ -95,31 +165,35 @@ export const getPracticeQuestions = asyncHandler(
       } else {
         // Get questions in order
         questions = await prisma.question.findMany({
-          where: {
-            questionTypeId: questionTypeRecord.id,
-          },
+          where: whereClause,
           include: {
             questionType: {
               include: {
                 pteSection: true,
               },
             },
-            // test: {
-            //   select: {
-            //     id: true,
-            //     title: true,
-            //     testType: true,
-            //   },
-            // },
+            ...(userId &&
+              {
+                // questionResponses: {
+                //   where: { userId },
+                //   select: {
+                //     id: true,
+                //     score: true,
+                //     createdAt: true,
+                //   },
+                //   orderBy: { createdAt: 'desc' },
+                //   take: 1,
+                // },
+              }),
           },
-          // orderBy: { orderInTest: 'asc' },
+          orderBy: { createdAt: 'desc' },
           take: limitNumber,
         });
       }
 
       // Transform questions to include signed URLs and format for practice
       const transformedQuestions = await Promise.all(
-        questions.map(async (question) => {
+        questions.map(async (question: any) => {
           let audioUrl = null;
           let imageSignedUrl = null;
 
@@ -167,12 +241,24 @@ export const getPracticeQuestions = asyncHandler(
           return {
             id: question.id,
             type: question.questionType.name,
+            difficultyLevel: question.difficultyLevel,
             title: `${formatQuestionTypeName(question.questionType.name)} - ${
               question.questionCode
             }`,
             instructions: getInstructionsForQuestionType(
               question.questionType.name
             ),
+            hasUserResponses: userId
+              ? (question.questionResponses?.length || 0) > 0
+              : false,
+            lastAttemptedAt:
+              userId && question.questionResponses?.length > 0
+                ? question.questionResponses[0].createdAt
+                : undefined,
+            bestScore:
+              userId && question.questionResponses?.length > 0
+                ? question.questionResponses[0].score
+                : undefined,
             content: {
               text: question.textContent,
               audioUrl,
@@ -233,6 +319,8 @@ export const getPracticeQuestions = asyncHandler(
   }
 );
 
+// Add jwt import at the top
+import jwt from 'jsonwebtoken';
 // Helper functions
 function formatQuestionTypeName(name: string): string {
   return name
