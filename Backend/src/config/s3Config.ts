@@ -12,6 +12,35 @@ const s3 = new S3Client({
   },
 });
 
+// File filter function for user audio recordings
+const userAudioFileFilter = (
+  _req: any,
+  file: Express.Multer.File,
+  cb: multer.FileFilterCallback
+) => {
+  // Check file type
+  const allowedMimes = [
+    'audio/webm',
+    'audio/mp4',
+    'audio/mpeg',
+    'audio/mp3',
+    'audio/wav',
+    'audio/ogg',
+    'audio/m4a',
+    'audio/aac',
+  ];
+
+  if (allowedMimes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(
+      new Error(
+        'Invalid file type. Only audio files are allowed (WebM, MP3, WAV, OGG, M4A, AAC).'
+      )
+    );
+  }
+};
+
 // File filter function for images
 const imageFileFilter = (
   _req: any,
@@ -71,6 +100,7 @@ const audioFileFilter = (
     'audio/ogg',
     'audio/m4a',
     'audio/aac',
+    'audio/webm',
   ];
 
   if (allowedMimes.includes(file.mimetype)) {
@@ -78,10 +108,21 @@ const audioFileFilter = (
   } else {
     cb(
       new Error(
-        'Invalid file type. Only MP3, WAV, OGG, M4A, and AAC audio files are allowed.'
+        'Invalid file type. Only MP3, WAV, OGG, M4A, AAC, and WebM audio files are allowed.'
       )
     );
   }
+};
+
+// Generate unique filename for user audio recordings
+const generateUserAudioFileName = (
+  originalName: string,
+  userId: string
+): string => {
+  const timestamp = Date.now();
+  const randomString = Math.random().toString(36).substring(2, 15);
+  const extension = path.extname(originalName) || '.webm';
+  return `audio/user-recordings/${userId}/${timestamp}-${randomString}${extension}`;
 };
 
 // Generate unique filename for images
@@ -115,6 +156,33 @@ const generateQuestionImageFileName = (originalName: string): string => {
   const extension = path.extname(originalName);
   return `question-images/${timestamp}-${randomString}${extension}`;
 };
+
+// Multer S3 configuration for user audio recordings
+export const userAudioUpload = multer({
+  storage: multerS3({
+    s3: s3,
+    bucket: process.env.AWS_S3_BUCKET_NAME!,
+    key: (req: any, file: Express.Multer.File, cb: any) => {
+      const userId = req.user?.id || 'anonymous';
+      const fileName = generateUserAudioFileName(file.originalname, userId);
+      cb(null, fileName);
+    },
+    contentType: multerS3.AUTO_CONTENT_TYPE,
+    metadata: (req: any, file: Express.Multer.File, cb: any) => {
+      cb(null, {
+        fieldName: file.fieldname,
+        originalName: file.originalname,
+        uploadedAt: new Date().toISOString(),
+        userId: req.user?.id || 'anonymous',
+        type: 'user-audio-recording',
+      });
+    },
+  }),
+  fileFilter: userAudioFileFilter,
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB limit for user audio
+  },
+});
 
 // Multer S3 configuration for course images
 // Files are uploaded as private (no ACL specified) for security

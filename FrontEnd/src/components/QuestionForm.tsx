@@ -51,9 +51,12 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
 
   const [loading, setLoading] = useState(false);
   const [uploadingAudio, setUploadingAudio] = useState(false);
+  const [transcribingAudio, setTranscribingAudio] = useState(false);
+  const [extractingAnswers, setExtractingAnswers] = useState(false);
   const [selectedQuestionType, setSelectedQuestionType] = useState<any>(null);
   const [audioPreview, setAudioPreview] = useState<string | null>(null);
   const [playingAudio, setPlayingAudio] = useState(false);
+  const [selectedAudioFile, setSelectedAudioFile] = useState<File | null>(null);
   const [autoGenerateCode, setAutoGenerateCode] = useState(!question); // Auto-generate for new questions
   const [previewQuestionCode, setPreviewQuestionCode] = useState('');
   const [loadingPreview, setLoadingPreview] = useState(false);
@@ -92,12 +95,39 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
     }
   }, [formData.questionTypeId, questionTypes, autoGenerateCode]);
 
+  // Cleanup object URLs on unmount
+  useEffect(() => {
+    return () => {
+      if (audioPreview && audioPreview.startsWith('blob:')) {
+        URL.revokeObjectURL(audioPreview);
+      }
+    };
+  }, [audioPreview]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
       // Prepare submission data
       const submissionData = { ...formData };
+
+      // If there's a selected audio file, upload it first
+      if (selectedAudioFile) {
+        setUploadingAudio(true);
+        try {
+          console.log('Uploading audio file during question creation...');
+          const audioKey = await uploadAudioFile(selectedAudioFile);
+          console.log('Audio uploaded successfully, key:', audioKey);
+
+          submissionData.audioKey = audioKey;
+        } catch (error) {
+          console.error('Error uploading audio:', error);
+          alert('Failed to upload audio file. Please try again.');
+          return;
+        } finally {
+          setUploadingAudio(false);
+        }
+      }
 
       // If auto-generating code, don't send questionCode (let backend generate it)
       if (autoGenerateCode) {
@@ -110,36 +140,36 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
     }
   };
 
-  const handleAudioUpload = async (file: File) => {
-    setUploadingAudio(true);
-    try {
-      const uploadFormData = new FormData();
-      uploadFormData.append('questionAudio', file);
+  const handleAudioFileSelect = (file: File) => {
+    // Store the file for later upload
+    setSelectedAudioFile(file);
 
-      const response = await api.post(
-        '/admin/upload/question-audio',
-        uploadFormData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        }
-      );
+    // Create local preview URL
+    const previewUrl = URL.createObjectURL(file);
+    setAudioPreview(previewUrl);
 
-      setFormData((prev) => ({
-        ...prev,
-        audioKey: response.data.audioKey,
-      }));
+    // Clear any existing audioKey since we have a new file
+    setFormData((prev) => ({
+      ...prev,
+      audioKey: '',
+    }));
+  };
 
-      if (response.data.audioUrl) {
-        setAudioPreview(response.data.audioUrl);
+  const uploadAudioFile = async (file: File): Promise<string> => {
+    const uploadFormData = new FormData();
+    uploadFormData.append('questionAudio', file);
+
+    const response = await api.post(
+      '/admin/upload/question-audio',
+      uploadFormData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       }
-    } catch (error) {
-      console.error('Error uploading audio:', error);
-      alert('Failed to upload audio file. Please try again.');
-    } finally {
-      setUploadingAudio(false);
-    }
+    );
+
+    return response.data.data.audioKey;
   };
 
   const handleAudioPlay = () => {
@@ -871,15 +901,32 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                     Audio File *
                   </label>
                   <div className='border-2 border-dashed border-blue-300 rounded-lg p-6 bg-white'>
-                    {formData.audioKey ? (
+                    {formData.audioKey || selectedAudioFile ? (
                       <div className='text-center'>
                         <Volume2 className='w-12 h-12 text-green-600 mx-auto mb-3' />
                         <p className='text-sm text-green-600 font-medium mb-2'>
-                          Audio uploaded successfully
+                          {formData.audioKey
+                            ? 'Audio uploaded successfully'
+                            : 'Audio file selected'}
                         </p>
                         <p className='text-xs text-gray-500 mb-4'>
-                          {formData.audioKey}
+                          {formData.audioKey || selectedAudioFile?.name}
                         </p>
+                        {selectedAudioFile && !formData.audioKey && (
+                          <div className='text-xs text-blue-600 mb-4'>
+                            <p>
+                              Audio will be uploaded when you create the
+                              question
+                            </p>
+                            {selectedQuestionType?.name ===
+                              'ANSWER_SHORT_QUESTION' && (
+                              <p className='mt-1 text-green-600'>
+                                🤖 AI will automatically extract correct answers
+                                from the audio transcription using OpenAI
+                              </p>
+                            )}
+                          </div>
+                        )}
 
                         {audioPreview && (
                           <div className='flex items-center justify-center gap-3 mb-4'>
@@ -908,7 +955,15 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                           type='button'
                           onClick={() => {
                             setFormData((prev) => ({ ...prev, audioKey: '' }));
+                            setSelectedAudioFile(null);
                             setAudioPreview(null);
+                            // Revoke the object URL to free memory
+                            if (
+                              audioPreview &&
+                              audioPreview.startsWith('blob:')
+                            ) {
+                              URL.revokeObjectURL(audioPreview);
+                            }
                           }}
                           className='text-sm text-red-600 hover:text-red-700 transition-colors'
                         >
@@ -930,7 +985,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                           accept='audio/*'
                           onChange={(e) => {
                             const file = e.target.files?.[0];
-                            if (file) handleAudioUpload(file);
+                            if (file) handleAudioFileSelect(file);
                           }}
                           className='hidden'
                           id='audio-upload'
@@ -1142,10 +1197,21 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
             </button>
             <button
               type='submit'
-              disabled={loading || uploadingAudio}
+              disabled={
+                loading ||
+                uploadingAudio ||
+                transcribingAudio ||
+                extractingAnswers
+              }
               className='px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium'
             >
-              {loading
+              {uploadingAudio
+                ? 'Uploading Audio...'
+                : transcribingAudio
+                ? 'Transcribing Audio...'
+                : extractingAnswers
+                ? 'Extracting Answers...'
+                : loading
                 ? 'Saving...'
                 : question
                 ? 'Update Question'

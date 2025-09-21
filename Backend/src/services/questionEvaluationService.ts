@@ -53,11 +53,7 @@ export async function evaluateQuestionResponse(
       return evaluateRetellLecture(question, userResponse, timeTakenSeconds);
 
     case PteQuestionTypeName.ANSWER_SHORT_QUESTION:
-      return evaluateAnswerShortQuestion(
-        question,
-        userResponse,
-        timeTakenSeconds
-      );
+      return evaluateAnswerShortQuestion(question, userResponse);
 
     case PteQuestionTypeName.SUMMARIZE_WRITTEN_TEXT:
       return evaluateSummarizeWrittenText(
@@ -137,38 +133,42 @@ export async function evaluateQuestionResponse(
   }
 }
 
+// SPEAKING
+
 /**
  * Evaluate Read Aloud responses (audio-based)
  */
 async function evaluateReadAloud(
   question: Question,
-  userResponse: any, // userResponse should contain textResponse (transcribed text)
+  userResponse: any,
   timeTakenSeconds?: number
 ): Promise<QuestionEvaluationResult> {
   const transcribedText = userResponse.textResponse;
-  // The new, detailed prompt for the AI evaluator
+
   const prompt = `
     **Your Role:** You are an expert AI evaluator for the PTE Academic test. Your task is to analyze a user's "Read Aloud" speaking performance with extreme precision.
 
-    **Objective:** You will be given an original text and a transcription of a user's spoken response. Compare the transcription word-for-word to the original, score it based on official PTE criteria for Content, Pronunciation, and Oral Fluency, and provide detailed, actionable feedback. You must infer pronunciation and fluency issues based on the transcription's accuracy, hesitations (like 'uh', 'um'), and omissions.
+    **Objective:** You will be given an original text and a transcription of a user's spoken response. Compare the transcription word-for-word to the original, score it based on official PTE criteria for Content, Pronunciation, and Oral Fluency, and provide detailed, actionable feedback.
 
     ---
     ### **Evaluation and Scoring Instructions**
 
     **1. Content Analysis:**
-    * Compare the \`transcribedText\` to the \`originalText\` to perform a \`wordAnalysis\`.
-    * For each word, assign a \`status\`: 'correct', 'mispronounced' (if a word is a near-match but incorrect), 'omitted', or 'inserted'.
-    * The **Content score** is the total number of words from the original text that are correctly spoken.
-
+    * Compare the transcribedText to the originalText to perform a wordAnalysis.
+    * For each word, assign a status: 'correct', 'mispronounced', 'omitted', or 'inserted'.
+    * The **Content score** is the percentage of words from the original text that are correctly spoken.
+    * **Important**: Each replacement, omission or insertion of a word counts as one error.
+    * Maximum score: depends on the length of the question prompt
+    
     **2. Pronunciation and Oral Fluency Scoring (0-5 scale):**
-    * **Pronunciation:** Score based on the accuracy of the transcribed words. A high number of mispronounced, omitted, or inserted words indicates lower pronunciation quality.
-        * 5: Perfect transcription.
+    * **Pronunciation:** Score based on the accuracy of the transcribed words.
+        * 5: Perfect transcription with all words correct.
         * 4: One or two minor errors in transcription.
-        * 3: Several errors that suggest pronunciation issues but the text is mostly understandable.
+        * 3: Several errors that suggest pronunciation issues but text is mostly understandable.
         * 2: Many errors, making the text difficult to follow.
         * 1: The transcription is mostly incorrect, indicating very poor pronunciation.
-    * **Oral Fluency:** Score based on filler words ('uh', 'um'), hesitations (inferred from odd phrasing or breaks), and pace (if time is provided).
-        * 5: Smooth, natural flow with no fillers.
+    * **Oral Fluency:** Score based on filler words, hesitations, and natural flow.
+        * 5: Smooth, natural flow with no fillers or hesitations.
         * 4: Mostly smooth with one minor hesitation.
         * 3: Noticeable hesitations or filler words that disrupt the flow.
         * 2: Uneven, slow, or fragmented speech.
@@ -176,74 +176,100 @@ async function evaluateReadAloud(
 
     ---
     ### **Required Output Format**
-    Your final output **must** be a single JSON object. Do not include any text or explanations outside of the JSON structure.
+    Your final output **must** be a single JSON object.
 
-    \`\`\`json
-    {
-      "scores": {
-        "content": { "score": 0, "maxScore": 0 },
-        "pronunciation": 0,
-        "oralFluency": 0,
-        "estimatedPTE": 0
-      },
-      "analysis": {
-        "recognizedText": "",
-        "wordAnalysis": []
-      },
-      "feedback": {
-        "summary": "",
-        "suggestions": []
-      }
-    }
-    \`\`\`
-    ---
+    **Original Text**: "${question.textContent}"
+    **Transcribed User Text**: "${transcribedText}"
+    **Time Taken**: ${timeTakenSeconds || 'Not specified'} seconds
 
-    **BEGIN EVALUATION**
-
-    * **Original Text**: "${question.textContent}"
-    * **Transcribed User Text**: "${transcribedText}"
-    * **Time Taken**: ${timeTakenSeconds || 'Not specified'} seconds
+    Provide your evaluation as a JSON object:
   `;
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4-turbo', // Use a model that supports JSON mode
+      model: 'gpt-4o',
       messages: [
         {
           role: 'system',
-          content: 'You are a helpful assistant designed to output JSON.',
+          content:
+            'You are a helpful assistant designed to output JSON for PTE Academic evaluation.',
         },
         { role: 'user', content: prompt },
       ],
-      response_format: { type: 'json_object' }, // Enable JSON mode
+      response_format: { type: 'json_object' },
       temperature: 0.2,
     });
 
     const evaluation = JSON.parse(response.choices[0].message.content || '{}');
 
-    // Map the detailed AI response to the function's return structure
+    // Parse the actual OpenAI response format for Repeat Sentence
+    // Handle the nested structure: evaluation.content.score, evaluation.pronunciation.score, etc.
+    const contentScore = evaluation.content?.score || 0;
+    const maxContentScore = evaluation.content?.maxScore || 3;
+    const pronunciationScore = evaluation.pronunciation?.score || 0;
+    const pronunciationMaxScore = evaluation.pronunciation?.maxScore || 5;
+    const fluencyScore = evaluation.oralFluency?.score || 0;
+    const fluencyMaxScore = evaluation.oralFluency?.maxScore || 5;
+    const wordAnalysis = evaluation.content?.wordAnalysis || [];
+
+    const contentPercentage =
+      maxContentScore > 0 ? (contentScore / maxContentScore) * 100 : 0;
+    const pronunciationPercentage =
+      pronunciationMaxScore > 0
+        ? (pronunciationScore / pronunciationMaxScore) * 100
+        : 0;
+    const fluencyPercentage =
+      fluencyMaxScore > 0 ? (fluencyScore / fluencyMaxScore) * 100 : 0;
+
+    const overallScore = Math.round(
+      contentPercentage * 0.6 +
+        pronunciationPercentage * 0.25 +
+        fluencyPercentage * 0.15
+    );
+
     return {
-      score: evaluation.scores.estimatedPTE || 0,
-      isCorrect: (evaluation.scores.estimatedPTE || 0) >= 65, // Example passing threshold
-      feedback: evaluation.feedback.summary || 'No feedback available.',
+      score: overallScore,
+      isCorrect: overallScore >= 65,
+      feedback:
+        evaluation.feedback?.content ||
+        evaluation.feedback?.summary ||
+        'Audio response evaluated successfully.',
       detailedAnalysis: {
-        contentScore: evaluation.scores.content.score,
-        contentMaxScore: evaluation.scores.content.maxScore,
-        pronunciationScore: evaluation.scores.pronunciation,
-        fluencyScore: evaluation.scores.oralFluency,
-        recognizedText: evaluation.analysis.recognizedText,
-        wordByWordAnalysis: evaluation.analysis.wordAnalysis,
+        contentScore,
+        contentMaxScore: maxContentScore,
+        contentPercentage: Math.round(contentPercentage),
+        pronunciationScore,
+        pronunciationMaxScore: pronunciationMaxScore,
+        pronunciationPercentage: Math.round(pronunciationPercentage),
+        fluencyScore,
+        fluencyMaxScore: fluencyMaxScore,
+        fluencyPercentage: Math.round(fluencyPercentage),
+        recognizedText: evaluation.analysis?.recognizedText || transcribedText,
+        wordByWordAnalysis: wordAnalysis,
+        timeTaken: timeTakenSeconds || 0,
+        fullEvaluation: evaluation, // Store the complete OpenAI response
       },
-      suggestions: evaluation.feedback.suggestions || [],
+      suggestions: evaluation.feedback?.suggestions || [
+        'Practice reading aloud regularly',
+        'Focus on clear pronunciation',
+        'Maintain steady pace and rhythm',
+      ],
     };
   } catch (error) {
     console.error('OpenAI evaluation error for Read Aloud:', error);
     return {
       score: 0,
       isCorrect: false,
-      feedback: 'Unable to evaluate response at this time.',
-      detailedAnalysis: {},
-      suggestions: ['Please try again later'],
+      feedback: 'Unable to evaluate response at this time. Please try again.',
+      detailedAnalysis: {
+        error: 'Evaluation service temporarily unavailable',
+        transcribedText,
+        timeTaken: timeTakenSeconds || 0,
+      },
+      suggestions: [
+        'Please try again later',
+        'Contact support if the issue persists',
+      ],
     };
   }
 }
@@ -256,47 +282,324 @@ async function evaluateRepeatSentence(
   userResponse: any,
   timeTakenSeconds?: number
 ): Promise<QuestionEvaluationResult> {
-  // Similar to Read Aloud but focuses on exact repetition
+  const transcribedText = userResponse.textResponse;
+  const originalSentence =
+    question.textContent || question.correctAnswers?.[0] || '';
+
   const prompt = `
-    Evaluate this PTE Repeat Sentence response:
+  **Your Role:** You are an expert AI evaluator for the PTE Academic test. Your task is to analyze a user's "Repeat Sentence" speaking performance with extreme precision.
+
+  **Objective:** You will be given an original sentence and a transcription of a user's spoken response. Compare the transcription word-for-word to the original, score it based on official PTE criteria for Content, Pronunciation, and Oral Fluency, and provide detailed, actionable feedback.
+
+  ---
+  ### **Evaluation and Scoring Instructions**
+
+  **1. Content Analysis:**
+  * Compare the transcribedText to the originalText to perform a wordAnalysis.
+  * For each word, assign a status: 'correct', 'mispronounced', 'omitted', or 'inserted'.
+  * **Important**: Hesitations, filled or unfilled pauses, and leading or trailing material are **ignored** in the scoring of content.
+  * **Errors = replacements, omissions and insertions only**
     
-    Original Audio Content: [Audio sentence provided]
-    User Audio Response: [Audio file provided]
-    Time Taken: ${timeTakenSeconds || 'Not specified'} seconds
-    
-    Evaluate based on:
-    1. Content accuracy - exact repetition (0-40 points)
-    2. Pronunciation clarity (0-30 points)
-    3. Fluency and rhythm (0-30 points)
-    
-    Provide detailed feedback and score.
-    
-    Format as JSON with score, feedback, detailedAnalysis, and suggestions.
-  `;
+  **Content Scoring (0-3 scale):**
+  * **3 points** - All words in the response are from the prompt and in the correct sequence.
+  * **2 points** - At least 50% of the words in the response are from the prompt and in the correct sequence.
+  * **1 point** - Less than 50% of the words in the response are from the prompt and in the correct sequence.
+  * **0 points** - Almost nothing from the prompt is in the response.
+
+  **2. Pronunciation and Oral Fluency Scoring (0-5 scale):**
+  * **Pronunciation:** Score based on the accuracy of the transcribed words.
+      * 5: Perfect transcription with all words correct.
+      * 4: One or two minor errors in transcription.
+      * 3: Several errors that suggest pronunciation issues but text is mostly understandable.
+      * 2: Many errors, making the text difficult to follow.
+      * 1: The transcription is mostly incorrect, indicating very poor pronunciation.
+  * **Oral Fluency:** Score based on filler words, hesitations, and natural flow.
+      * 5: Smooth, natural flow with no fillers or hesitations.
+      * 4: Mostly smooth with one minor hesitation.
+      * 3: Noticeable hesitations or filler words that disrupt the flow.
+      * 2: Uneven, slow, or fragmented speech.
+      * 1: Very halting speech with many pauses or fillers.
+
+  ---
+  ### **Required Output Format**
+  Your final output **must** be a single JSON object with the following structure:
+
+  {
+    "evaluation": {
+      "content": {
+        "score": number, 
+        "maxScore": 3,
+        "wordAnalysis": [
+          { "word": string, "status": "correct" | "mispronounced" | "omitted" | "inserted" }
+        ]
+      },
+      "pronunciation": {
+        "score": number,
+        "maxScore": 5
+      },
+      "oralFluency": {
+        "score": number,
+        "maxScore": 5
+      }
+    },
+    "feedback": {
+      "summary": string,              // Overall feedback in 1–2 sentences
+      "content": string,              // Specific feedback on content accuracy
+      "pronunciation": string,        // Specific feedback on pronunciation
+      "oralFluency": string,          // Specific feedback on fluency
+      "suggestions": [string, ...]    // Actionable improvement tips
+    },
+    "analysis": {
+      "recognizedText": string
+    }
+  }
+
+  ---
+  **Original Sentence**: "${originalSentence}"
+  **Transcribed User Text**: "${transcribedText}"
+  **Time Taken**: ${timeTakenSeconds || 'Not specified'} seconds
+`;
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.3,
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are a helpful assistant designed to output JSON for PTE Academic evaluation.',
+        },
+        { role: 'user', content: prompt },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.2,
     });
 
     const evaluation = JSON.parse(response.choices[0].message.content || '{}');
+
+    // Parse the actual OpenAI response format
+    // Handle the actual response structure from OpenAI
+    const contentScore = evaluation.evaluation?.content?.score || 0;
+    const maxContentScore = evaluation.scores?.content?.maxScore || 3;
+    const pronunciationScore = evaluation.evaluation?.pronunciation?.score || 0;
+    const fluencyScore = evaluation.evaluation?.oralFluency?.score || 0;
+    const wordAnalysis = evaluation.evaluation?.content?.wordAnalysis || [];
+
+    // Calculate percentages
+    const contentPercentage = (contentScore / maxContentScore) * 100;
+    const pronunciationPercentage = (pronunciationScore / 5) * 100;
+    const fluencyPercentage = (fluencyScore / 5) * 100;
+
+    const overallScore = Math.round(
+      contentPercentage * 0.6 +
+        pronunciationPercentage * 0.25 +
+        fluencyPercentage * 0.15
+    );
+
     return {
-      score: evaluation.score || 0,
-      isCorrect: evaluation.score >= 65,
-      feedback: evaluation.feedback || 'No feedback available',
-      detailedAnalysis: evaluation.detailedAnalysis || {},
-      suggestions: evaluation.suggestions || [],
+      score: overallScore,
+      isCorrect: overallScore >= 65,
+      feedback:
+        evaluation.feedback?.content ||
+        evaluation.feedback?.summary ||
+        'Audio response evaluated successfully.',
+      detailedAnalysis: {
+        contentScore,
+        contentMaxScore: maxContentScore,
+        contentPercentage: Math.round(contentPercentage),
+        pronunciationScore,
+        pronunciationPercentage: Math.round(pronunciationPercentage),
+        fluencyScore,
+        fluencyPercentage: Math.round(fluencyPercentage),
+        recognizedText: evaluation.analysis?.recognizedText || transcribedText,
+        wordByWordAnalysis: wordAnalysis,
+        timeTaken: timeTakenSeconds || 0,
+        fullEvaluation: evaluation, // Store the complete OpenAI response
+      },
+      suggestions: evaluation.feedback?.suggestions || [
+        'Practice repeating sentences clearly',
+        'Focus on accurate pronunciation',
+        'Maintain natural speech rhythm',
+      ],
     };
   } catch (error) {
     console.error('OpenAI evaluation error for Repeat Sentence:', error);
     return {
       score: 0,
       isCorrect: false,
-      feedback: 'Unable to evaluate response at this time.',
-      detailedAnalysis: {},
-      suggestions: ['Please try again later'],
+      feedback: 'Error occurred during evaluation.',
+      detailedAnalysis: {
+        contentScore: 0,
+        contentMaxScore: 3,
+        contentPercentage: 0,
+        pronunciationScore: 0,
+        pronunciationMaxScore: 5,
+        pronunciationPercentage: 0,
+        fluencyScore: 0,
+        fluencyMaxScore: 5,
+        fluencyPercentage: 0,
+        recognizedText: transcribedText,
+        wordByWordAnalysis: [],
+        timeTaken: timeTakenSeconds || 0,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+      suggestions: ['Please try again.', 'Ensure clear pronunciation.'],
+    };
+  }
+}
+
+/**
+ * Evaluate Re-tell Lecture responses (audio-based)
+ */
+async function evaluateRetellLecture(
+  question: Question,
+  userResponse: any,
+  timeTakenSeconds?: number
+): Promise<QuestionEvaluationResult> {
+  const transcribedText = userResponse.textResponse;
+  const originalLecture = question.textContent || '';
+
+  const prompt = `
+    **Your Role:** You are an expert AI evaluator for the PTE Academic test. Your task is to analyze a user's "Re-tell Lecture" speaking performance with extreme precision.
+
+    **Objective:** You will be given an original lecture transcript and a transcription of a user's spoken response. Evaluate the response based on official PTE criteria for Content, Oral Fluency, and Pronunciation, and provide detailed, actionable feedback.
+
+    ---
+    ### **Evaluation and Scoring Instructions**
+
+    **1. Content Analysis (0-5 scale):**
+    Evaluate how well the user summarized the main ideas and important points of the lecture.
+      * **6 pts:** Clear, accurate, and full comprehension. Paraphrases main ideas and expands on key points seamlessly and logically. Uses varied and precise vocabulary. Well-organized and easy to follow.
+      * **5 pts:** Clear and accurate, capturing main ideas and some important details. Ideas are formulated well in the user's own words. Mostly smooth and easy to follow.
+      * **4 pts:** Captures some main ideas and details but may have minor inaccuracies or focus on less important points. Attempts to paraphrase with some success. Listeners may need some effort to follow.
+      * **3 pts:** Captures some ideas but may be inaccurate or not differentiate between main points and details. May contain irrelevant information or repetition. Vocabulary is narrow. Requires significant effort to follow.
+      * **2 pts:** Mostly inaccurate or incomplete, missing main ideas. Relies heavily on repeating language from the lecture. Limited comprehension and vocabulary. Lacks coherence.
+      * **1 pt:** Repeats isolated words/phrases without meaningful context. Does not communicate effectively.
+      * **0 pts:** Response is related to the lecture but is too limited to be scored higher.
+
+    * **Pronunciation:** Score based on the accuracy of the transcribed words.
+        * 5: Perfect transcription with all words correct.
+        * 4: One or two minor errors in transcription.
+        * 3: Several errors that suggest pronunciation issues but text is mostly understandable.
+        * 2: Many errors, making the text difficult to follow.
+        * 1: The transcription is mostly incorrect, indicating very poor pronunciation.
+        
+    * **Oral Fluency:** Score based on filler words, hesitations, and natural flow.
+        * 5: Smooth, natural flow with no fillers or hesitations.
+        * 4: Mostly smooth with one minor hesitation.
+        * 3: Noticeable hesitations or filler words that disrupt the flow.
+        * 2: Uneven, slow, or fragmented speech.
+        * 1: Very halting speech with many pauses or fillers.
+
+    **Important Guidelines:**
+    * Focus on content accuracy and relevance to the original lecture
+    * Consider the logical organization and coherence of the response
+    * Evaluate pronunciation based on transcription quality and clarity
+    * Assess fluency through speech patterns evident in the transcription
+
+    ---
+    ### **Required Output Format**
+    Your final output **must** be a single JSON object.
+
+    **Original Lecture**: "${originalLecture}"
+    **User's Transcribed Response**: "${transcribedText}"
+    **Time Taken**: ${timeTakenSeconds || 'Not specified'} seconds
+
+    Provide your evaluation as a JSON object:
+  `;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are a helpful assistant designed to output JSON for PTE Academic evaluation.',
+        },
+        { role: 'user', content: prompt },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.2,
+    });
+
+    const evaluation = JSON.parse(response.choices[0].message.content || '{}');
+
+    // Parse the OpenAI response format for Re-tell Lecture
+    // Handle the actual response structure from OpenAI
+    const contentScore = evaluation.Content || 0;
+    const contentMaxScore = 6;
+    const oralFluencyScore = evaluation['Oral Fluency'] || 0;
+    const oralFluencyMaxScore = 5;
+    const pronunciationScore = evaluation.Pronunciation || 0;
+    const pronunciationMaxScore = 5;
+
+    // Calculate percentages
+    const contentPercentage = (contentScore / contentMaxScore) * 100;
+    const oralFluencyPercentage =
+      (oralFluencyScore / oralFluencyMaxScore) * 100;
+    const pronunciationPercentage =
+      (pronunciationScore / pronunciationMaxScore) * 100;
+
+    // Weight the scores: Content 40%, Oral Fluency 35%, Pronunciation 25%
+    const overallScore = Math.round(
+      contentPercentage * 0.4 +
+        oralFluencyPercentage * 0.35 +
+        pronunciationPercentage * 0.25
+    );
+
+    return {
+      score: overallScore,
+      isCorrect: overallScore >= 65,
+      feedback:
+        evaluation.feedback?.content ||
+        evaluation.feedback?.summary ||
+        'Re-tell Lecture response evaluated successfully.',
+      detailedAnalysis: {
+        contentScore,
+        contentMaxScore: contentMaxScore,
+        contentPercentage: Math.round(contentPercentage),
+        oralFluencyScore,
+        oralFluencyMaxScore: oralFluencyMaxScore,
+        oralFluencyPercentage: Math.round(oralFluencyPercentage),
+        pronunciationScore,
+        pronunciationMaxScore: pronunciationMaxScore,
+        pronunciationPercentage: Math.round(pronunciationPercentage),
+        recognizedText: evaluation.analysis?.recognizedText || transcribedText,
+        timeTaken: timeTakenSeconds || 0,
+        fullEvaluation: evaluation,
+      },
+      suggestions: evaluation.feedback?.suggestions || [
+        'Focus on main ideas and key points',
+        'Organize your response logica`lly',
+        'Use clear pronunciation and natural pace',
+      ],
+    };
+  } catch (error) {
+    console.error('OpenAI evaluation error for Re-tell Lecture:', error);
+    return {
+      score: 0,
+      isCorrect: false,
+      feedback: 'Error occurred during evaluation.',
+      detailedAnalysis: {
+        contentScore: 0,
+        contentMaxScore: 5,
+        contentPercentage: 0,
+        oralFluencyScore: 0,
+        oralFluencyMaxScore: 5,
+        oralFluencyPercentage: 0,
+        pronunciationScore: 0,
+        pronunciationMaxScore: 5,
+        pronunciationPercentage: 0,
+        recognizedText: transcribedText,
+        timeTaken: timeTakenSeconds || 0,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+      suggestions: [
+        'Please try again.',
+        'Focus on capturing key points from the lecture.',
+        'Ensure clear pronunciation and logical organization.',
+      ],
     };
   }
 }
@@ -309,52 +612,269 @@ async function evaluateDescribeImage(
   userResponse: any,
   timeTakenSeconds?: number
 ): Promise<QuestionEvaluationResult> {
+  const transcribedText = userResponse.textResponse;
+
+  console.log('Evaluating Describe Image:', {
+    hasTranscribedText: !!transcribedText,
+    textLength: transcribedText?.length,
+    timeTaken: timeTakenSeconds,
+  });
+
+  // Parse the stored image analysis data
+  let imageAnalysis = null;
+  try {
+    if (question.textContent) {
+      imageAnalysis = JSON.parse(question.textContent);
+    }
+  } catch (error) {
+    console.error('Error parsing image analysis data:', error);
+  }
+
+  const keyElements =
+    imageAnalysis?.keyElements || question.correctAnswers || [];
+  const imageType = imageAnalysis?.imageType || 'image';
+  const mainTopic = imageAnalysis?.mainTopic || 'the image content';
+
   const prompt = `
-    Evaluate this PTE Describe Image response:
-    
-    Image Description Task: User should describe the image in detail
-    User Audio Response: [Audio file provided - assume transcribed text: "${
-      userResponse.transcribedText || 'Audio response provided'
-    }"]
-    Time Taken: ${timeTakenSeconds || 'Not specified'} seconds
-    
-    Evaluate based on:
-    1. Content relevance and detail (0-30 points)
-    2. Vocabulary usage and variety (0-25 points)
-    3. Grammar and sentence structure (0-25 points)
-    4. Fluency and pronunciation (0-20 points)
-    
-    Provide comprehensive feedback focusing on descriptive language use.
-    
-    Format as JSON with score, feedback, detailedAnalysis, and suggestions.
+    You are an official PTE Academic grader. Evaluate this "Describe Image" response strictly following the provided scoring rubric.
+
+    **Image Analysis Reference:**
+    - Image Type: ${imageType}
+    - Main Topic: ${mainTopic}
+    - Key Elements to Mention: ${keyElements.join(', ')}
+
+    **User's Description:** "${transcribedText}"
+    **Time Taken:** ${timeTakenSeconds || 'Not specified'} seconds
+
+    **Scoring Rubrics:**
+    **1. Content (Score from 0 to 6):**
+      * **6 pts:** The response describes the image fully and accurately and expands on the relationships between features to provide a nuanced interpretation. A variety of expressions and vocabulary are used with ease and precision. A listener could build a **complete** mental picture.
+      * **5 pts:** The response describes the main features accurately and identifies some relationships without expanding in detail. A variety of expressions and vocabulary are used appropriately. A listener could build an **accurate** mental picture, with minor details missing.
+      * **4 pts:** The response includes some accurate simple descriptions and basic relationships but may not cover all main features. The vocabulary is sufficient for basic descriptions with some repetition. A listener could build a **basic** mental picture.
+      * **3 pts:** The response includes mainly superficial descriptions with minor inaccuracies. The vocabulary is narrow and expressions are used repeatedly. A listener could visualize **elements** of the image, but not a cohesive whole.
+      * **2 pts:** The response includes minimal, superficial descriptions with some inaccuracies. Limited vocabulary and simple expressions dominate. A listener could visualize some elements **with effort**.
+      * **1 pt:** The response is composed of disconnected elements or a list of points without description. Vocabulary is highly restricted. A listener would **struggle** to visualize the image.
+      * **0 pts:** The response is relevant but too limited to assign a higher score.
+
+    **2. Pronunciation (Score from 0 to 5):**
+      * **5:** Native-like; all words are clear and correct.
+      * **4:** Very clear; maybe one or two minor inaccuracies.
+      * **3:** Mostly understandable but with several errors.
+      * **2:** Difficult to follow due to many errors.
+      * **1:** Mostly incorrect transcription.
+
+    **3. Oral Fluency (Score from 0 to 5):**
+      * **5:** Smooth, natural flow with no fillers or hesitations.
+      * **4:** Mostly smooth with one or two minor hesitations.
+      * **3:** Noticeable hesitations that disrupt the flow.
+      * **2:** Uneven, slow, or fragmented speech.
+      * **1:** Very halting speech.
+
+    **Required Output Format:**
+    Respond with a single, minified JSON object in this exact format. Use camelCase for keys.
+    {
+      "scores": {
+        "content": <number_0_to_6>,
+        "pronunciation": <number_0_to_5>,
+        "oralFluency": <number_0_to_5>
+      },
+      "feedback": {
+        "summary": "<A brief, overall summary of the performance>",
+        "content": "<Detailed feedback specifically on the content>",
+        "pronunciation": "<Detailed feedback specifically on pronunciation>",
+        "oralFluency": "<Detailed feedback specifically on oral fluency>"
+      },
+      "suggestions": ["<Actionable suggestion 1>", "<Actionable suggestion 2>"]
+    }
   `;
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.3,
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are a helpful assistant designed to output JSON for PTE Academic evaluation.',
+        },
+        { role: 'user', content: prompt },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.2,
     });
 
     const evaluation = JSON.parse(response.choices[0].message.content || '{}');
+    console.log(evaluation, 'DESCRIBE IMAGE EVALUATION');
+
+    // Parse the OpenAI response format for Describe Image
+    const contentScore = evaluation?.scores?.content || 0;
+    const contentMaxScore = 6;
+    const pronunciationScore = evaluation?.scores?.pronunciation || 0;
+    const pronunciationMaxScore = 5;
+    const oralFluencyScore = evaluation?.scores?.oralFluency || 0;
+    const oralFluencyMaxScore = 5;
+
+    // Calculate percentages
+    const contentPercentage = (contentScore / contentMaxScore) * 100;
+    const oralFluencyPercentage =
+      (oralFluencyScore / oralFluencyMaxScore) * 100;
+    const pronunciationPercentage =
+      (pronunciationScore / pronunciationMaxScore) * 100;
+
+    // Calculate weighted overall score (Content 50%, Oral Fluency 30%, Pronunciation 20%)
+    const overallScore = Math.round(
+      contentPercentage * 0.5 +
+        oralFluencyPercentage * 0.3 +
+        pronunciationPercentage * 0.2
+    );
+
+    console.log('DESCRIBE IMAGE SCORE CALCULATION:', {
+      contentScore: `${contentScore}/${contentMaxScore} = ${Math.round(
+        contentPercentage
+      )}%`,
+      oralFluencyScore: `${oralFluencyScore}/${oralFluencyMaxScore} = ${Math.round(
+        oralFluencyPercentage
+      )}%`,
+      pronunciationScore: `${pronunciationScore}/${pronunciationMaxScore} = ${Math.round(
+        pronunciationPercentage
+      )}%`,
+      overallScore: `${overallScore}/100`,
+    });
+
+    // Ensure feedback is always a string
+    let feedbackText = 'Image description response evaluated.';
+
     return {
-      score: evaluation.score || 0,
-      isCorrect: evaluation.score >= 65,
-      feedback: evaluation.feedback || 'No feedback available',
-      detailedAnalysis: evaluation.detailedAnalysis || {},
-      suggestions: evaluation.suggestions || [],
+      score: overallScore,
+      isCorrect: overallScore >= 65,
+      feedback: feedbackText,
+      detailedAnalysis: {
+        contentScore,
+        contentMaxScore,
+        contentPercentage: Math.round(contentPercentage),
+        oralFluencyScore,
+        oralFluencyMaxScore,
+        oralFluencyPercentage: Math.round(oralFluencyPercentage),
+        pronunciationScore,
+        pronunciationMaxScore,
+        pronunciationPercentage: Math.round(pronunciationPercentage),
+        recognizedText: transcribedText,
+        timeTaken: timeTakenSeconds || 0,
+        imageAnalysis: imageAnalysis,
+        keyElementsCovered: keyElements,
+        contentFeedback: evaluation.Feedback?.Content || '',
+        oralFluencyFeedback: evaluation.Feedback?.['Oral Fluency'] || '',
+        pronunciationFeedback: evaluation.Feedback?.Pronunciation || '',
+      },
+      suggestions: [
+        'Describe all key elements visible in the image',
+        'Use specific vocabulary related to the image content',
+        'Organize your description logically (overview → details → conclusion)',
+        'Speak clearly and maintain natural pace',
+        'Include relationships between elements when relevant',
+      ],
     };
   } catch (error) {
     console.error('OpenAI evaluation error for Describe Image:', error);
     return {
       score: 0,
       isCorrect: false,
-      feedback: 'Unable to evaluate response at this time.',
-      detailedAnalysis: {},
-      suggestions: ['Please try again later'],
+      feedback: 'Error occurred during evaluation.',
+      detailedAnalysis: {
+        contentScore: 0,
+        contentMaxScore: 5,
+        contentPercentage: 0,
+        oralFluencyScore: 0,
+        oralFluencyMaxScore: 5,
+        oralFluencyPercentage: 0,
+        pronunciationScore: 0,
+        pronunciationMaxScore: 5,
+        pronunciationPercentage: 0,
+        recognizedText: transcribedText,
+        timeTaken: timeTakenSeconds || 0,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+      suggestions: [
+        'Please try again.',
+        'Focus on describing key visual elements.',
+        'Ensure clear pronunciation and logical organization.',
+      ],
     };
   }
 }
+
+/**
+ * Checks if a user's answer contains any of the correct answer keywords.
+ * This is a case-insensitive, partial match check.
+ */
+function isAnswerCorrect(userTranscript: string, correctAnswers: string[]) {
+  if (
+    !userTranscript ||
+    typeof userTranscript !== 'string' ||
+    !Array.isArray(correctAnswers)
+  ) {
+    return false;
+  }
+  const normalizedUserTranscript = userTranscript.toLowerCase().trim();
+  return correctAnswers.some((answer) =>
+    normalizedUserTranscript.includes(answer.toLowerCase().trim())
+  );
+}
+
+/**
+ * Evaluate Answer Short Question responses using a fast, code-based partial match check.
+ */
+function evaluateAnswerShortQuestion(question: Question, userResponse: any) {
+  const transcribedText = userResponse.textResponse;
+  const correctAnswers = question.correctAnswers; // This is an array
+
+  try {
+    const isCorrect = isAnswerCorrect(transcribedText, correctAnswers);
+
+    if (isCorrect) {
+      return {
+        score: 100,
+        isCorrect: true,
+        feedback: 'Your answer is correct.',
+        detailedAnalysis: {
+          evaluationMethod: 'Partial Match',
+          transcribedText,
+          correctAnswers,
+        },
+        suggestions: ['Excellent! Your answer was concise and accurate.'],
+      };
+    } else {
+      return {
+        score: 0,
+        isCorrect: false,
+        feedback: 'Your answer is incorrect.',
+        detailedAnalysis: {
+          evaluationMethod: 'Partial Match',
+          transcribedText,
+          correctAnswers,
+        },
+        suggestions: [
+          'Listen carefully and ensure your answer directly addresses the question.',
+          'Keep your answer brief and to the point.',
+        ],
+      };
+    }
+  } catch (error) {
+    console.error('Error evaluating Answer Short Question:', error);
+    return {
+      score: 0,
+      isCorrect: false,
+      feedback: 'Error occurred during evaluation.',
+      detailedAnalysis: {
+        evaluationMethod: 'Error',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+      suggestions: ['Please try again.'],
+    };
+  }
+}
+
+// WRITING
 
 /**
  * Evaluate Summarize Written Text responses
@@ -370,7 +890,7 @@ async function evaluateSummarizeWrittenText(
     .filter((word: string | any[]) => word.length > 0).length;
 
   const prompt = `
-    You are an official PTE Academic grader. Your task is to evaluate a user's summary of a provided text, strictly following the PTE Academic scoring rubric. The final score should be on a scale of 10-90.
+    You are an official PTE Academic grader. Evaluate this summary strictly following the PTE Academic scoring rubric.
 
     **Original Text:**
     "${question.textContent}"
@@ -380,66 +900,47 @@ async function evaluateSummarizeWrittenText(
 
     **Word Count:** ${wordCount}
 
-    Evaluate the user's summary based on the following four scoring traits from the official PTE rubric:
+    Evaluate based on PTE rubric traits:
+    1. Content (0-4 points): Comprehensiveness and accuracy
+    2. Form (0-1 point): Single sentence, 5-75 words
+    3. Grammar (0-2 points): Grammatical control
+    4. Vocabulary (0-2 points): Appropriate word choice
 
-    1.  **Content (0-4 points):**
-        -   **4 points:** The summary is comprehensive, accurate, and captures all main ideas. It uses effective paraphrasing to remove extraneous details and synthesizes ideas smoothly.
-        -   **3 points:** The summary is adequate, but may have minor omissions or an unclear synthesis of ideas. Paraphrasing is used but not consistently well.
-        -   **2 points:** The summary is partial, demonstrating basic comprehension. It relies heavily on repeating excerpts from the original text without synthesis.
-        -   **1 point:** The summary is relevant but lacks a meaningful summarization. Ideas are disconnected, and main points are misrepresented or omitted.
-        -   **0 points:** The response is too limited or demonstrates no comprehension.
-
-    2.  **Form (0-1 point):**
-        -   **1 point:** The response is a single, complete sentence. The word count is between 5 and 75 words.
-        -   **0 points:** The response is not a single sentence, or the word count is outside the 5-75 word range, or it is written in all capital letters.
-
-    3.  **Grammar (0-2 points):**
-        -   **2 points:** The response has correct grammatical structure.
-        -   **1 point:** The response contains grammatical errors that do not hinder communication.
-        -   **0 points:** The response has defective grammatical structure that could hinder communication.
-
-    4.  **Vocabulary (0-2 points):**
-        -   **2 points:** The response uses appropriate word choice.
-        -   **1 point:** The response contains lexical errors that do not hinder communication.
-        -   **0 points:** The response has defective word choice that could hinder communication.
+    Calculate overall score (10-90 scale) and provide detailed feedback.
     
-    Now, provide your evaluation and final score. Do not include any additional text outside of the JSON object.
-
-    **JSON Format:**
-    {
-      "score": number, // Calculate an overall score (10-90) based on the traits above
-      "isCorrect": boolean, // A simple true/false based on score
-      "feedback": "string", // A concise summary of performance based on the rubric
-      "detailedAnalysis": {
-        "contentPoints": number,
-        "formPoints": number,
-        "grammarPoints": number,
-        "vocabularyPoints": number,
-        "actualWordCount": number,
-        "isSingleSentence": boolean
-      },
-      "suggestions": [
-        "string", // 3-4 actionable tips for improvement
-        "string",
-        "string"
-      ]
-    }
+    Respond with a JSON object containing overallScore, isCorrect, feedback, detailedAnalysis, and suggestions.
 `;
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: [{ role: 'user', content: prompt }],
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are a helpful assistant designed to output JSON for PTE Academic evaluation.',
+        },
+        { role: 'user', content: prompt },
+      ],
+      response_format: { type: 'json_object' },
       temperature: 0.3,
     });
 
     const evaluation = JSON.parse(response.choices[0].message.content || '{}');
+
     return {
-      score: evaluation.score || 0,
-      isCorrect: evaluation.score >= 65,
-      feedback: evaluation.feedback || 'No feedback available',
-      detailedAnalysis: evaluation.detailedAnalysis || {},
-      suggestions: evaluation.suggestions || [],
+      score: evaluation.overallScore || 0,
+      isCorrect: (evaluation.overallScore || 0) >= 65,
+      feedback: evaluation.feedback || 'Summary evaluated successfully.',
+      detailedAnalysis: evaluation.detailedAnalysis || {
+        actualWordCount: wordCount,
+        timeTaken: timeTakenSeconds || 0,
+      },
+      suggestions: evaluation.suggestions || [
+        'Focus on main ideas only',
+        'Use one complete sentence',
+        'Stay within word limit (5-75 words)',
+      ],
     };
   } catch (error) {
     console.error('OpenAI evaluation error for Summarize Written Text:', error);
@@ -447,7 +948,10 @@ async function evaluateSummarizeWrittenText(
       score: 0,
       isCorrect: false,
       feedback: 'Unable to evaluate response at this time.',
-      detailedAnalysis: {},
+      detailedAnalysis: {
+        actualWordCount: wordCount,
+        timeTaken: timeTakenSeconds || 0,
+      },
       suggestions: ['Please try again later'],
     };
   }
@@ -467,7 +971,7 @@ async function evaluateWriteEssay(
     .filter((word: string | any[]) => word.length > 0).length;
 
   const prompt = `
-    You are an official PTE Academic Writing grader. Your task is to evaluate a user's essay, strictly following the official PTE Academic scoring rubric. The final score should be on a scale of 10-90.
+    You are an official PTE Academic Writing grader. Evaluate this essay strictly following the official PTE Academic scoring rubric.
 
     **Essay Prompt:**
     "${question.textContent}"
@@ -477,79 +981,31 @@ async function evaluateWriteEssay(
 
     **Word Count:** ${wordCount}
 
-    Analyze the user's essay and provide a detailed score report by evaluating each trait and its corresponding score points from the rubric:
+    Evaluate based on PTE rubric traits:
+    1. Content (0-6 points): Addresses prompt, convincing argument
+    2. Form (0-2 points): 200-300 words
+    3. Development, Structure and Coherence (0-6 points): Logical structure
+    4. Grammar (0-2 points): Grammatical control
+    5. General Linguistic Range (0-6 points): Vocabulary variety
+    6. Spelling (0-2 points): Spelling accuracy
 
-    1.  **Content (0-6 points):**
-        -   **6 points:** The essay fully addresses the prompt in depth, with a convincing, well-supported argument using relevant examples.
-        -   **5 points:** Adequately addresses the prompt, with a persuasive argument and relevant ideas. Supporting details are mostly present.
-        -   **4 points:** Addresses the main point, but lacks depth or nuance. Supporting details are inconsistent.
-        -   **3 points:** Relevant to the prompt but does not adequately address main points. Supporting details are often missing or inappropriate.
-        -   **2 points:** Addresses the prompt superficially with generic statements or heavy reliance on the prompt's language.
-        -   **1 point:** Demonstrates an incomplete understanding of the prompt. Ideas are disjointed.
-        -   **0 points:** The essay does not properly deal with the prompt.
-
-    2.  **Form (0-2 points):**
-        -   **2 points:** Length is between 200 and 300 words.
-        -   **1 point:** Length is between 120-199 or 301-380 words.
-        -   **0 points:** Length is less than 120 or more than 380 words, or the essay is improperly formatted (e.g., all caps, no punctuation).
-
-    3.  **Development, Structure and Coherence (0-6 points):**
-        -   **6 points:** Effective logical structure. The argument is clear, cohesive, and developed systematically with a well-developed introduction and conclusion.
-        -   **5 points:** Conventional and appropriate structure. The argument is clear, with logical paragraphs and a clear introduction and conclusion.
-        -   **4 points:** Conventional structure is mostly present but may be difficult to follow. Some elements lack development or links between them are weak.
-        -   **3 points:** Traces of conventional structure are present, but the essay is composed of simple or disconnected ideas.
-        -   **2 points:** Little recognizable structure. Ideas are disorganized and difficult to follow.
-        -   **1 point:** Response consists of disconnected ideas with no hierarchy or coherence.
-        -   **0 points:** No recognizable structure.
-
-    4.  **Grammar (0-2 points):**
-        -   **2 points:** Shows consistent grammatical control of complex language. Errors are rare.
-        -   **1 point:** Shows a relatively high degree of grammatical control. No mistakes that would lead to misunderstandings.
-        -   **0 points:** Contains mainly simple structures or several basic mistakes.
-
-    5.  **General Linguistic Range (0-6 points):**
-        -   **6 points:** A variety of expressions and vocabulary are used appropriately with ease and precision. No signs of limitations.
-        -   **5 points:** A variety of expressions and vocabulary are used appropriately. Ideas are expressed clearly without much sign of restriction.
-        -   **4 points:** The range of expression and vocabulary is sufficient for basic ideas, but limitations are evident with complex ideas.
-        -   **3 points:** The range of expression and vocabulary is narrow and simple. Communication is restricted to simple ideas.
-        -   **2 points:** Limited vocabulary and simple expressions dominate. Communication is compromised and ideas are unclear.
-        -   **1 point:** Vocabulary and linguistic expression are highly restricted. Communication has significant limitations.
-        -   **0 points:** Meaning is not accessible.
-
-    6. **Spelling (0-2 points):**
-        -   **2 points:** Correct spelling.
-        -   **1 point:** One spelling error.
-        -   **0 points:** More than one spelling error.
-
-    Now, provide a detailed score report in a single JSON object. Do not include any additional text outside of the JSON.
-
-    **JSON Format:**
-    {
-      "overallScore": number, // Overall score on a 10-90 scale based on a weighted calculation of the scores below
-      "isCorrect": boolean, // True if overallScore is 65 or higher
-      "feedback": "string", // A concise summary of performance, mentioning main strengths and weaknesses.
-      "detailedAnalysis": {
-        "contentPoints": number,
-        "formPoints": number,
-        "developmentStructureAndCoherencePoints": number,
-        "grammarPoints": number,
-        "generalLinguisticRangePoints": number,
-        "spellingPoints": number,
-        "actualWordCount": number,
-        "wordCountCompliant": boolean // True if word count is in the 200-300 range
-      },
-      "suggestions": [
-        "string", // 3-4 actionable tips
-        "string",
-        "string"
-      ]
-    }
+    Calculate overall score (10-90 scale) and provide detailed feedback.
+    
+    Respond with a JSON object containing overallScore, isCorrect, feedback, detailedAnalysis, and suggestions.
 `;
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: [{ role: 'user', content: prompt }],
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are a helpful assistant designed to output JSON for PTE Academic evaluation.',
+        },
+        { role: 'user', content: prompt },
+      ],
+      response_format: { type: 'json_object' },
       temperature: 0.3,
     });
 
@@ -557,10 +1013,17 @@ async function evaluateWriteEssay(
 
     return {
       score: evaluation.overallScore || 0,
-      isCorrect: evaluation.isCorrect,
-      feedback: evaluation.feedback || 'No feedback available',
-      detailedAnalysis: evaluation.detailedAnalysis || {},
-      suggestions: evaluation.suggestions || [],
+      isCorrect: (evaluation.overallScore || 0) >= 65,
+      feedback: evaluation.feedback || 'Essay evaluated successfully.',
+      detailedAnalysis: evaluation.detailedAnalysis || {
+        actualWordCount: wordCount,
+        timeTaken: timeTakenSeconds || 0,
+      },
+      suggestions: evaluation.suggestions || [
+        'Develop your arguments with examples',
+        'Ensure proper essay structure',
+        'Stay within word limit (200-300 words)',
+      ],
     };
   } catch (error) {
     console.error('OpenAI evaluation error for Write Essay:', error);
@@ -568,7 +1031,96 @@ async function evaluateWriteEssay(
       score: 0,
       isCorrect: false,
       feedback: 'Unable to evaluate response at this time.',
-      detailedAnalysis: {},
+      detailedAnalysis: {
+        actualWordCount: wordCount,
+        timeTaken: timeTakenSeconds || 0,
+      },
+      suggestions: ['Please try again later'],
+    };
+  }
+}
+
+/**
+ * Evaluate Summarize Spoken Text responses
+ */
+async function evaluateSummarizeSpokenText(
+  question: Question,
+  userResponse: any,
+  timeTakenSeconds?: number
+): Promise<QuestionEvaluationResult> {
+  const userText = userResponse.text || '';
+  const wordCount = userText
+    .split(/\s+/)
+    .filter((word: string | any[]) => word.length > 0).length;
+
+  console.log('Evaluating Summarize Spoken Text:', {
+    wordCount,
+    wordLimits: { min: question.wordCountMin, max: question.wordCountMax },
+    timeTaken: timeTakenSeconds,
+  });
+
+  const prompt = `
+    Evaluate this PTE Summarize Spoken Text response:
+    
+    Task: Listen to audio and write summary (${question.wordCountMin}-${
+    question.wordCountMax
+  } words)
+    User Summary: "${userText}"
+    Word Count: ${wordCount}
+    Time Taken: ${timeTakenSeconds || 'Not specified'} seconds
+    
+    Evaluate based on listening comprehension and summary writing skills:
+    1. Content accuracy and main ideas capture (0-5 points)
+    2. Form compliance (word count within limits) (0-2 points)
+    3. Grammar and vocabulary (0-3 points)
+    
+    Calculate overall score (0-100) and provide feedback.
+    
+    Respond with a JSON object containing score, isCorrect, feedback, detailedAnalysis, and suggestions.
+  `;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are a helpful assistant designed to output JSON for PTE Academic evaluation.',
+        },
+        { role: 'user', content: prompt },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.3,
+    });
+
+    const evaluation = JSON.parse(response.choices[0].message.content || '{}');
+
+    return {
+      score: evaluation.score || 0,
+      isCorrect: (evaluation.score || 0) >= 65,
+      feedback: evaluation.feedback || 'Spoken text summary evaluated.',
+      detailedAnalysis: evaluation.detailedAnalysis || {
+        actualWordCount: wordCount,
+        requiredRange: `${question.wordCountMin}-${question.wordCountMax}`,
+        timeTaken: timeTakenSeconds || 0,
+      },
+      suggestions: evaluation.suggestions || [
+        'Focus on main ideas from the audio',
+        'Stay within word count limits',
+        'Use proper grammar and vocabulary',
+      ],
+    };
+  } catch (error) {
+    console.error('OpenAI evaluation error for Summarize Spoken Text:', error);
+    return {
+      score: 0,
+      isCorrect: false,
+      feedback: 'Unable to evaluate response at this time.',
+      detailedAnalysis: {
+        actualWordCount: wordCount,
+        timeTaken: timeTakenSeconds || 0,
+      },
       suggestions: ['Please try again later'],
     };
   }
@@ -582,7 +1134,7 @@ async function evaluateMultipleChoiceSingle(
   userResponse: any,
   timeTakenSeconds?: number
 ): Promise<QuestionEvaluationResult> {
-  const selectedOption = userResponse.selectedOptions?.[0];
+  const selectedOption = userResponse.selectedOption;
   const correctAnswers = Array.isArray(question.correctAnswers)
     ? question.correctAnswers
     : [question.correctAnswers];
@@ -677,7 +1229,7 @@ async function evaluateReorderParagraphs(
   userResponse: any,
   timeTakenSeconds?: number
 ): Promise<QuestionEvaluationResult> {
-  const userOrder = userResponse.orderedItems || [];
+  const userOrder = userResponse.orderedParagraphs || [];
   const correctOrder = question.correctAnswers || [];
 
   // Calculate adjacent pairs scoring (PTE scoring method)
@@ -823,7 +1375,7 @@ async function evaluateWriteFromDictation(
   userResponse: any,
   timeTakenSeconds?: number
 ): Promise<QuestionEvaluationResult> {
-  const userText = userResponse.textResponse?.toLowerCase().trim() || '';
+  const userText = userResponse.text?.toLowerCase().trim() || '';
   const correctText = question.correctAnswers?.toLowerCase().trim() || '';
 
   // Calculate word-level accuracy
@@ -873,105 +1425,15 @@ async function evaluateWriteFromDictation(
 }
 
 /**
- * Evaluate other question types with basic scoring
+ * Evaluate Highlight Correct Summary responses
  */
-async function evaluateRetellLecture(
-  question: Question,
-  userResponse: any,
-  timeTakenSeconds?: number
-): Promise<QuestionEvaluationResult> {
-  // Placeholder for Re-tell Lecture evaluation
-  return {
-    score: 75, // Default score
-    isCorrect: true,
-    feedback: 'Response recorded. Detailed evaluation will be available soon.',
-    detailedAnalysis: { placeholder: true },
-    suggestions: [
-      'Focus on main ideas',
-      'Use clear pronunciation',
-      'Organize your response logically',
-    ],
-  };
-}
-
-async function evaluateAnswerShortQuestion(
-  question: Question,
-  userResponse: any,
-  timeTakenSeconds?: number
-): Promise<QuestionEvaluationResult> {
-  // Placeholder for Answer Short Question evaluation
-  return {
-    score: 80,
-    isCorrect: true,
-    feedback: 'Response recorded. Detailed evaluation will be available soon.',
-    detailedAnalysis: { placeholder: true },
-    suggestions: [
-      'Keep answers brief and accurate',
-      'Focus on factual information',
-    ],
-  };
-}
-
-async function evaluateSummarizeSpokenText(
-  question: Question,
-  userResponse: any,
-  timeTakenSeconds?: number
-): Promise<QuestionEvaluationResult> {
-  // Similar to Summarize Written Text but for audio content
-  const userText = userResponse.textResponse || '';
-  const wordCount = userText
-    .split(/\s+/)
-    .filter((word: string | any[]) => word.length > 0).length;
-
-  const prompt = `
-    Evaluate this PTE Summarize Spoken Text response:
-    
-    Audio Content: [Lecture audio provided]
-    User Summary: "${userText}"
-    Word Count: ${wordCount} (Required: ${question.wordCountMin}-${
-    question.wordCountMax
-  } words)
-    Time Taken: ${timeTakenSeconds || 'Not specified'} seconds
-    
-    Evaluate based on listening comprehension and summary writing skills.
-    Focus on main ideas capture, grammar, and word count compliance.
-    
-    Format as JSON with score, feedback, detailedAnalysis, and suggestions.
-  `;
-
-  try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.3,
-    });
-
-    const evaluation = JSON.parse(response.choices[0].message.content || '{}');
-    return {
-      score: evaluation.score || 0,
-      isCorrect: evaluation.score >= 65,
-      feedback: evaluation.feedback || 'No feedback available',
-      detailedAnalysis: evaluation.detailedAnalysis || {},
-      suggestions: evaluation.suggestions || [],
-    };
-  } catch (error) {
-    console.error('OpenAI evaluation error for Summarize Spoken Text:', error);
-    return {
-      score: 0,
-      isCorrect: false,
-      feedback: 'Unable to evaluate response at this time.',
-      detailedAnalysis: {},
-      suggestions: ['Please try again later'],
-    };
-  }
-}
-
 async function evaluateHighlightCorrectSummary(
   question: Question,
   userResponse: any,
   timeTakenSeconds?: number
 ): Promise<QuestionEvaluationResult> {
-  const selectedSummary = userResponse.selectedOptions?.[0];
+  const selectedSummary =
+    userResponse.selectedSummary || userResponse.selectedOptions?.[0];
   const correctAnswers = Array.isArray(question.correctAnswers)
     ? question.correctAnswers
     : [question.correctAnswers];
@@ -1000,12 +1462,16 @@ async function evaluateHighlightCorrectSummary(
   };
 }
 
+/**
+ * Evaluate Select Missing Word responses
+ */
 async function evaluateSelectMissingWord(
   question: Question,
   userResponse: any,
   timeTakenSeconds?: number
 ): Promise<QuestionEvaluationResult> {
-  const selectedWord = userResponse.selectedOptions?.[0];
+  const selectedWord =
+    userResponse.selectedWord || userResponse.selectedOptions?.[0];
   const correctAnswers = Array.isArray(question.correctAnswers)
     ? question.correctAnswers
     : [question.correctAnswers];

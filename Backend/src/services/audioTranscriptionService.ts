@@ -1,10 +1,10 @@
-import openai from '../config/openAi';
 import fs from 'fs';
+import http from 'http';
+import https from 'https';
 import path from 'path';
 import { promisify } from 'util';
-import { SecureUrlService } from './secureUrlService';
-import https from 'https';
-import http from 'http';
+import { generateAudioSignedUrl } from '../config/cloudFrontConfig';
+import openai from '../config/openAi';
 
 interface TranscriptionResult {
   text: string;
@@ -21,12 +21,9 @@ async function downloadAudioFromSecureUrl(audioKey: string): Promise<string> {
     console.log(`Attempting to download audio file: ${audioKey}`);
 
     // Generate secure URL for the audio file
-    const secureUrlResponse = await SecureUrlService.generateSecureAudioUrl(
-      audioKey,
-      {
-        expirationHours: 1, // Short expiration for transcription processing
-      }
-    );
+    const secureUrlResponse = generateAudioSignedUrl(audioKey, 5);
+
+    console.log(secureUrlResponse, 'secureUrlResponseXXXX');
 
     console.log(`Generated secure URL for audio download`);
 
@@ -43,10 +40,10 @@ async function downloadAudioFromSecureUrl(audioKey: string): Promise<string> {
 
     // Download the file using the secure URL with Node.js https
     await new Promise<void>((resolve, reject) => {
-      const url = new URL(secureUrlResponse.signedUrl);
+      const url = new URL(secureUrlResponse);
       const client = url.protocol === 'https:' ? https : http;
 
-      const request = client.get(secureUrlResponse.signedUrl, (response) => {
+      const request = client.get(secureUrlResponse, (response) => {
         if (response.statusCode !== 200) {
           reject(new Error(`HTTP error! status: ${response.statusCode}`));
           return;
@@ -123,42 +120,38 @@ async function cleanupTempFile(filePath: string): Promise<void> {
 /**
  * Transcribe audio using OpenAI Whisper API
  */
-export async function transcribeAudio(
-  audioKey: string
-): Promise<TranscriptionResult> {
-  let tempFilePath: string | null = null;
-
+export async function transcribeAudio(audioKey: string): Promise<TranscriptionResult> {
   try {
-    console.log(`Starting transcription process for audio key: ${audioKey}`);
+    const secureUrl = generateAudioSignedUrl(audioKey, 5);
 
-    // Validate audio key format
-    if (!validateAudioFile(audioKey)) {
-      throw new Error('Invalid audio file key format');
+    const response = await fetch(secureUrl);
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    // Download audio file using secure URL
-    tempFilePath = await downloadAudioFromSecureUrl(audioKey);
+    // 1. Get the audio data as an ArrayBuffer from the fetch response.
+    const audioData = await response.arrayBuffer();
 
-    // Check if file exists and has content
-    const stats = await promisify(fs.stat)(tempFilePath);
-    if (stats.size === 0) {
-      throw new Error('Audio file is empty');
-    }
+    // 2. Extract the original filename from the audioKey.
+    const fileName = audioKey.split('/').pop() || 'audio.webm';
 
-    console.log(`Audio file size: ${stats.size} bytes`);
+    // 3. Get the content type from the response headers.
+    const contentType = response.headers.get('content-type') || 'audio/webm';
 
-    // Create file stream for OpenAI API
-    const audioFile = fs.createReadStream(tempFilePath);
+    // 4. Construct a File object with the data and metadata.
+    const audioFile = new File([audioData], fileName, { type: contentType });
 
-    console.log('Sending audio to OpenAI Whisper for transcription...');
+    console.log(`Created file object: ${fileName}, Type: ${contentType}`);
+    console.log('Sending file to OpenAI Whisper...');
 
-    // Transcribe using OpenAI Whisper
+    // 5. Pass the newly created File object to the OpenAI SDK.
     const transcription = await openai.audio.transcriptions.create({
       file: audioFile,
       model: 'whisper-1',
-      language: 'en', // Specify English for PTE
-      response_format: 'verbose_json', // Get detailed response with timestamps
-      temperature: 0.0, // Use deterministic output for consistency
+      language: 'en',
+      response_format: 'verbose_json',
+      temperature: 0.0,
     });
 
     console.log(
@@ -172,38 +165,10 @@ export async function transcribeAudio(
     };
   } catch (error: any) {
     console.error('Error transcribing audio:', error);
-
-    // Handle specific error types
-    if (
-      error.message?.includes('Access denied') ||
-      error.message?.includes('permissions')
-    ) {
-      throw new Error(
-        'Access denied: Unable to access audio file. Please check S3 permissions.'
-      );
-    } else if (error.message?.includes('Invalid file format')) {
-      throw new Error(
-        'Unsupported audio format. Please use a supported audio format.'
-      );
-    } else if (error.message?.includes('File too large')) {
-      throw new Error('Audio file is too large. Please use a smaller file.');
-    } else if (
-      error.message?.includes('quota') ||
-      error.message?.includes('rate limit')
-    ) {
-      throw new Error(
-        'Transcription service temporarily unavailable. Please try again later.'
-      );
-    } else if (error.message?.includes('not found')) {
-      throw new Error('Audio file not found. Please try recording again.');
-    } else {
-      throw new Error(`Failed to transcribe audio: ${error.message}`);
-    }
-  } finally {
-    // Clean up temporary file
-    if (tempFilePath) {
-      await cleanupTempFile(tempFilePath);
-    }
+    // Your existing error handling logic remains valid
+    throw new Error(
+      `Failed to transcribe audio: ${error.message || 'Unknown error'}`
+    );
   }
 }
 
@@ -247,13 +212,20 @@ export async function transcribeAudioWithRetry(
  * Validate audio file before transcription
  */
 export function validateAudioFile(audioKey: string): boolean {
+  console.log('Validating audio file:', audioKey);
+
   // Check if audio key has valid format
   if (!audioKey || typeof audioKey !== 'string') {
+    console.log('Validation failed: audioKey is not a valid string');
     return false;
   }
 
   // Check if it's in the expected S3 path
   if (!audioKey.startsWith('audio/user-recordings/')) {
+    console.log(
+      'Validation failed: audioKey does not start with "audio/user-recordings/"'
+    );
+    console.log('Actual start:', audioKey.substring(0, 30));
     return false;
   }
 
@@ -263,5 +235,12 @@ export function validateAudioFile(audioKey: string): boolean {
     audioKey.toLowerCase().endsWith(ext)
   );
 
+  if (!hasValidExtension) {
+    console.log('Validation failed: invalid file extension');
+    console.log('Valid extensions:', validExtensions);
+    console.log('Actual ending:', audioKey.substring(audioKey.length - 10));
+  }
+
+  console.log('Validation result:', hasValidExtension);
   return hasValidExtension;
 }

@@ -313,7 +313,7 @@ model Question {
     // Answer options/structure for various question types
     options        Json? // For Multiple Choice (Single/Multiple Answer), Highlight Correct Summary, Select Missing Word
     // Example for MCQs: [{ text: "Option A", isCorrect: true }, { text: "Option B", isCorrect: false }]
-    correctAnswers Json? // For Fill in the Blanks (array of strings), Write from Dictation (string), Repeat Sentence (string), Re-order Paragraphs (array of strings/IDs in correct order)
+    correctAnswers Json? // For Fill in the Blanks (array of strings), Write from Dictation (string), Repeat Sentence (string), Re-order Paragraphs (array of strings/IDs in correct order), Answer Short Question (array of strings)
     // Example for Reading Fill in the Blanks (dropdowns): [{ gapId: "gap1", options: ["A", "B"], correctAnswer: "A" }]
 
     // Specific constraints/metadata for question types
@@ -408,6 +408,7 @@ model UserResponse {
     questionScore Int? // Score for this specific question (e.g., out of 1 or 2, depending on question type)
     isCorrect     Boolean? // For questions with clear correct/incorrect answers
     aiFeedback    String? // Direct AI feedback for this specific question (e.g., "Pronunciation clear but content slightly off")
+    detailedAnalysis Json? // Detailed evaluation data including word analysis, scores, etc.
 
     timeTakenSeconds Int? // How long the user spent on this question
     createdAt        DateTime @default(now())

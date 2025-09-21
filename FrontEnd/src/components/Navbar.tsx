@@ -106,20 +106,25 @@ const Navbar: React.FC = () => {
                     >
                       Users
                     </Link>
-                    <Link
+                    {/* <Link
                       to='/admin/categories'
                       className='block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                     >
                       Categories
+                    </Link> */}
+                    <Link
+                      to='/admin/payments'
+                      className='block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    >
+                      Payments
+                    </Link>
+                    <Link
+                      to='/admin/questions'
+                      className='block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    >
+                      Questions
                     </Link>
                   </div>
-                  <Link
-                    to='/admin/payments'
-                    className='block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Payment Management
-                  </Link>
                 </div>
               </div>
             )}

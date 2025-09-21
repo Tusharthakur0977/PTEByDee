@@ -5,6 +5,8 @@ import {
   Edit,
   Eye,
   Filter,
+  MessageCircleQuestionIcon,
+  MessageCircleWarningIcon,
   Plus,
   Star,
   TrendingUp,
@@ -435,7 +437,7 @@ const AdminDashboard: React.FC = () => {
           >
             <div className='flex items-center space-x-4'>
               <div className='bg-green-100 dark:bg-green-900/30 p-3 rounded-full'>
-                <Edit className='h-6 w-6 text-green-600 dark:text-green-400' />
+                <MessageCircleQuestionIcon className='h-6 w-6 text-green-600 dark:text-green-400' />
               </div>
               <div>
                 <h3 className='font-semibold text-gray-900 dark:text-white'>

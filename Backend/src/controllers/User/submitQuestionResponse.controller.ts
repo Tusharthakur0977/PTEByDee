@@ -88,18 +88,24 @@ export const submitQuestionResponse = asyncHandler(
       if (audioBasedQuestions.includes(question.questionType.name as any)) {
         // Check if audio response is provided
         if (userResponse.audioResponseUrl) {
+          console.log(
+            'Audio response URL provided:',
+            userResponse.audioResponseUrl
+          );
+
           // Validate audio file
           if (!validateAudioFile(userResponse.audioResponseUrl)) {
             return sendResponse(
               res,
               STATUS_CODES.BAD_REQUEST,
               null,
-              'Invalid audio file format or location.'
+              'Invalid audio file format or location. Please record your response again.'
             );
           }
 
           try {
-            // Transcribe audio using OpenAI Whisper
+            console.log('Starting audio transcription...');
+            // Transcribe audio using OpenAI Whisper (pass S3 key, not signed URL)
             const transcriptionResult = await transcribeAudioWithRetry(
               userResponse.audioResponseUrl
             );
@@ -116,7 +122,7 @@ export const submitQuestionResponse = asyncHandler(
               res,
               STATUS_CODES.INTERNAL_SERVER_ERROR,
               null,
-              `Audio transcription failed: ${error.message}`
+              `Audio transcription failed: ${error.message}. Please try recording again or contact support if the issue persists.`
             );
           }
         } else {
@@ -129,6 +135,7 @@ export const submitQuestionResponse = asyncHandler(
         }
       }
 
+      console.log('Starting response evaluation...');
       // Evaluate the response using OpenAI
       const evaluation = await evaluateQuestionResponse(
         question,
@@ -150,7 +157,13 @@ export const submitQuestionResponse = asyncHandler(
             highlightedWords: userResponse.highlightedWords || [],
             questionScore: evaluation.score,
             isCorrect: evaluation.isCorrect,
-            aiFeedback: evaluation.feedback,
+            aiFeedback:
+              typeof evaluation.feedback === 'string'
+                ? evaluation.feedback
+                : JSON.stringify(
+                    evaluation.feedback || 'Response evaluated successfully.'
+                  ),
+            detailedAnalysis: evaluation.detailedAnalysis || null,
             timeTakenSeconds: timeTakenSeconds || 0,
           },
         });
@@ -205,6 +218,8 @@ export const submitQuestionResponse = asyncHandler(
         return userResponseRecord;
       });
 
+      console.log('Response stored successfully:', responseRecord.id);
+
       return sendResponse(
         res,
         STATUS_CODES.CREATED,
@@ -224,6 +239,7 @@ export const submitQuestionResponse = asyncHandler(
             sectionName: question.questionType.pteSection.name,
           },
           timeTaken: timeTakenSeconds || 0,
+          transcribedText: transcribedText, // Include transcribed text for frontend display
         },
         'Response submitted and evaluated successfully.'
       );

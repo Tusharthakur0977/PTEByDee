@@ -32,6 +32,7 @@ import UserManagement from './pages/admin/UserManagement';
 import CategoryManagement from './pages/admin/CategoryManagement';
 import PaymentManagement from './pages/admin/PaymentManagement';
 import QuestionManagement from './pages/admin/QuestionManagement';
+import ScrollToTop from './components/ScrollToTop';
 
 // Initialize Stripe
 const stripePromise = loadStripe(
@@ -48,6 +49,7 @@ function App() {
               <div className='min-h-screen bg-white dark:bg-gray-900 transition-colors duration-300'>
                 <Navbar />
                 <main>
+                  <ScrollToTop />
                   <Routes>
                     <Route
                       path='/'

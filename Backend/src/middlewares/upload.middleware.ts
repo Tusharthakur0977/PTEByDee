@@ -4,9 +4,76 @@ import {
   courseVideoUpload,
   questionAudioUpload,
   questionImageUpload,
+  userAudioUpload,
 } from '../config/s3Config';
 import { sendResponse } from '../utils/helpers';
 import { STATUS_CODES } from '../utils/constants';
+
+/**
+ * Middleware to handle user audio upload with proper error handling
+ */
+export const handleUserAudioUpload = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const upload = userAudioUpload.single('audio');
+
+  upload(req, res, (error: any) => {
+    if (error) {
+      console.error('Multer user audio upload error:', error);
+
+      // Handle specific multer errors
+      if (error.code === 'LIMIT_FILE_SIZE') {
+        return sendResponse(
+          res,
+          STATUS_CODES.BAD_REQUEST,
+          null,
+          'File size too large. Maximum size allowed is 50MB.'
+        );
+      }
+
+      if (error.message && error.message.includes('Invalid file type')) {
+        return sendResponse(
+          res,
+          STATUS_CODES.BAD_REQUEST,
+          null,
+          'Invalid file type. Only audio files are allowed (WebM, MP3, WAV, OGG, M4A, AAC).'
+        );
+      }
+
+      // Handle AWS S3 errors
+      if (error.code === 'NoSuchBucket') {
+        return sendResponse(
+          res,
+          STATUS_CODES.INTERNAL_SERVER_ERROR,
+          null,
+          'S3 bucket not found. Please check AWS configuration.'
+        );
+      }
+
+      if (error.code === 'AccessDenied') {
+        return sendResponse(
+          res,
+          STATUS_CODES.INTERNAL_SERVER_ERROR,
+          null,
+          'Access denied to S3 bucket. Please check AWS credentials.'
+        );
+      }
+
+      // Generic error
+      return sendResponse(
+        res,
+        STATUS_CODES.INTERNAL_SERVER_ERROR,
+        null,
+        'An error occurred while uploading the audio file. Please try again.'
+      );
+    }
+
+    // No error, proceed to next middleware
+    next();
+  });
+};
 
 /**
  * Middleware to handle course image upload with proper error handling

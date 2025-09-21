@@ -1,5 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, RotateCcw, Volume2, VolumeX } from 'lucide-react';
+import {
+  Play,
+  Pause,
+  RotateCcw,
+  Volume2,
+  VolumeX,
+  Loader,
+  AlertCircle,
+} from 'lucide-react';
 
 interface AudioPlayerProps {
   src: string;
@@ -10,6 +18,7 @@ interface AudioPlayerProps {
   onPlay?: () => void;
   onPause?: () => void;
   className?: string;
+  compact?: boolean;
 }
 
 const AudioPlayer: React.FC<AudioPlayerProps> = ({
@@ -21,6 +30,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   onPlay,
   onPause,
   className = '',
+  compact = false,
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -29,6 +39,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const [isMuted, setIsMuted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hasStarted, setHasStarted] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement>(null);
 
@@ -39,7 +50,8 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     const handleLoadedMetadata = () => {
       setDuration(audio.duration);
       setIsLoading(false);
-      if (autoPlay) {
+      if (autoPlay && !hasStarted) {
+        setHasStarted(true);
         handlePlay();
       }
     };
@@ -63,11 +75,17 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
       setError(null);
     };
 
+    const handleLoadStart = () => {
+      setIsLoading(true);
+      setError(null);
+    };
+
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
     audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('ended', handleEnded);
     audio.addEventListener('error', handleError);
     audio.addEventListener('canplay', handleCanPlay);
+    audio.addEventListener('loadstart', handleLoadStart);
 
     return () => {
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
@@ -75,8 +93,9 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
       audio.removeEventListener('ended', handleEnded);
       audio.removeEventListener('error', handleError);
       audio.removeEventListener('canplay', handleCanPlay);
+      audio.removeEventListener('loadstart', handleLoadStart);
     };
-  }, [src, autoPlay, onEnded]);
+  }, [src, autoPlay, onEnded, hasStarted]);
 
   const formatTime = (time: number) => {
     if (isNaN(time)) return '0:00';
@@ -95,7 +114,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
       onPlay?.();
     } catch (error) {
       console.error('Error playing audio:', error);
-      setError('Failed to play audio');
+      setError('Failed to play audio. Please try again.');
     }
   };
 
@@ -157,9 +176,68 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
         className={`bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 ${className}`}
       >
         <div className='flex items-center space-x-2 text-red-600 dark:text-red-400'>
-          <VolumeX className='h-5 w-5' />
+          <AlertCircle className='h-5 w-5' />
           <span>{error}</span>
         </div>
+      </div>
+    );
+  }
+
+  if (compact) {
+    return (
+      <div
+        className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 shadow-sm ${className}`}
+      >
+        <audio
+          ref={audioRef}
+          src={src}
+          preload='metadata'
+        />
+
+        {title && (
+          <div className='mb-3'>
+            <h4 className='font-medium text-gray-900 dark:text-white text-sm'>
+              {title}
+            </h4>
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className='flex items-center justify-center py-2'>
+            <Loader className='h-4 w-4 animate-spin text-blue-600 mr-2' />
+            <span className='text-sm text-gray-600 dark:text-gray-300'>
+              Loading audio...
+            </span>
+          </div>
+        ) : (
+          <div className='flex items-center space-x-3'>
+            <button
+              onClick={isPlaying ? handlePause : handlePlay}
+              className='flex items-center justify-center w-8 h-8 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-colors duration-200'
+            >
+              {isPlaying ? (
+                <Pause className='h-4 w-4' />
+              ) : (
+                <Play className='h-4 w-4 ml-0.5' />
+              )}
+            </button>
+
+            <div className='flex-1'>
+              <input
+                type='range'
+                min='0'
+                max={duration || 0}
+                value={currentTime}
+                onChange={handleSeek}
+                className='w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer slider'
+              />
+              <div className='flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1'>
+                <span>{formatTime(currentTime)}</span>
+                <span>{formatTime(duration)}</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -184,8 +262,8 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
       {isLoading ? (
         <div className='flex items-center justify-center py-4'>
-          <div className='animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600'></div>
-          <span className='ml-3 text-gray-600 dark:text-gray-300 font-medium'>
+          <Loader className='h-6 w-6 animate-spin text-blue-600 mr-3' />
+          <span className='text-gray-600 dark:text-gray-300 font-medium'>
             Loading audio...
           </span>
         </div>

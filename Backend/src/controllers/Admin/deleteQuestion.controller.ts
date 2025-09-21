@@ -61,6 +61,8 @@ export const deleteQuestion = asyncHandler(
         filesToDelete.push({ type: 'image', url: question.imageUrl });
       }
 
+      console.log(filesToDelete, 'WWWW');
+
       // Delete the question
       await prisma.question.delete({
         where: { id },

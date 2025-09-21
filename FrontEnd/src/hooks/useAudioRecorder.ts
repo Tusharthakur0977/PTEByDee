@@ -1,5 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
-import api from '../services/api';
+import { useCallback, useRef, useState } from 'react';
 
 interface UseAudioRecorderReturn {
   isRecording: boolean;
@@ -9,6 +8,8 @@ interface UseAudioRecorderReturn {
   audioBlob: Blob | null;
   isUploading: boolean;
   uploadProgress: number;
+  uploadError: string | null;
+  uploadSuccess: boolean;
   startRecording: () => Promise<void>;
   stopRecording: () => void;
   pauseRecording: () => void;
@@ -16,6 +17,7 @@ interface UseAudioRecorderReturn {
   clearRecording: () => void;
   uploadAudio: () => Promise<string | null>;
   isSupported: boolean;
+  resetUploadState: () => void;
 }
 
 export const useAudioRecorder = (): UseAudioRecorderReturn => {
@@ -26,6 +28,8 @@ export const useAudioRecorder = (): UseAudioRecorderReturn => {
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -50,12 +54,21 @@ export const useAudioRecorder = (): UseAudioRecorderReturn => {
     }
   }, []);
 
+  const resetUploadState = useCallback(() => {
+    setUploadError(null);
+    setUploadSuccess(false);
+    setUploadProgress(0);
+  }, []);
+
   const startRecording = useCallback(async () => {
     if (!isSupported) {
       throw new Error('Audio recording is not supported in this browser');
     }
 
     try {
+      // Reset upload state when starting new recording
+      resetUploadState();
+
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -103,7 +116,7 @@ export const useAudioRecorder = (): UseAudioRecorderReturn => {
       console.error('Error starting recording:', error);
       throw error;
     }
-  }, [isSupported, startTimer]);
+  }, [isSupported, startTimer, resetUploadState]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && isRecording) {
@@ -138,6 +151,8 @@ export const useAudioRecorder = (): UseAudioRecorderReturn => {
     setAudioBlob(null);
     setRecordingTime(0);
     setUploadProgress(0);
+    setUploadError(null);
+    setUploadSuccess(false);
     chunksRef.current = [];
   }, [audioURL]);
 
@@ -149,33 +164,71 @@ export const useAudioRecorder = (): UseAudioRecorderReturn => {
     try {
       setIsUploading(true);
       setUploadProgress(0);
+      setUploadError(null);
+      setUploadSuccess(false);
 
       // Create FormData for file upload
       const formData = new FormData();
       const fileName = `recording_${Date.now()}.webm`;
       formData.append('audio', audioBlob, fileName);
 
-      // Upload to backend
-      const response = await api.post('/user/upload-audio', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        onUploadProgress: (progressEvent) => {
-          if (progressEvent.total) {
-            const progress = Math.round(
-              (progressEvent.loaded * 100) / progressEvent.total
-            );
+      // Upload to backend with progress tracking
+      const response = await new Promise<any>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable) {
+            const progress = Math.round((event.loaded / event.total) * 100);
             setUploadProgress(progress);
           }
-        },
+        });
+
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const response = JSON.parse(xhr.responseText);
+              resolve(response);
+            } catch (parseError) {
+              reject(new Error('Invalid response format'));
+            }
+          } else {
+            reject(new Error(`HTTP ${xhr.status}: ${xhr.statusText}`));
+          }
+        });
+
+        xhr.addEventListener('error', () => {
+          reject(new Error('Network error occurred during upload'));
+        });
+
+        xhr.addEventListener('abort', () => {
+          reject(new Error('Upload cancelled'));
+        });
+
+        const token = localStorage.getItem('token');
+        xhr.open(
+          'POST',
+          `${import.meta.env.VITE_API_BASE_URL}/user/upload-audio`
+        );
+        if (token) {
+          xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        }
+        xhr.send(formData);
       });
 
-      setIsUploading(false);
-      return response.data.data.audioKey; // Return S3 key
-    } catch (error) {
-      setIsUploading(false);
+      if (response.success && response.data) {
+        setUploadSuccess(true);
+        setUploadError(null);
+        return response.data.audioKey; // Return S3 key
+      } else {
+        throw new Error(response.message || 'Upload failed');
+      }
+    } catch (error: any) {
+      setUploadError(error.message || 'Upload failed');
+      setUploadSuccess(false);
       console.error('Error uploading audio:', error);
       throw error;
+    } finally {
+      setIsUploading(false);
     }
   }, [audioBlob]);
 
@@ -187,6 +240,8 @@ export const useAudioRecorder = (): UseAudioRecorderReturn => {
     audioBlob,
     isUploading,
     uploadProgress,
+    uploadError,
+    uploadSuccess,
     startRecording,
     stopRecording,
     pauseRecording,
@@ -194,5 +249,6 @@ export const useAudioRecorder = (): UseAudioRecorderReturn => {
     clearRecording,
     uploadAudio,
     isSupported,
+    resetUploadState,
   };
 };

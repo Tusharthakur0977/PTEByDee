@@ -5,9 +5,15 @@ export interface QuestionResponseData {
   userResponse: {
     textResponse?: string;
     audioResponseUrl?: string;
+    selectedOption?: string;
     selectedOptions?: string[];
+    selectedSummary?: string;
+    selectedWord?: string;
+    orderedParagraphs?: string[];
     orderedItems?: string[];
     highlightedWords?: string[];
+    blanks?: { [key: string]: string };
+    text?: string;
   };
   timeTakenSeconds?: number;
   testAttemptId?: string; // Optional: if part of a test
@@ -31,6 +37,7 @@ export interface QuestionResponseResult {
     sectionName: string;
   };
   timeTaken: number;
+  transcribedText?: string; // For audio responses
 }
 
 /**
@@ -39,8 +46,32 @@ export interface QuestionResponseResult {
 export const submitQuestionResponse = async (
   data: QuestionResponseData
 ): Promise<QuestionResponseResult> => {
-  const response = await api.post('/user/questions/submit-response', data);
-  return response.data.data;
+  try {
+    console.log('Submitting question response:', data);
+
+    const response = await api.post('/user/questions/submit-response', data);
+
+    console.log('Question response submitted successfully:', response.data);
+
+    return response.data.data;
+  } catch (error: any) {
+    console.error('Error submitting question response:', error);
+
+    // Provide user-friendly error messages
+    if (error.response?.status === 401) {
+      throw new Error('Please log in to submit responses.');
+    } else if (error.response?.status === 400) {
+      throw new Error(error.response.data?.message || 'Invalid response data.');
+    } else if (error.response?.status === 404) {
+      throw new Error('Question not found.');
+    } else if (error.response?.status >= 500) {
+      throw new Error('Server error. Please try again later.');
+    } else {
+      throw new Error(
+        error.response?.data?.message || 'Failed to submit response.'
+      );
+    }
+  }
 };
 
 /**

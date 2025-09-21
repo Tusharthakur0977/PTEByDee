@@ -26,6 +26,7 @@ import {
 import { uploadAudio } from '../controllers/User/uploadAudio.controller';
 
 import { protect } from '../middlewares/authenticate.middleware';
+import { handleUserAudioUpload } from '../middlewares/upload.middleware';
 
 const router = Router();
 
@@ -62,7 +63,7 @@ router.get('/responses', protect, getUserResponses);
 router.get('/responses/stats', protect, getUserResponseStats);
 
 // Audio upload for question responses
-router.post('/upload-audio', protect, uploadAudio);
+router.post('/upload-audio', protect, handleUserAudioUpload, uploadAudio);
 
 // Secure video URL generation for enrolled users
 router.post('/secure-video-url', protect, getSecureVideoUrl);

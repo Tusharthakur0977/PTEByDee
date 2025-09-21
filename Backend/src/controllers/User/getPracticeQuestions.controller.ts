@@ -293,7 +293,7 @@ function getInstructionsForQuestionType(questionType: string): string {
 
 function getPreparationTime(questionType: string): number | undefined {
   const preparationTimes: { [key: string]: number } = {
-    READ_ALOUD: 40,
+    READ_ALOUD: 3,
     DESCRIBE_IMAGE: 25,
     RE_TELL_LECTURE: 10,
   };

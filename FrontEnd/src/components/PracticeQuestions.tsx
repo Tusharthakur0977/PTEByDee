@@ -1,4 +1,11 @@
-import { AlertCircle, CheckCircle, Clock, RotateCcw, X } from 'lucide-react';
+import {
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  RotateCcw,
+  X,
+  Loader,
+} from 'lucide-react';
 import React, { useEffect, useState, useCallback } from 'react';
 import { PracticeQuestion as PracticeQuestionType } from '../services/portal';
 import { submitQuestionResponse } from '../services/questionResponse';
@@ -20,8 +27,6 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
   onNext,
   className = '',
 }) => {
-  console.log(question, 'EEEE');
-
   const [timeLeft, setTimeLeft] = useState(question.content.timeLimit || 300);
   const [isCompleted, setIsCompleted] = useState(false);
   const [response, setResponse] = useState<any>({});
@@ -34,6 +39,7 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isProcessingAudio, setIsProcessingAudio] = useState(false);
   const [isAudioReady, setIsAudioReady] = useState(false);
+  const [evaluationResult, setEvaluationResult] = useState<any>(null);
 
   // Check if current question is audio-based
   const isAudioBasedQuestion = [
@@ -42,6 +48,7 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
     'DESCRIBE_IMAGE',
     'RE_TELL_LECTURE',
     'ANSWER_SHORT_QUESTION',
+    'SUMMARIZE_SPOKEN_TEXT',
   ].includes(question.type);
 
   const handleSubmit = useCallback(async () => {
@@ -49,6 +56,7 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
 
     try {
       setIsSubmitting(true);
+      setIsProcessingAudio(isAudioBasedQuestion);
 
       // Prepare response data based on question type
       const responseData = {
@@ -65,31 +73,40 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
       console.log('Response evaluation result:', result);
 
       // Update local state with evaluation results
+      setEvaluationResult(result.evaluation);
       setResponse({
         ...response,
         evaluation: result.evaluation,
+        transcribedText: result.transcribedText, // Store transcribed text for display
       });
 
       setIsCompleted(true);
 
       // Call completion callback
       onComplete?.(result);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting response:', error);
       // Show error to user but don't prevent them from continuing
+      const errorEvaluation = {
+        score: 0,
+        isCorrect: false,
+        feedback:
+          error.message || 'An error occurred while evaluating your response.',
+        detailedAnalysis: {},
+        suggestions: [
+          'Please try again or contact support if the issue persists.',
+        ],
+      };
+
+      setEvaluationResult(errorEvaluation);
       setResponse({
         ...response,
-        evaluation: {
-          score: 0,
-          isCorrect: false,
-          feedback: 'An error occurred while evaluating your response.',
-          detailedAnalysis: {},
-          suggestions: ['Please try again.'],
-        },
+        evaluation: errorEvaluation,
       });
       setIsCompleted(true);
     } finally {
       setIsSubmitting(false);
+      setIsProcessingAudio(false);
     }
   }, [
     isCompleted,
@@ -99,6 +116,7 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
     response,
     timeLeft,
     onComplete,
+    isAudioBasedQuestion,
   ]);
 
   // Timer effect
@@ -141,6 +159,7 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
   };
 
   const handleAudioRecordingComplete = (audioKey: string) => {
+    console.log('Audio recording completed with key:', audioKey);
     setIsProcessingAudio(true);
     setResponse({ audioResponseUrl: audioKey });
 
@@ -148,7 +167,7 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
     setTimeout(() => {
       setIsProcessingAudio(false);
       setIsAudioReady(true);
-    }, 2000);
+    }, 1500);
   };
 
   // Manual submit handler for audio questions
@@ -163,9 +182,12 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
   const handleReset = () => {
     setIsCompleted(false);
     setResponse({});
+    setEvaluationResult(null);
     setTimeLeft(question.content.timeLimit || 300);
     setPreparationTime(question.content.preparationTime || 0);
     setIsPreparationPhase(!!question.content.preparationTime);
+    setIsAudioReady(false);
+    setIsProcessingAudio(false);
   };
 
   const renderQuestionContent = () => {
@@ -183,19 +205,8 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 onRecordingComplete={handleAudioRecordingComplete}
                 maxDuration={question.content.recordingTime}
                 autoUpload={true}
+                disabled={isCompleted}
               />
-            )}
-
-            {/* Audio Processing Status */}
-            {isProcessingAudio && (
-              <div className='bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-700'>
-                <div className='flex items-center justify-center space-x-3'>
-                  <div className='animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600'></div>
-                  <span className='text-blue-800 dark:text-blue-200 font-medium'>
-                    Processing your recording for evaluation...
-                  </span>
-                </div>
-              </div>
             )}
           </div>
         );
@@ -215,6 +226,7 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 onRecordingComplete={handleAudioRecordingComplete}
                 maxDuration={question.content.recordingTime}
                 autoUpload={true}
+                disabled={isCompleted}
               />
             )}
           </div>
@@ -235,6 +247,7 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 onRecordingComplete={handleAudioRecordingComplete}
                 maxDuration={question.content.recordingTime}
                 autoUpload={true}
+                disabled={isCompleted}
               />
             )}
           </div>
@@ -255,6 +268,7 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 onRecordingComplete={handleAudioRecordingComplete}
                 maxDuration={question.content.recordingTime}
                 autoUpload={true}
+                disabled={isCompleted}
               />
             )}
           </div>
@@ -275,8 +289,48 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 onRecordingComplete={handleAudioRecordingComplete}
                 maxDuration={question.content.recordingTime}
                 autoUpload={true}
+                disabled={isCompleted}
               />
             )}
+          </div>
+        );
+
+      case PteQuestionTypeName.SUMMARIZE_SPOKEN_TEXT:
+        return (
+          <div className='space-y-6'>
+            <div className='text-center'>
+              <AudioPlayer
+                src={question.content.audioUrl || ''}
+                title='Listen to the lecture'
+              />
+            </div>
+            <div>
+              <div className='flex items-center justify-between mb-2'>
+                <label className='text-sm font-medium text-gray-700 dark:text-gray-300'>
+                  Your Summary
+                </label>
+                <div className='text-sm text-gray-500 dark:text-gray-400'>
+                  {response.text?.split(' ').filter((w: string) => w.length > 0)
+                    .length || 0}{' '}
+                  words
+                  {question.content.wordLimit && (
+                    <span className='ml-2'>
+                      (Required: {question.content.wordLimit.min}-
+                      {question.content.wordLimit.max})
+                    </span>
+                  )}
+                </div>
+              </div>
+              <textarea
+                value={response.text || ''}
+                onChange={(e) =>
+                  setResponse({ ...response, text: e.target.value })
+                }
+                className='w-full h-40 p-4 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none'
+                placeholder='Write your summary here...'
+                disabled={isCompleted}
+              />
+            </div>
           </div>
         );
 
@@ -704,45 +758,6 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
           </div>
         );
 
-      case PteQuestionTypeName.SUMMARIZE_SPOKEN_TEXT:
-        return (
-          <div className='space-y-6'>
-            <div className='text-center'>
-              <AudioPlayer
-                src={question.content.audioUrl || ''}
-                title='Listen to the lecture'
-              />
-            </div>
-            <div>
-              <div className='flex items-center justify-between mb-2'>
-                <label className='text-sm font-medium text-gray-700 dark:text-gray-300'>
-                  Your Summary
-                </label>
-                <div className='text-sm text-gray-500 dark:text-gray-400'>
-                  {response.text?.split(' ').filter((w: string) => w.length > 0)
-                    .length || 0}{' '}
-                  words
-                  {question.content.wordLimit && (
-                    <span className='ml-2'>
-                      (Required: {question.content.wordLimit.min}-
-                      {question.content.wordLimit.max})
-                    </span>
-                  )}
-                </div>
-              </div>
-              <textarea
-                value={response.text || ''}
-                onChange={(e) =>
-                  setResponse({ ...response, text: e.target.value })
-                }
-                className='w-full h-40 p-4 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none'
-                placeholder='Write your summary here...'
-                disabled={isCompleted}
-              />
-            </div>
-          </div>
-        );
-
       case PteQuestionTypeName.HIGHLIGHT_CORRECT_SUMMARY:
         return (
           <div className='space-y-6'>
@@ -965,7 +980,13 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 <div className='text-xs font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wide'>
                   Time Left
                 </div>
-                <div className='font-mono text-sm font-bold text-blue-700 dark:text-blue-300'>
+                <div
+                  className={`font-mono text-sm font-bold ${
+                    timeLeft < 60
+                      ? 'text-red-600 dark:text-red-400'
+                      : 'text-blue-700 dark:text-blue-300'
+                  }`}
+                >
                   {formatTime(timeLeft)}
                 </div>
               </div>
@@ -1003,34 +1024,78 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
         {/* Question Content */}
         <div className='mb-6'>{renderQuestionContent()}</div>
 
+        {/* Status Messages */}
+        <div className='space-y-3 mb-6'>
+          {/* Audio Processing Status */}
+          {isProcessingAudio && (
+            <div className='bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-700'>
+              <div className='flex items-center justify-center space-x-3'>
+                <Loader className='h-5 w-5 text-blue-600 dark:text-blue-400 animate-spin' />
+                <span className='text-blue-800 dark:text-blue-200 font-medium'>
+                  Processing and evaluating your audio response...
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Helper message for audio questions */}
+          {!isCompleted &&
+            !isPreparationPhase &&
+            isAudioBasedQuestion &&
+            !isAudioReady &&
+            !isProcessingAudio && (
+              <div className='bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-700'>
+                <p className='text-blue-800 dark:text-blue-200 text-sm font-medium'>
+                  🎤 Record your audio response. It will be automatically
+                  uploaded and processed for evaluation.
+                </p>
+              </div>
+            )}
+
+          {/* Audio ready for review message */}
+          {!isCompleted &&
+            !isPreparationPhase &&
+            isAudioBasedQuestion &&
+            isAudioReady &&
+            !isSubmitting && (
+              <div className='bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-700'>
+                <p className='text-green-800 dark:text-green-200 text-sm font-medium'>
+                  ✅ Audio uploaded successfully! Review your recording above
+                  and click "Submit for Evaluation" when ready.
+                </p>
+              </div>
+            )}
+        </div>
+
         {/* Actions */}
         <div className='flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700'>
           <button
             onClick={handleReset}
-            className='flex items-center space-x-2 px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-200'
+            disabled={isSubmitting || isProcessingAudio}
+            className='flex items-center space-x-2 px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed'
           >
             <RotateCcw className='h-4 w-4' />
             <span className='font-medium'>Reset</span>
           </button>
 
           <div className='flex space-x-3'>
-            {!isCompleted && !isPreparationPhase && (
+            {!isCompleted && (
               <>
                 {/* For audio-based questions, only show submit button when audio is ready */}
                 {isAudioBasedQuestion ? (
                   isAudioReady && (
                     <button
                       onClick={handleManualSubmit}
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || isProcessingAudio}
                       className='bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed'
                     >
                       {isSubmitting ? (
                         <div className='flex items-center space-x-2'>
-                          <div className='animate-spin rounded-full h-4 w-4 border-b-2 border-white'></div>
-                          <span>Processing & Evaluating...</span>
+                          <Loader className='h-4 w-4 animate-spin' />
+                          <span>Evaluating...</span>
                         </div>
                       ) : (
-                        'Submit Audio Response'
+                        'Submit for Evaluation'
                       )}
                     </button>
                   )
@@ -1043,8 +1108,8 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                   >
                     {isSubmitting ? (
                       <div className='flex items-center space-x-2'>
-                        <div className='animate-spin rounded-full h-4 w-4 border-b-2 border-white'></div>
-                        <span>Evaluating...</span>
+                        <Loader className='h-4 w-4 animate-spin' />
+                        <span>Processing & Evaluating...</span>
                       </div>
                     ) : (
                       'Submit'
@@ -1053,34 +1118,6 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 )}
               </>
             )}
-
-            {/* Helper message for audio questions */}
-            {!isCompleted &&
-              !isPreparationPhase &&
-              isAudioBasedQuestion &&
-              !isAudioReady &&
-              !isProcessingAudio && (
-                <div className='bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-700'>
-                  <p className='text-blue-800 dark:text-blue-200 text-sm font-medium'>
-                    📝 Record your audio response, then review it before
-                    submitting for evaluation.
-                  </p>
-                </div>
-              )}
-
-            {/* Audio ready for review message */}
-            {!isCompleted &&
-              !isPreparationPhase &&
-              isAudioBasedQuestion &&
-              isAudioReady &&
-              !isSubmitting && (
-                <div className='bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-700'>
-                  <p className='text-green-800 dark:text-green-200 text-sm font-medium'>
-                    ✅ Audio recorded successfully! Review your recording above
-                    and click "Submit Audio Response" when ready.
-                  </p>
-                </div>
-              )}
 
             {isCompleted && onNext && (
               <button
@@ -1094,11 +1131,14 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
         </div>
 
         {/* Evaluation Results */}
-        {isCompleted && response.evaluation && (
+        {isCompleted && evaluationResult && (
           <div className='mt-6 pt-6 border-t border-gray-200 dark:border-gray-700'>
             <QuestionResponseEvaluator
-              evaluation={response.evaluation}
+              evaluation={evaluationResult}
               questionType={question.type}
+              transcribedText={
+                response.transcribedText || response.evaluation?.transcribedText
+              }
             />
           </div>
         )}

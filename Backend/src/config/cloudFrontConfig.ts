@@ -24,7 +24,9 @@ export const getCloudFrontConfig = (): CloudFrontConfig => {
     distributionDomain,
     keyPairId,
     privateKey: privateKey.replace(/\\n/g, '\n'), // Handle newlines in environment variable
-    defaultExpirationHours: parseInt(process.env.CLOUDFRONT_DEFAULT_EXPIRATION_HOURS || '24'),
+    defaultExpirationHours: parseInt(
+      process.env.CLOUDFRONT_DEFAULT_EXPIRATION_HOURS || '24'
+    ),
   };
 };
 
@@ -34,11 +36,12 @@ export const generateSignedUrl = (
   expirationHours?: number
 ): string => {
   const config = getCloudFrontConfig();
-  
+
   // Calculate expiration time
   const expirationTime = new Date();
   expirationTime.setHours(
-    expirationTime.getHours() + (expirationHours || config.defaultExpirationHours)
+    expirationTime.getHours() +
+      (expirationHours || config.defaultExpirationHours)
   );
 
   // Construct the CloudFront URL
