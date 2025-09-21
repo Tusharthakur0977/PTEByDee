@@ -8,6 +8,8 @@ import {
   Filter,
   Search,
   X,
+  Play,
+  History,
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { getQuestionList } from '../services/portal';
@@ -18,7 +20,10 @@ interface QuestionSidebarProps {
   onClose: () => void;
   questionType: PteQuestionTypeName;
   selectedQuestionId?: string;
-  onQuestionSelect: (questionId: string) => void;
+  onQuestionSelect: (
+    questionId: string,
+    action?: 'practice' | 'history'
+  ) => void;
   practiceStatus: 'practiced' | 'unpracticed' | 'all';
   difficultyLevel: 'EASY' | 'MEDIUM' | 'HARD' | 'all';
   onFilterChange: (filters: {
@@ -67,7 +72,7 @@ const QuestionSidebar: React.FC<QuestionSidebarProps> = ({
       const response = await getQuestionList(questionType, filters);
       setQuestions(response.questions);
     } catch (err: any) {
-      setError('Failed to load questions');
+      setError(err.response?.data?.message || 'Failed to load questions');
       console.error('Error fetching question list:', err);
     } finally {
       setIsLoading(false);
@@ -244,10 +249,9 @@ const QuestionSidebar: React.FC<QuestionSidebarProps> = ({
           ) : (
             <div className='p-2'>
               {filteredQuestions.map((question) => (
-                <button
+                <div
                   key={question.id}
-                  onClick={() => onQuestionSelect(question.id)}
-                  className={`w-full p-3 mb-2 text-left rounded-lg border transition-all duration-200 ${
+                  className={`p-3 mb-2 rounded-lg border transition-all duration-200 ${
                     selectedQuestionId === question.id
                       ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30'
                       : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'
@@ -272,7 +276,7 @@ const QuestionSidebar: React.FC<QuestionSidebarProps> = ({
                   </div>
 
                   {question.hasUserResponses && (
-                    <div className='flex items-center justify-between text-xs'>
+                    <div className='flex items-center justify-between text-xs mb-3'>
                       <div className='flex items-center space-x-1'>
                         <BarChart3 className='h-3 w-3 text-gray-400' />
                         <span
@@ -295,11 +299,31 @@ const QuestionSidebar: React.FC<QuestionSidebarProps> = ({
                   )}
 
                   {!question.hasUserResponses && (
-                    <div className='text-xs text-gray-500 dark:text-gray-400'>
+                    <div className='text-xs text-gray-500 dark:text-gray-400 mb-3'>
                       Not attempted yet
                     </div>
                   )}
-                </button>
+
+                  {/* Action Buttons */}
+                  <div className='flex space-x-2'>
+                    <button
+                      onClick={() => onQuestionSelect(question.id, 'practice')}
+                      className='flex-1 flex items-center justify-center space-x-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors duration-200'
+                    >
+                      <Play className='h-3 w-3' />
+                      <span>Practice</span>
+                    </button>
+                    {question.hasUserResponses && (
+                      <button
+                        onClick={() => onQuestionSelect(question.id, 'history')}
+                        className='flex-1 flex items-center justify-center space-x-1 px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white text-xs font-medium rounded-md transition-colors duration-200'
+                      >
+                        <History className='h-3 w-3' />
+                        <span>History</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
               ))}
             </div>
           )}

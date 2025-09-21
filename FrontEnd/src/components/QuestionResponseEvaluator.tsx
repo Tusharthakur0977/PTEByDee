@@ -36,6 +36,11 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
   const [showDetails, setShowDetails] = useState(false);
   const [showTranscription, setShowTranscription] = useState(false);
 
+  // Debug logging
+  console.log('QuestionResponseEvaluator Debug:', {
+    evaluation,
+  });
+
   const getScoreColor = (score: number) => {
     if (score >= 85) return 'text-green-600 dark:text-green-400';
     if (score >= 65) return 'text-yellow-600 dark:text-yellow-400';
@@ -824,6 +829,656 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
           </div>
         )}
 
+      {/* Summarize Written Text Specific Evaluation */}
+      {questionType === 'SUMMARIZE_WRITTEN_TEXT' &&
+        evaluation.detailedAnalysis?.overallScore && (
+          <div className='mb-6'>
+            <h4 className='font-semibold text-gray-900 dark:text-white mb-3 flex items-center space-x-2'>
+              <FileText className='h-5 w-5' />
+              <span>Summarize Written Text Analysis</span>
+            </h4>
+
+            {/* PTE Scoring Criteria */}
+            <div className='grid grid-cols-1 md:grid-cols-4 gap-4 mb-4'>
+              {/* Content Score */}
+              <div className='bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700'>
+                <div className='flex items-center justify-between mb-2'>
+                  <span className='text-sm font-medium text-gray-700 dark:text-gray-300'>
+                    Content
+                  </span>
+                  <span className='text-lg font-bold text-blue-600 dark:text-blue-400'>
+                    {evaluation.detailedAnalysis.contentScore || 0}/
+                    {evaluation.detailedAnalysis.maxContentScore}
+                  </span>
+                </div>
+                <div className='w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2'>
+                  <div
+                    className='h-2 rounded-full transition-all duration-1000 bg-blue-500'
+                    style={{
+                      width: `${
+                        ((evaluation.detailedAnalysis.contentScore || 0) /
+                          evaluation.detailedAnalysis.maxContentScore) *
+                        100
+                      }%`,
+                    }}
+                  ></div>
+                </div>
+                <p className='text-xs text-gray-600 dark:text-gray-400 mt-1'>
+                  Comprehensiveness & accuracy
+                </p>
+              </div>
+
+              {/* Form Score */}
+              <div className='bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700'>
+                <div className='flex items-center justify-between mb-2'>
+                  <span className='text-sm font-medium text-gray-700 dark:text-gray-300'>
+                    Form
+                  </span>
+                  <span className='text-lg font-bold text-green-600 dark:text-green-400'>
+                    {evaluation.detailedAnalysis.formScore || 0}/
+                    {evaluation.detailedAnalysis.maxFormScore}
+                  </span>
+                </div>
+                <div className='w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2'>
+                  <div
+                    className='h-2 rounded-full transition-all duration-1000 bg-green-500'
+                    style={{
+                      width: `${
+                        ((evaluation.detailedAnalysis.formScore || 0) /
+                          evaluation.detailedAnalysis.maxFormScore) *
+                        100
+                      }%`,
+                    }}
+                  ></div>
+                </div>
+                <p className='text-xs text-gray-600 dark:text-gray-400 mt-1'>
+                  Single sentence, 5-75 words
+                </p>
+              </div>
+
+              {/* Grammar Score */}
+              <div className='bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700'>
+                <div className='flex items-center justify-between mb-2'>
+                  <span className='text-sm font-medium text-gray-700 dark:text-gray-300'>
+                    Grammar
+                  </span>
+                  <span className='text-lg font-bold text-purple-600 dark:text-purple-400'>
+                    {evaluation.detailedAnalysis.grammarScore || 0}/
+                    {evaluation.detailedAnalysis.maxGrammarScore}
+                  </span>
+                </div>
+                <div className='w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2'>
+                  <div
+                    className='h-2 rounded-full transition-all duration-1000 bg-purple-500'
+                    style={{
+                      width: `${
+                        ((evaluation.detailedAnalysis.grammarScore || 0) /
+                          evaluation.detailedAnalysis.maxGrammarScore) *
+                        100
+                      }%`,
+                    }}
+                  ></div>
+                </div>
+                <p className='text-xs text-gray-600 dark:text-gray-400 mt-1'>
+                  Grammatical control
+                </p>
+              </div>
+
+              {/* Vocabulary Score */}
+              <div className='bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700'>
+                <div className='flex items-center justify-between mb-2'>
+                  <span className='text-sm font-medium text-gray-700 dark:text-gray-300'>
+                    Vocabulary
+                  </span>
+                  <span className='text-lg font-bold text-orange-600 dark:text-orange-400'>
+                    {evaluation.detailedAnalysis.vocabularyScore || 0}/
+                    {evaluation.detailedAnalysis.maxVocabularyScore}
+                  </span>
+                </div>
+                <div className='w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2'>
+                  <div
+                    className='h-2 rounded-full transition-all duration-1000 bg-orange-500'
+                    style={{
+                      width: `${
+                        ((evaluation.detailedAnalysis.vocabularyScore || 0) /
+                          evaluation.detailedAnalysis.maxVocabularyScore) *
+                        100
+                      }%`,
+                    }}
+                  ></div>
+                </div>
+                <p className='text-xs text-gray-600 dark:text-gray-400 mt-1'>
+                  Appropriate word choice
+                </p>
+              </div>
+            </div>
+
+            {/* Detailed Feedback */}
+            {evaluation.detailedAnalysis.feedback && (
+              <div className='bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700'>
+                <h5 className='font-medium text-gray-900 dark:text-white mb-3'>
+                  Detailed Feedback
+                </h5>
+
+                {/* Overall Summary */}
+                {evaluation.detailedAnalysis.feedback.summary && (
+                  <div className='mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800'>
+                    <h6 className='font-medium text-blue-900 dark:text-blue-200 mb-1'>
+                      Overall Assessment
+                    </h6>
+                    <p className='text-sm text-blue-800 dark:text-blue-300'>
+                      {evaluation.detailedAnalysis.feedback.summary}
+                    </p>
+                  </div>
+                )}
+
+                {/* Individual Criteria Feedback */}
+                <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                  {evaluation.detailedAnalysis.feedback.content && (
+                    <div className='p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg'>
+                      <h6 className='font-medium text-gray-900 dark:text-white mb-1 flex items-center space-x-1'>
+                        <span className='w-2 h-2 bg-blue-500 rounded-full'></span>
+                        <span>Content</span>
+                      </h6>
+                      <p className='text-sm text-gray-700 dark:text-gray-300'>
+                        {evaluation.detailedAnalysis.feedback.content}
+                      </p>
+                    </div>
+                  )}
+
+                  {evaluation.detailedAnalysis.feedback.form && (
+                    <div className='p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg'>
+                      <h6 className='font-medium text-gray-900 dark:text-white mb-1 flex items-center space-x-1'>
+                        <span className='w-2 h-2 bg-green-500 rounded-full'></span>
+                        <span>Form</span>
+                      </h6>
+                      <p className='text-sm text-gray-700 dark:text-gray-300'>
+                        {evaluation.detailedAnalysis.feedback.form}
+                      </p>
+                    </div>
+                  )}
+
+                  {evaluation.detailedAnalysis.feedback.grammar && (
+                    <div className='p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg'>
+                      <h6 className='font-medium text-gray-900 dark:text-white mb-1 flex items-center space-x-1'>
+                        <span className='w-2 h-2 bg-purple-500 rounded-full'></span>
+                        <span>Grammar</span>
+                      </h6>
+                      <p className='text-sm text-gray-700 dark:text-gray-300'>
+                        {evaluation.detailedAnalysis.feedback.grammar}
+                      </p>
+                    </div>
+                  )}
+
+                  {evaluation.detailedAnalysis.feedback.vocabulary && (
+                    <div className='p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg'>
+                      <h6 className='font-medium text-gray-900 dark:text-white mb-1 flex items-center space-x-1'>
+                        <span className='w-2 h-2 bg-orange-500 rounded-full'></span>
+                        <span>Vocabulary</span>
+                      </h6>
+                      <p className='text-sm text-gray-700 dark:text-gray-300'>
+                        {evaluation.detailedAnalysis.feedback.vocabulary}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Word Count Information */}
+            {evaluation.detailedAnalysis.actualWordCount !== undefined && (
+              <div className='mt-4 bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700'>
+                <h5 className='font-medium text-gray-900 dark:text-white mb-3'>
+                  Word Count Analysis
+                </h5>
+                <div className='flex items-center justify-between'>
+                  <div className='text-center'>
+                    <div className='text-2xl font-bold text-gray-900 dark:text-white'>
+                      {evaluation.detailedAnalysis.actualWordCount}
+                    </div>
+                    <div className='text-sm text-gray-600 dark:text-gray-400'>
+                      Actual Words
+                    </div>
+                  </div>
+                  <div className='text-center'>
+                    <div className='text-2xl font-bold text-blue-600 dark:text-blue-400'>
+                      5-75
+                    </div>
+                    <div className='text-sm text-gray-600 dark:text-gray-400'>
+                      Required Range
+                    </div>
+                  </div>
+                  <div className='text-center'>
+                    <div
+                      className={`text-2xl font-bold ${
+                        evaluation.detailedAnalysis.actualWordCount >= 5 &&
+                        evaluation.detailedAnalysis.actualWordCount <= 75
+                          ? 'text-green-600 dark:text-green-400'
+                          : 'text-red-600 dark:text-red-400'
+                      }`}
+                    >
+                      {evaluation.detailedAnalysis.actualWordCount >= 5 &&
+                      evaluation.detailedAnalysis.actualWordCount <= 75
+                        ? '✓'
+                        : '✗'}
+                    </div>
+                    <div className='text-sm text-gray-600 dark:text-gray-400'>
+                      Within Range
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+      {/* Write Essay Specific Evaluation */}
+      {(questionType === 'WRITE_ESSAY' ||
+        questionType === 'Write Essay' ||
+        questionType?.toLowerCase().includes('essay')) &&
+        evaluation.detailedAnalysis?.scores && (
+          <div className='mb-6'>
+            <h4 className='font-semibold text-gray-900 dark:text-white mb-3 flex items-center space-x-2'>
+              <FileText className='h-5 w-5' />
+              <span>Write Essay Analysis</span>
+            </h4>
+
+            {/* PTE Essay Scoring Criteria */}
+            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4'>
+              {/* Content Score */}
+              <div className='bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700'>
+                <div className='flex items-center justify-between mb-2'>
+                  <span className='text-sm font-medium text-gray-700 dark:text-gray-300'>
+                    Content
+                  </span>
+                  <span className='text-lg font-bold text-blue-600 dark:text-blue-400'>
+                    {evaluation.detailedAnalysis.scores.content?.score || 0}/
+                    {evaluation.detailedAnalysis.scores.content?.max || 6}
+                  </span>
+                </div>
+                <div className='w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2'>
+                  <div
+                    className='h-2 rounded-full transition-all duration-1000 bg-blue-500'
+                    style={{
+                      width: `${
+                        ((evaluation.detailedAnalysis.scores.content?.score ||
+                          0) /
+                          (evaluation.detailedAnalysis.scores.content?.max ||
+                            6)) *
+                        100
+                      }%`,
+                    }}
+                  ></div>
+                </div>
+                <p className='text-xs text-gray-600 dark:text-gray-400 mt-1'>
+                  Addresses prompt & argument quality
+                </p>
+              </div>
+
+              {/* Form Score */}
+              <div className='bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700'>
+                <div className='flex items-center justify-between mb-2'>
+                  <span className='text-sm font-medium text-gray-700 dark:text-gray-300'>
+                    Form
+                  </span>
+                  <span className='text-lg font-bold text-green-600 dark:text-green-400'>
+                    {evaluation.detailedAnalysis.scores.form?.score || 0}/
+                    {evaluation.detailedAnalysis.scores.form?.max || 2}
+                  </span>
+                </div>
+                <div className='w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2'>
+                  <div
+                    className='h-2 rounded-full transition-all duration-1000 bg-green-500'
+                    style={{
+                      width: `${
+                        ((evaluation.detailedAnalysis.scores.form?.score || 0) /
+                          (evaluation.detailedAnalysis.scores.form?.max || 2)) *
+                        100
+                      }%`,
+                    }}
+                  ></div>
+                </div>
+                <p className='text-xs text-gray-600 dark:text-gray-400 mt-1'>
+                  Word count (200-300 words)
+                </p>
+              </div>
+
+              {/* Development, Structure & Coherence Score */}
+              <div className='bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700'>
+                <div className='flex items-center justify-between mb-2'>
+                  <span className='text-sm font-medium text-gray-700 dark:text-gray-300'>
+                    Structure
+                  </span>
+                  <span className='text-lg font-bold text-purple-600 dark:text-purple-400'>
+                    {evaluation.detailedAnalysis.scores
+                      .developmentStructureCoherence?.score || 0}
+                    /
+                    {evaluation.detailedAnalysis.scores
+                      .developmentStructureCoherence?.max || 6}
+                  </span>
+                </div>
+                <div className='w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2'>
+                  <div
+                    className='h-2 rounded-full transition-all duration-1000 bg-purple-500'
+                    style={{
+                      width: `${
+                        ((evaluation.detailedAnalysis.scores
+                          .developmentStructureCoherence?.score || 0) /
+                          (evaluation.detailedAnalysis.scores
+                            .developmentStructureCoherence?.max || 6)) *
+                        100
+                      }%`,
+                    }}
+                  ></div>
+                </div>
+                <p className='text-xs text-gray-600 dark:text-gray-400 mt-1'>
+                  Organization & coherence
+                </p>
+              </div>
+
+              {/* Grammar Score */}
+              <div className='bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700'>
+                <div className='flex items-center justify-between mb-2'>
+                  <span className='text-sm font-medium text-gray-700 dark:text-gray-300'>
+                    Grammar
+                  </span>
+                  <span className='text-lg font-bold text-red-600 dark:text-red-400'>
+                    {evaluation.detailedAnalysis.scores.grammar?.score || 0}/
+                    {evaluation.detailedAnalysis.scores.grammar?.max || 2}
+                  </span>
+                </div>
+                <div className='w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2'>
+                  <div
+                    className='h-2 rounded-full transition-all duration-1000 bg-red-500'
+                    style={{
+                      width: `${
+                        ((evaluation.detailedAnalysis.scores.grammar?.score ||
+                          0) /
+                          (evaluation.detailedAnalysis.scores.grammar?.max ||
+                            2)) *
+                        100
+                      }%`,
+                    }}
+                  ></div>
+                </div>
+                <p className='text-xs text-gray-600 dark:text-gray-400 mt-1'>
+                  Grammatical accuracy
+                </p>
+              </div>
+
+              {/* General Linguistic Range Score */}
+              <div className='bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700'>
+                <div className='flex items-center justify-between mb-2'>
+                  <span className='text-sm font-medium text-gray-700 dark:text-gray-300'>
+                    Linguistic Range
+                  </span>
+                  <span className='text-lg font-bold text-indigo-600 dark:text-indigo-400'>
+                    {evaluation.detailedAnalysis.scores.generalLinguisticRange
+                      ?.score || 0}
+                    /
+                    {evaluation.detailedAnalysis.scores.generalLinguisticRange
+                      ?.max || 6}
+                  </span>
+                </div>
+                <div className='w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2'>
+                  <div
+                    className='h-2 rounded-full transition-all duration-1000 bg-indigo-500'
+                    style={{
+                      width: `${
+                        ((evaluation.detailedAnalysis.scores
+                          .generalLinguisticRange?.score || 0) /
+                          (evaluation.detailedAnalysis.scores
+                            .generalLinguisticRange?.max || 6)) *
+                        100
+                      }%`,
+                    }}
+                  ></div>
+                </div>
+                <p className='text-xs text-gray-600 dark:text-gray-400 mt-1'>
+                  Language complexity & variety
+                </p>
+              </div>
+
+              {/* Vocabulary Range Score */}
+              <div className='bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700'>
+                <div className='flex items-center justify-between mb-2'>
+                  <span className='text-sm font-medium text-gray-700 dark:text-gray-300'>
+                    Vocabulary
+                  </span>
+                  <span className='text-lg font-bold text-orange-600 dark:text-orange-400'>
+                    {evaluation.detailedAnalysis.scores.vocabularyRange
+                      ?.score || 0}
+                    /
+                    {evaluation.detailedAnalysis.scores.vocabularyRange?.max ||
+                      2}
+                  </span>
+                </div>
+                <div className='w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2'>
+                  <div
+                    className='h-2 rounded-full transition-all duration-1000 bg-orange-500'
+                    style={{
+                      width: `${
+                        ((evaluation.detailedAnalysis.scores.vocabularyRange
+                          ?.score || 0) /
+                          (evaluation.detailedAnalysis.scores.vocabularyRange
+                            ?.max || 2)) *
+                        100
+                      }%`,
+                    }}
+                  ></div>
+                </div>
+                <p className='text-xs text-gray-600 dark:text-gray-400 mt-1'>
+                  Lexical repertoire
+                </p>
+              </div>
+
+              {/* Spelling Score */}
+              <div className='bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700'>
+                <div className='flex items-center justify-between mb-2'>
+                  <span className='text-sm font-medium text-gray-700 dark:text-gray-300'>
+                    Spelling
+                  </span>
+                  <span className='text-lg font-bold text-pink-600 dark:text-pink-400'>
+                    {evaluation.detailedAnalysis.scores.spelling?.score || 0}/
+                    {evaluation.detailedAnalysis.scores.spelling?.max || 2}
+                  </span>
+                </div>
+                <div className='w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2'>
+                  <div
+                    className='h-2 rounded-full transition-all duration-1000 bg-pink-500'
+                    style={{
+                      width: `${
+                        ((evaluation.detailedAnalysis.scores.spelling?.score ||
+                          0) /
+                          (evaluation.detailedAnalysis.scores.spelling?.max ||
+                            2)) *
+                        100
+                      }%`,
+                    }}
+                  ></div>
+                </div>
+                <p className='text-xs text-gray-600 dark:text-gray-400 mt-1'>
+                  Spelling accuracy
+                </p>
+              </div>
+            </div>
+
+            {/* Detailed Feedback */}
+            {evaluation.detailedAnalysis.feedback && (
+              <div className='bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 mb-4'>
+                <h5 className='font-medium text-gray-900 dark:text-white mb-3'>
+                  Detailed Feedback
+                </h5>
+
+                {/* Overall Summary */}
+                {evaluation.detailedAnalysis.feedback.summary && (
+                  <div className='mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800'>
+                    <h6 className='font-medium text-blue-900 dark:text-blue-200 mb-1'>
+                      Overall Assessment
+                    </h6>
+                    <p className='text-sm text-blue-800 dark:text-blue-300'>
+                      {evaluation.detailedAnalysis.feedback.summary}
+                    </p>
+                  </div>
+                )}
+
+                {/* Individual Criteria Feedback */}
+                <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                  {evaluation.detailedAnalysis.feedback.content && (
+                    <div className='p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg'>
+                      <h6 className='font-medium text-gray-900 dark:text-white mb-1 flex items-center space-x-1'>
+                        <span className='w-2 h-2 bg-blue-500 rounded-full'></span>
+                        <span>Content</span>
+                      </h6>
+                      <p className='text-sm text-gray-700 dark:text-gray-300'>
+                        {evaluation.detailedAnalysis.feedback.content}
+                      </p>
+                    </div>
+                  )}
+
+                  {evaluation.detailedAnalysis.feedback.form && (
+                    <div className='p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg'>
+                      <h6 className='font-medium text-gray-900 dark:text-white mb-1 flex items-center space-x-1'>
+                        <span className='w-2 h-2 bg-green-500 rounded-full'></span>
+                        <span>Form</span>
+                      </h6>
+                      <p className='text-sm text-gray-700 dark:text-gray-300'>
+                        {evaluation.detailedAnalysis.feedback.form}
+                      </p>
+                    </div>
+                  )}
+
+                  {evaluation.detailedAnalysis.feedback
+                    .developmentStructureCoherence && (
+                    <div className='p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg'>
+                      <h6 className='font-medium text-gray-900 dark:text-white mb-1 flex items-center space-x-1'>
+                        <span className='w-2 h-2 bg-purple-500 rounded-full'></span>
+                        <span>Structure & Coherence</span>
+                      </h6>
+                      <p className='text-sm text-gray-700 dark:text-gray-300'>
+                        {
+                          evaluation.detailedAnalysis.feedback
+                            .developmentStructureCoherence
+                        }
+                      </p>
+                    </div>
+                  )}
+
+                  {evaluation.detailedAnalysis.feedback.grammar && (
+                    <div className='p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg'>
+                      <h6 className='font-medium text-gray-900 dark:text-white mb-1 flex items-center space-x-1'>
+                        <span className='w-2 h-2 bg-red-500 rounded-full'></span>
+                        <span>Grammar</span>
+                      </h6>
+                      <p className='text-sm text-gray-700 dark:text-gray-300'>
+                        {evaluation.detailedAnalysis.feedback.grammar}
+                      </p>
+                    </div>
+                  )}
+
+                  {evaluation.detailedAnalysis.feedback
+                    .generalLinguisticRange && (
+                    <div className='p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg'>
+                      <h6 className='font-medium text-gray-900 dark:text-white mb-1 flex items-center space-x-1'>
+                        <span className='w-2 h-2 bg-indigo-500 rounded-full'></span>
+                        <span>Linguistic Range</span>
+                      </h6>
+                      <p className='text-sm text-gray-700 dark:text-gray-300'>
+                        {
+                          evaluation.detailedAnalysis.feedback
+                            .generalLinguisticRange
+                        }
+                      </p>
+                    </div>
+                  )}
+
+                  {evaluation.detailedAnalysis.feedback.vocabularyRange && (
+                    <div className='p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg'>
+                      <h6 className='font-medium text-gray-900 dark:text-white mb-1 flex items-center space-x-1'>
+                        <span className='w-2 h-2 bg-orange-500 rounded-full'></span>
+                        <span>Vocabulary Range</span>
+                      </h6>
+                      <p className='text-sm text-gray-700 dark:text-gray-300'>
+                        {evaluation.detailedAnalysis.feedback.vocabularyRange}
+                      </p>
+                    </div>
+                  )}
+
+                  {evaluation.detailedAnalysis.feedback.spelling && (
+                    <div className='p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg'>
+                      <h6 className='font-medium text-gray-900 dark:text-white mb-1 flex items-center space-x-1'>
+                        <span className='w-2 h-2 bg-pink-500 rounded-full'></span>
+                        <span>Spelling</span>
+                      </h6>
+                      <p className='text-sm text-gray-700 dark:text-gray-300'>
+                        {evaluation.detailedAnalysis.feedback.spelling}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Word Count Information */}
+            {evaluation.detailedAnalysis.actualWordCount !== undefined && (
+              <div className='bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700'>
+                <h5 className='font-medium text-gray-900 dark:text-white mb-3'>
+                  Word Count Analysis
+                </h5>
+                <div className='flex items-center justify-between'>
+                  <div className='text-center'>
+                    <div className='text-2xl font-bold text-gray-900 dark:text-white'>
+                      {evaluation.detailedAnalysis.actualWordCount}
+                    </div>
+                    <div className='text-sm text-gray-600 dark:text-gray-400'>
+                      Actual Words
+                    </div>
+                  </div>
+                  <div className='text-center'>
+                    <div className='text-2xl font-bold text-blue-600 dark:text-blue-400'>
+                      200-300
+                    </div>
+                    <div className='text-sm text-gray-600 dark:text-gray-400'>
+                      Optimal Range
+                    </div>
+                  </div>
+                  <div className='text-center'>
+                    <div
+                      className={`text-2xl font-bold ${
+                        evaluation.detailedAnalysis.actualWordCount >= 200 &&
+                        evaluation.detailedAnalysis.actualWordCount <= 300
+                          ? 'text-green-600 dark:text-green-400'
+                          : evaluation.detailedAnalysis.actualWordCount >=
+                              120 &&
+                            evaluation.detailedAnalysis.actualWordCount <= 380
+                          ? 'text-yellow-600 dark:text-yellow-400'
+                          : 'text-red-600 dark:text-red-400'
+                      }`}
+                    >
+                      {evaluation.detailedAnalysis.actualWordCount >= 200 &&
+                      evaluation.detailedAnalysis.actualWordCount <= 300
+                        ? '✓'
+                        : evaluation.detailedAnalysis.actualWordCount >= 120 &&
+                          evaluation.detailedAnalysis.actualWordCount <= 380
+                        ? '⚠'
+                        : '✗'}
+                    </div>
+                    <div className='text-sm text-gray-600 dark:text-gray-400'>
+                      {evaluation.detailedAnalysis.actualWordCount >= 200 &&
+                      evaluation.detailedAnalysis.actualWordCount <= 300
+                        ? 'Optimal'
+                        : evaluation.detailedAnalysis.actualWordCount >= 120 &&
+                          evaluation.detailedAnalysis.actualWordCount <= 380
+                        ? 'Acceptable'
+                        : 'Poor'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
       {/* Transcribed Text for Audio Questions */}
       {isAudioBasedQuestion && transcribedText && (
         <div className='mb-6'>
@@ -940,29 +1595,31 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
         )}
 
       {/* Improvement Suggestions */}
-      {evaluation.suggestions && evaluation.suggestions.length > 0 && (
-        <div>
-          <h4 className='font-semibold text-gray-900 dark:text-white mb-4 flex items-center space-x-2'>
-            <Lightbulb className='h-5 w-5' />
-            <span>Improvement Tips</span>
-          </h4>
-          <div className='space-y-3'>
-            {evaluation.suggestions.map((suggestion, index) => (
-              <div
-                key={index}
-                className='flex items-start space-x-3 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800'
-              >
-                <div className='bg-yellow-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold mt-0.5 flex-shrink-0'>
-                  {index + 1}
+      {evaluation.suggestions &&
+        Array.isArray(evaluation.suggestions) &&
+        evaluation.suggestions.length > 0 && (
+          <div>
+            <h4 className='font-semibold text-gray-900 dark:text-white mb-4 flex items-center space-x-2'>
+              <Lightbulb className='h-5 w-5' />
+              <span>Improvement Tips</span>
+            </h4>
+            <div className='space-y-3'>
+              {evaluation.suggestions.map((suggestion, index) => (
+                <div
+                  key={index}
+                  className='flex items-start space-x-3 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800'
+                >
+                  <div className='bg-yellow-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold mt-0.5 flex-shrink-0'>
+                    {index + 1}
+                  </div>
+                  <p className='text-yellow-800 dark:text-yellow-200 leading-relaxed'>
+                    {suggestion}
+                  </p>
                 </div>
-                <p className='text-yellow-800 dark:text-yellow-200 leading-relaxed'>
-                  {suggestion}
-                </p>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
     </div>
   );
 };

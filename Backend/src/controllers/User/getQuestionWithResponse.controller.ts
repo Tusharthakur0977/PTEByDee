@@ -75,7 +75,7 @@ export const getQuestionWithResponses = asyncHandler(
       }
 
       // Get user responses for this question
-      const responses = await prisma.questionResponse.findMany({
+      const responses = await prisma.userResponse.findMany({
         where: {
           userId,
           questionId,
@@ -128,11 +128,11 @@ export const getQuestionWithResponses = asyncHandler(
       // Transform response data
       const transformedResponses = responses.map((response) => ({
         id: response.id,
-        score: response.score,
+        score: response.questionScore || 0,
         isCorrect: response.isCorrect,
         aiFeedback: response.aiFeedback,
         detailedAnalysis: response.detailedAnalysis,
-        suggestions: response.suggestions,
+        suggestions: [], // UserResponse doesn't have suggestions field
         timeTakenSeconds: response.timeTakenSeconds,
         createdAt: response.createdAt,
         transcribedText:

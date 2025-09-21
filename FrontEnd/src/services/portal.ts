@@ -159,6 +159,7 @@ export const getPracticeQuestions = async (
   if (practiceStatus && practiceStatus !== 'all') {
     params.append('practiceStatus', practiceStatus);
   }
+
   const response = await publicApi.get(
     `/user/practice-questions/${questionType}?${params}`
   );

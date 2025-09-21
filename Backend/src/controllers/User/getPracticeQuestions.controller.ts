@@ -82,7 +82,7 @@ export const getPracticeQuestions = asyncHandler(
       if (userId && practiceStatus && practiceStatus !== 'all') {
         if (practiceStatus === 'practiced') {
           // Questions that have user responses
-          const practiceQuestionIds = await prisma.questionResponse.findMany({
+          const practiceQuestionIds = await prisma.userResponse.findMany({
             where: { userId },
             select: { questionId: true },
             distinct: ['questionId'],
@@ -98,7 +98,7 @@ export const getPracticeQuestions = asyncHandler(
           }
         } else if (practiceStatus === 'unpracticed') {
           // Questions that don't have user responses
-          const practiceQuestionIds = await prisma.questionResponse.findMany({
+          const practiceQuestionIds = await prisma.userResponse.findMany({
             where: { userId },
             select: { questionId: true },
             distinct: ['questionId'],
@@ -112,6 +112,7 @@ export const getPracticeQuestions = asyncHandler(
           // If no practiced questions, all questions are unpracticed (no additional filter needed)
         }
       }
+
       // Get questions for this type
       let questions: any;
       if (random === 'true') {
@@ -145,19 +146,18 @@ export const getPracticeQuestions = asyncHandler(
                 pteSection: true,
               },
             },
-            ...(userId &&
-              {
-                // questionResponses: {
-                //   where: { userId },
-                //   select: {
-                //     id: true,
-                //     score: true,
-                //     createdAt: true,
-                //   },
-                //   orderBy: { createdAt: 'desc' },
-                //   take: 1,
-                // } as any, // Explicitly type as any to avoid 'never' type issue
-              }),
+            ...(userId && {
+              UserResponse: {
+                where: { userId },
+                select: {
+                  id: true,
+                  questionScore: true,
+                  createdAt: true,
+                },
+                orderBy: { createdAt: 'desc' },
+                take: 1,
+              },
+            }),
           },
           skip: randomSkip,
           take: limitNumber,
@@ -172,19 +172,18 @@ export const getPracticeQuestions = asyncHandler(
                 pteSection: true,
               },
             },
-            ...(userId &&
-              {
-                // questionResponses: {
-                //   where: { userId },
-                //   select: {
-                //     id: true,
-                //     score: true,
-                //     createdAt: true,
-                //   },
-                //   orderBy: { createdAt: 'desc' },
-                //   take: 1,
-                // },
-              }),
+            ...(userId && {
+              UserResponse: {
+                where: { userId },
+                select: {
+                  id: true,
+                  questionScore: true,
+                  createdAt: true,
+                },
+                orderBy: { createdAt: 'desc' },
+                take: 1,
+              },
+            }),
           },
           orderBy: { createdAt: 'desc' },
           take: limitNumber,
@@ -249,15 +248,15 @@ export const getPracticeQuestions = asyncHandler(
               question.questionType.name
             ),
             hasUserResponses: userId
-              ? (question.questionResponses?.length || 0) > 0
+              ? (question.userResponses?.length || 0) > 0
               : false,
             lastAttemptedAt:
-              userId && question.questionResponses?.length > 0
-                ? question.questionResponses[0].createdAt
+              userId && question.userResponses?.length > 0
+                ? question.userResponses[0].createdAt
                 : undefined,
             bestScore:
-              userId && question.questionResponses?.length > 0
-                ? question.questionResponses[0].score
+              userId && question.userResponses?.length > 0
+                ? question.userResponses[0].questionScore
                 : undefined,
             content: {
               text: question.textContent,

@@ -75,7 +75,7 @@ export const getQuestionList = asyncHandler(
       if (userId && practiceStatus && practiceStatus !== 'all') {
         if (practiceStatus === 'practiced') {
           // Questions that have user responses
-          const practiceQuestionIds = await prisma.questionResponse.findMany({
+          const practiceQuestionIds = await prisma.userResponse.findMany({
             where: { userId },
             select: { questionId: true },
             distinct: ['questionId'],
@@ -91,7 +91,7 @@ export const getQuestionList = asyncHandler(
           }
         } else if (practiceStatus === 'unpracticed') {
           // Questions that don't have user responses
-          const practiceQuestionIds = await prisma.questionResponse.findMany({
+          const practiceQuestionIds = await prisma.userResponse.findMany({
             where: { userId },
             select: { questionId: true },
             distinct: ['questionId'],
@@ -113,17 +113,17 @@ export const getQuestionList = asyncHandler(
           questionCode: true,
           difficultyLevel: true,
           createdAt: true,
-          ...(userId && {
-            questionResponses: {
-              where: { userId },
-              select: {
-                id: true,
-                score: true,
-                createdAt: true,
-              },
-              orderBy: { createdAt: 'desc' },
-            },
-          }),
+          UserResponse: userId
+            ? {
+                where: { userId },
+                select: {
+                  id: true,
+                  questionScore: true,
+                  createdAt: true,
+                },
+                orderBy: { createdAt: 'desc' },
+              }
+            : false,
         },
         orderBy: { createdAt: 'desc' },
       });
@@ -131,13 +131,15 @@ export const getQuestionList = asyncHandler(
       // Transform questions for list view
       const transformedQuestions = questions.map((question: any) => {
         const hasUserResponses = userId
-          ? (question.questionResponses?.length || 0) > 0
+          ? (question.UserResponse?.length || 0) > 0
           : false;
         const bestScore = hasUserResponses
-          ? Math.max(...question.questionResponses.map((r: any) => r.score))
+          ? Math.max(
+              ...question.UserResponse.map((r: any) => r.questionScore || 0)
+            )
           : undefined;
         const lastAttemptedAt = hasUserResponses
-          ? question.questionResponses[0].createdAt
+          ? question.UserResponse[0].createdAt
           : undefined;
 
         return {

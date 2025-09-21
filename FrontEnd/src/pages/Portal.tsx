@@ -12,9 +12,9 @@ import { Link } from 'react-router-dom';
 import PracticeHistory from '../components/PracticeHistory';
 import PracticeQuestion from '../components/PracticeQuestions';
 import PracticeStatsOverview from '../components/PracticeStatsOverview';
-import QuestionTypeSelector from '../components/QuestionTypeSelector';
-import QuestionSidebar from '../components/QuestionSidebar';
 import QuestionResponseHistory from '../components/QuestionResponseHistory';
+import QuestionSidebar from '../components/QuestionSidebar';
+import QuestionTypeSelector from '../components/QuestionTypeSelector';
 import { mockTests } from '../data/mockPte';
 import {
   getPracticeQuestions,
@@ -22,6 +22,40 @@ import {
 } from '../services/portal';
 import { getPracticeStats } from '../services/practice';
 import { PteQuestionTypeName } from '../types/pte';
+
+// Helper functions for question transformation
+const getInstructionsForQuestionType = (questionType: string): string => {
+  const instructions: { [key: string]: string } = {
+    READ_ALOUD: 'Look at the text below. In 40 seconds, you must read this text aloud as naturally and clearly as possible.',
+    REPEAT_SENTENCE: 'You will hear a sentence. Please repeat the sentence exactly as you hear it.',
+    DESCRIBE_IMAGE: 'Look at the image below. In 25 seconds, please speak into the microphone and describe in detail what the image is showing.',
+    RE_TELL_LECTURE: 'You will hear a lecture. After listening to the lecture, in 10 seconds, please speak into the microphone and retell what you have just heard from the lecture in your own words.',
+    ANSWER_SHORT_QUESTION: 'You will hear a question. Please give a simple and short answer.',
+  };
+  return instructions[questionType] || 'Complete the question as instructed.';
+};
+
+const getPreparationTimeForQuestionType = (questionType: string): number => {
+  const preparationTimes: { [key: string]: number } = {
+    READ_ALOUD: 40,
+    REPEAT_SENTENCE: 0,
+    DESCRIBE_IMAGE: 25,
+    RE_TELL_LECTURE: 10,
+    ANSWER_SHORT_QUESTION: 0,
+  };
+  return preparationTimes[questionType] || 0;
+};
+
+const getRecordingTimeForQuestionType = (questionType: string): number => {
+  const recordingTimes: { [key: string]: number } = {
+    READ_ALOUD: 30,
+    REPEAT_SENTENCE: 15,
+    DESCRIBE_IMAGE: 25,
+    RE_TELL_LECTURE: 40,
+    ANSWER_SHORT_QUESTION: 25,
+  };
+  return recordingTimes[questionType] || 30;
+};
 
 const Portal: React.FC = () => {
   const freeTests = mockTests.filter((test) => test.isFree);
@@ -44,6 +78,10 @@ const Portal: React.FC = () => {
     string | null
   >(null);
   const [showResponseHistory, setShowResponseHistory] = React.useState(false);
+  const [selectedQuestionForPractice, setSelectedQuestionForPractice] =
+    React.useState<any>(null);
+  const [isLoadingSelectedQuestion, setIsLoadingSelectedQuestion] =
+    React.useState(false);
   const [practiceFilters, setPracticeFilters] = React.useState({
     practiceStatus: 'all' as 'practiced' | 'unpracticed' | 'all',
     difficultyLevel: 'all' as 'EASY' | 'MEDIUM' | 'HARD' | 'all',
@@ -65,7 +103,7 @@ const Portal: React.FC = () => {
     if (selectedQuestionType) {
       fetchPracticeQuestions();
     }
-  }, [selectedQuestionType, practiceFilters]);
+  }, [practiceFilters]);
 
   const fetchPracticeStats = async () => {
     try {
@@ -107,7 +145,9 @@ const Portal: React.FC = () => {
       setCurrentQuestionIndex(0);
     } catch (error: any) {
       console.error('Error fetching practice questions:', error);
-      setQuestionError('Failed to load practice questions');
+      setQuestionError(
+        error.response?.data?.message || 'Failed to load practice questions'
+      );
       setPracticeQuestions([]);
     } finally {
       setIsLoadingQuestions(false);
@@ -119,6 +159,11 @@ const Portal: React.FC = () => {
     // Refresh stats if we're on overview tab
     if (activeTab === 'overview') {
       fetchPracticeStats();
+    }
+
+    // If we completed a selected question, go back to practice session
+    if (selectedQuestionForPractice) {
+      setSelectedQuestionForPractice(null);
     }
   };
 
@@ -135,10 +180,68 @@ const Portal: React.FC = () => {
     }
   };
 
-  const handleQuestionSelect = (questionId: string) => {
-    setSelectedQuestionId(questionId);
-    setShowResponseHistory(true);
-    setShowQuestionSidebar(false);
+  const loadQuestionForPractice = async (questionId: string) => {
+    try {
+      setIsLoadingSelectedQuestion(true);
+      const response = await getQuestionWithResponses(questionId);
+
+      // Transform the question data to match PracticeQuestion structure
+      const transformedQuestion = {
+        id: response.question.id,
+        type: response.question.questionType as PteQuestionTypeName,
+        difficultyLevel: response.question.difficultyLevel,
+        title: `${response.question.questionType.replace(/_/g, ' ')} - ${
+          response.question.questionCode
+        }`,
+        instructions: getInstructionsForQuestionType(
+          response.question.questionType
+        ),
+        content: {
+          text: response.question.textContent,
+          audioUrl: response.question.audioUrl,
+          imageUrl: response.question.imageUrl,
+          options: response.question.options,
+          timeLimit: Math.floor(
+            (response.question.durationMillis || 300000) / 1000
+          ),
+          preparationTime: getPreparationTimeForQuestionType(
+            response.question.questionType
+          ),
+          recordingTime: getRecordingTimeForQuestionType(
+            response.question.questionType
+          ),
+          wordCountMin: response.question.wordCountMin,
+          wordCountMax: response.question.wordCountMax,
+        },
+        questionCode: response.question.questionCode,
+      };
+
+      setSelectedQuestionForPractice(transformedQuestion);
+      setShowQuestionSidebar(false);
+      setShowResponseHistory(false);
+      setSelectedQuestionId(null);
+    } catch (error: any) {
+      console.error('Error loading question for practice:', error);
+      setQuestionError(
+        error.response?.data?.message || 'Failed to load question'
+      );
+    } finally {
+      setIsLoadingSelectedQuestion(false);
+    }
+  };
+
+  const handleQuestionSelect = (
+    questionId: string,
+    action: 'practice' | 'history' = 'history'
+  ) => {
+    if (action === 'practice') {
+      loadQuestionForPractice(questionId);
+    } else {
+      setSelectedQuestionId(questionId);
+      setShowResponseHistory(true);
+      setShowQuestionSidebar(false);
+      setSelectedQuestionForPractice(null);
+    }
   };
 
   const handleFilterChange = (filters: {
@@ -160,6 +263,7 @@ const Portal: React.FC = () => {
                   setShowQuestionSidebar(false);
                   setSelectedQuestionId(null);
                   setShowResponseHistory(false);
+                  setSelectedQuestionForPractice(null);
                 }}
               />
             </div>
@@ -179,6 +283,7 @@ const Portal: React.FC = () => {
             </div>
           );
         }
+
         if (isLoadingQuestions) {
           return (
             <div className='text-center py-8'>
@@ -234,14 +339,20 @@ const Portal: React.FC = () => {
                 No questions available
               </h3>
               <p className='text-gray-600 dark:text-gray-300 mb-6'>
-                No practice questions are available for this question type yet.
+                No practice questions match your current filters for this
+                question type.
               </p>
               <div className='space-x-4'>
                 <button
-                  onClick={fetchPracticeQuestions}
+                  onClick={() => {
+                    setPracticeFilters({
+                      practiceStatus: 'all',
+                      difficultyLevel: 'all',
+                    });
+                  }}
                   className='bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200'
                 >
-                  Refresh
+                  Clear Filters
                 </button>
                 <button
                   onClick={() => setSelectedQuestionType(null)}
@@ -254,21 +365,57 @@ const Portal: React.FC = () => {
           );
         }
 
-        const currentQuestion = practiceQuestions[currentQuestionIndex];
+        // Determine which question to show
+        const questionToShow =
+          selectedQuestionForPractice ||
+          practiceQuestions[currentQuestionIndex];
+        const isShowingSelectedQuestion = !!selectedQuestionForPractice;
+
+        if (isLoadingSelectedQuestion) {
+          return (
+            <div className='flex items-center justify-center py-12'>
+              <div className='text-center'>
+                <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4'></div>
+                <p className='text-gray-600 dark:text-gray-400'>
+                  Loading question...
+                </p>
+              </div>
+            </div>
+          );
+        }
+
+        if (!questionToShow) {
+          return (
+            <div className='text-center py-12'>
+              <p className='text-gray-600 dark:text-gray-400'>
+                No question available
+              </p>
+            </div>
+          );
+        }
+
         return (
           <div className='space-y-4'>
             <div className='flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm'>
               <button
                 onClick={() => {
-                  setSelectedQuestionType(null);
-                  setShowQuestionSidebar(false);
-                  setSelectedQuestionId(null);
-                  setShowResponseHistory(false);
+                  if (isShowingSelectedQuestion) {
+                    setSelectedQuestionForPractice(null);
+                  } else {
+                    setSelectedQuestionType(null);
+                    setShowQuestionSidebar(false);
+                    setSelectedQuestionId(null);
+                    setShowResponseHistory(false);
+                  }
                 }}
                 className='flex items-center space-x-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium'
               >
                 <ArrowRight className='h-4 w-4 rotate-180' />
-                <span>Back to Question Types</span>
+                <span>
+                  {isShowingSelectedQuestion
+                    ? 'Back to Practice Session'
+                    : 'Back to Question Types'}
+                </span>
               </button>
               <div className='flex items-center space-x-3'>
                 {/* Filters */}
@@ -313,15 +460,25 @@ const Portal: React.FC = () => {
                 </button>
 
                 <div className='text-sm text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full'>
-                  Question {currentQuestionIndex + 1} of{' '}
-                  {practiceQuestions.length}
+                  {isShowingSelectedQuestion ? (
+                    <span>
+                      Selected Question: {questionToShow.questionCode}
+                    </span>
+                  ) : (
+                    <span>
+                      Question {currentQuestionIndex + 1} of{' '}
+                      {practiceQuestions.length}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
             <PracticeQuestion
-              question={currentQuestion}
+              question={questionToShow}
               onComplete={handleQuestionComplete}
-              onNext={handleNextQuestion}
+              onNext={
+                isShowingSelectedQuestion ? undefined : handleNextQuestion
+              }
             />
           </div>
         );

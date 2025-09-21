@@ -890,26 +890,65 @@ async function evaluateSummarizeWrittenText(
     .filter((word: string | any[]) => word.length > 0).length;
 
   const prompt = `
-    You are an official PTE Academic grader. Evaluate this summary strictly following the PTE Academic scoring rubric.
+    **Your Role:** You are an expert PTE Academic grader specializing in the "Summarize Written Text" task.
 
-    **Original Text:**
+    **Objective:** Evaluate the user's summary of the provided text. You must score the response on four distinct traits: Content, Form, Grammar, and Vocabulary, using the detailed rubrics below.
+
+    ---
+    ### **Input for Evaluation**
+
+    * **Original Text:**
     "${question.textContent}"
 
-    **User's Summary:**
+    * **User's Summary:**
     "${userText}"
 
-    **Word Count:** ${wordCount}
+    * **Word Count:** ${wordCount}
 
-    Evaluate based on PTE rubric traits:
-    1. Content (0-4 points): Comprehensiveness and accuracy
-    2. Form (0-1 point): Single sentence, 5-75 words
-    3. Grammar (0-2 points): Grammatical control
-    4. Vocabulary (0-2 points): Appropriate word choice
+    ---
+    ### **Scoring Rubrics**
 
-    Calculate overall score (10-90 scale) and provide detailed feedback.
-    
-    Respond with a JSON object containing overallScore, isCorrect, feedback, detailedAnalysis, and suggestions.
-`;
+    **1. Content (Score from 0 to 4):**
+    * **4 pts:** Comprehensively summarizes the source text, demonstrating full comprehension. Paraphrases effectively, removes extraneous details, and synthesizes all main ideas concisely and coherently.
+    * **3 pts:** Adequately summarizes, demonstrating good comprehension. Paraphrasing is used, but extraneous details may interfere with clarity. Correctly identifies main ideas with some minor omissions.
+    * **2 pts:** Partially summarizes, demonstrating basic comprehension. Does not discern between main points and details. Relies heavily on repeating excerpts from the source text.
+    * **1 pt:** Is relevant but not meaningfully summarized, demonstrating limited comprehension. Composed of disconnected ideas or excerpts. Main ideas are omitted or misrepresented.
+    * **0 pts:** Demonstrates no comprehension of the source text.
+
+    **2. Form (Score from 0 to 1):**
+    * **1 pt:** Is written as one, single, complete sentence. The word count is between 5 and 75 words (inclusive). The summary is not written in all capital letters.
+    * **0 pts:** Is not written as one single, complete sentence, OR contains fewer than 5 or more than 75 words, OR is written in all capital letters.
+
+    **3. Grammar (Score from 0 to 2):**
+    * **2 pts:** Has correct grammatical structure.
+    * **1 pt:** Contains grammatical errors, but they do not hinder communication.
+    * **0 pts:** Has defective grammatical structure which could hinder communication.
+
+    **4. Vocabulary (Score from 0 to 2):**
+    * **2 pts:** Has appropriate choice of words.
+    * **1 pt:** Contains lexical errors, but they do not hinder communication.
+    * **0 pts:** Has defective word choice which could hinder communication.
+
+    ---
+    ### **Required Output Format**
+    Your final output **must** be a single, minified JSON object with NO markdown. Adhere strictly to this schema:
+    {
+      "scores": {
+        "content": <number_0_to_4>,
+        "form": <number_0_to_1>,
+        "grammar": <number_0_to_2>,
+        "vocabulary": <number_0_to_2>
+      },
+      "feedback": {
+        "summary": "A brief overall assessment of the summary.",
+        "content": "Specific feedback on content.",
+        "form": "Specific feedback on form.",
+        "grammar": "Specific feedback on grammar.",
+        "vocabulary": "Specific feedback on vocabulary."
+      },
+      "suggestions": ["Actionable tip 1.", "Actionable tip 2."]
+    }
+  `;
 
   try {
     const response = await openai.chat.completions.create({
@@ -928,18 +967,56 @@ async function evaluateSummarizeWrittenText(
 
     const evaluation = JSON.parse(response.choices[0].message.content || '{}');
 
+    // Extract individual scores for each trait
+    const contentScore = evaluation.scores?.content || 0;
+    const formScore = evaluation.scores?.form || 0;
+    const grammarScore = evaluation.scores?.grammar || 0;
+    const vocabularyScore = evaluation.scores?.vocabulary || 0;
+
+    // Define the maximum possible score for each trait
+    const maxContentScore = 4;
+    const maxFormScore = 1;
+    const maxGrammarScore = 2;
+    const maxVocabularyScore = 2;
+
+    const contentScorePercenateg = (contentScore / maxContentScore) * 100;
+    const formScorePercentage = (formScore / maxFormScore) * 100;
+    const grammarScorePercentage = (grammarScore / maxGrammarScore) * 100;
+    const vocabularyScorePercentage =
+      (vocabularyScore / maxVocabularyScore) * 100;
+
+    // Calculate the total achieved score and the total possible score
+    const totalAchievedScore =
+      contentScore + formScore + grammarScore + vocabularyScore;
+    const totalMaxScore =
+      maxContentScore + maxFormScore + maxGrammarScore + maxVocabularyScore; // Total is 9
+
+    // Calculate the overall score as a percentage
+    const overallScore = Math.round((totalAchievedScore / totalMaxScore) * 100);
+
     return {
-      score: evaluation.overallScore || 0,
-      isCorrect: (evaluation.overallScore || 0) >= 65,
-      feedback: evaluation.feedback || 'Summary evaluated successfully.',
-      detailedAnalysis: evaluation.detailedAnalysis || {
+      score: overallScore,
+      isCorrect: overallScore >= 65,
+      feedback:
+        evaluation.feedback?.summary || 'Summary evaluated successfully.',
+      detailedAnalysis: {
+        overallScore,
+        contentScore,
+        maxContentScore,
+        formScore,
+        maxFormScore,
+        grammarScore,
+        maxGrammarScore,
+        vocabularyScore,
+        maxVocabularyScore,
         actualWordCount: wordCount,
         timeTaken: timeTakenSeconds || 0,
+        feedback: evaluation.feedback,
       },
       suggestions: evaluation.suggestions || [
-        'Focus on main ideas only',
-        'Use one complete sentence',
-        'Stay within word limit (5-75 words)',
+        'Ensure your summary includes all the main points of the original text.',
+        'Write your summary as a single, grammatically correct sentence.',
+        'Stay within the word limit of 5 to 75 words.',
       ],
     };
   } catch (error) {
@@ -971,28 +1048,97 @@ async function evaluateWriteEssay(
     .filter((word: string | any[]) => word.length > 0).length;
 
   const prompt = `
-    You are an official PTE Academic Writing grader. Evaluate this essay strictly following the official PTE Academic scoring rubric.
+    **Your Role:** You are an expert PTE Academic grader for the "Write Essay" task.
 
-    **Essay Prompt:**
+    **Objective:** Evaluate the user's essay based on the provided prompt. You must score the response on seven distinct traits using the detailed rubrics below.
+
+    ---
+    ### **Input for Evaluation**
+
+    * **Essay Prompt:**
     "${question.textContent}"
 
-    **User's Essay:**
+    * **User's Essay:**
     "${userText}"
 
-    **Word Count:** ${wordCount}
+    * **Word Count:** ${wordCount}
 
-    Evaluate based on PTE rubric traits:
-    1. Content (0-6 points): Addresses prompt, convincing argument
-    2. Form (0-2 points): 200-300 words
-    3. Development, Structure and Coherence (0-6 points): Logical structure
-    4. Grammar (0-2 points): Grammatical control
-    5. General Linguistic Range (0-6 points): Vocabulary variety
-    6. Spelling (0-2 points): Spelling accuracy
+    ---
+    ### **Scoring Rubrics**
 
-    Calculate overall score (10-90 scale) and provide detailed feedback.
-    
-    Respond with a JSON object containing overallScore, isCorrect, feedback, detailedAnalysis, and suggestions.
-`;
+    **1. Content (Score from 0 to 6):**
+    * **6:** Fully addresses the prompt in depth; convincing argument with specific examples.
+    * **5:** Adequately addresses the prompt; persuasive argument with relevant ideas and support.
+    * **4:** Adequately addresses the main point; argument is convincing but lacks depth; support is inconsistent.
+    * **3:** Relevant to the prompt but doesn't address main points adequately; support is often missing.
+    * **2:** Superficial attempt to address the prompt; little relevant information; generic statements.
+    * **1:** Incomplete understanding of the prompt; generic/repetitive phrasing.
+    * **0:** Does not properly deal with the prompt.
+
+    **2. Form (Score from 0 to 2):**
+    * **2:** Length is between 200 and 300 words.
+    * **1:** Length is between 120-199 or 301-380 words.
+    * **0:** Length is less than 120 or more than 380 words; or the essay is written in all capital letters.
+
+    **3. Development, Structure & Coherence (Score from 0 to 6):**
+    * **6:** Effective logical structure, flows smoothly, clear and cohesive argument, well-developed intro/conclusion, effective paragraphs and connectors.
+    * **5:** Conventional structure, clear argument, has intro/conclusion/paragraphs, uses connectors well with minor gaps.
+    * **4:** Conventional structure mostly present but requires some effort to follow; argument lacks some development; paragraphing is not always effective.
+    * **3:** Traces of structure but composed of simple/disconnected ideas; a position is present but not a logical argument.
+    * **2:** Little recognizable structure; disorganized and difficult to follow; lacks coherence.
+    * **1:** Disconnected ideas; no hierarchy or coherence; no clear position.
+    * **0:** No recognizable structure.
+
+    **4. Grammar (Score from 0 to 2):**
+    * **2:** Consistent grammatical control of complex language; errors are rare.
+    * **1:** High degree of grammatical control; no mistakes that lead to misunderstanding.
+    * **0:** Mainly simple structures and/or several basic mistakes that could hinder communication.
+
+    **5. General Linguistic Range (Score from 0 to 6):**
+    * **6:** Variety of expressions and vocabulary used with ease and precision; no limitations.
+    * **5:** Ideas expressed clearly without much restriction; occasional minor errors but meaning is clear.
+    * **4:** Sufficient range for basic ideas, but limitations are evident with complex ideas; occasional lapses in clarity.
+    * **3:** Narrow range, simple expressions used repeatedly; communication restricted to simple ideas.
+    * **2:** Limited vocabulary and simple expressions dominate; communication is compromised.
+    * **1:** Highly restricted vocabulary; significant limitations in communication.
+    * **0:** Meaning is not accessible.
+
+    **6. Vocabulary Range (Score from 0 to 2):**
+    * **2:** Good command of a broad lexical repertoire, idiomatic expressions, and colloquialisms.
+    * **1:** Good range for general academic topics, but lexical shortcomings lead to imprecision.
+    * **0:** Mainly basic vocabulary, insufficient for the topic.
+
+    **7. Spelling (Score from 0 to 2):**
+    * **2:** Correct spelling.
+    * **1:** One spelling error.
+    * **0:** More than one spelling error.
+
+    ---
+    ### **Required Output Format**
+    Your final output **must** be a single, minified JSON object with NO markdown. Adhere strictly to this schema:
+    {
+      "scores": {
+        "content": <number_0_to_6>,
+        "form": <number_0_to_2>,
+        "developmentStructureCoherence": <number_0_to_6>,
+        "grammar": <number_0_to_2>,
+        "generalLinguisticRange": <number_0_to_6>,
+        "vocabularyRange": <number_0_to_2>,
+        "spelling": <number_0_to_2>
+      },
+      "feedback": {
+        "summary": "A brief overall assessment of the essay.",
+        "content": "Specific feedback on content.",
+        "form": "Specific feedback on form.",
+        "developmentStructureCoherence": "Specific feedback on structure.",
+        "grammar": "Specific feedback on grammar.",
+        "generalLinguisticRange": "Specific feedback on linguistic range.",
+        "vocabularyRange": "Specific feedback on vocabulary.",
+        "spelling": "Specific feedback on spelling."
+      },
+      "suggestions": ["Actionable tip 1.", "Actionable tip 2."]
+    }
+  `;
 
   try {
     const response = await openai.chat.completions.create({
@@ -1010,19 +1156,88 @@ async function evaluateWriteEssay(
     });
 
     const evaluation = JSON.parse(response.choices[0].message.content || '{}');
+    console.log('WRITE ESSAY EVALUATION:', evaluation);
+
+    // Extract individual scores for each trait
+    const scores = evaluation.scores || {};
+    const contentScore = scores.content || 0;
+    const formScore = scores.form || 0;
+    const devScore = scores.developmentStructureCoherence || 0;
+    const grammarScore = scores.grammar || 0;
+    const lingRangeScore = scores.generalLinguisticRange || 0;
+    const vocabScore = scores.vocabularyRange || 0;
+    const spellingScore = scores.spelling || 0;
+
+    // Define the maximum possible score for each trait
+    const maxContentScore = 6;
+    const maxFormScore = 2;
+    const maxDevScore = 6;
+    const maxGrammarScore = 2;
+    const maxLingRangeScore = 6;
+    const maxVocabScore = 2;
+    const maxSpellingScore = 2;
+
+    // Calculate the total achieved score and the total possible score
+    const totalAchievedScore =
+      contentScore +
+      formScore +
+      devScore +
+      grammarScore +
+      lingRangeScore +
+      vocabScore +
+      spellingScore;
+    const totalMaxScore =
+      maxContentScore +
+      maxFormScore +
+      maxDevScore +
+      maxGrammarScore +
+      maxLingRangeScore +
+      maxVocabScore +
+      maxSpellingScore; // Total is 26
+
+    // Calculate the overall score as a percentage
+    const overallScore = Math.round((totalAchievedScore / totalMaxScore) * 100);
+
+    // Debug logging for score calculation
+    console.log('WRITE ESSAY SCORE CALCULATION:', {
+      contentScore: `${contentScore}/${maxContentScore}`,
+      formScore: `${formScore}/${maxFormScore}`,
+      devScore: `${devScore}/${maxDevScore}`,
+      grammarScore: `${grammarScore}/${maxGrammarScore}`,
+      lingRangeScore: `${lingRangeScore}/${maxLingRangeScore}`,
+      vocabScore: `${vocabScore}/${maxVocabScore}`,
+      spellingScore: `${spellingScore}/${maxSpellingScore}`,
+      totalAchievedScore,
+      totalMaxScore,
+      overallScore: `${overallScore}%`,
+    });
 
     return {
-      score: evaluation.overallScore || 0,
-      isCorrect: (evaluation.overallScore || 0) >= 65,
-      feedback: evaluation.feedback || 'Essay evaluated successfully.',
-      detailedAnalysis: evaluation.detailedAnalysis || {
+      score: overallScore,
+      isCorrect: overallScore >= 65,
+      feedback: evaluation.feedback?.summary || 'Essay evaluated successfully.',
+      detailedAnalysis: {
+        overallScore,
         actualWordCount: wordCount,
         timeTaken: timeTakenSeconds || 0,
+        scores: {
+          content: { score: contentScore, max: maxContentScore },
+          form: { score: formScore, max: maxFormScore },
+          developmentStructureCoherence: { score: devScore, max: maxDevScore },
+          grammar: { score: grammarScore, max: maxGrammarScore },
+          generalLinguisticRange: {
+            score: lingRangeScore,
+            max: maxLingRangeScore,
+          },
+          vocabularyRange: { score: vocabScore, max: maxVocabScore },
+          spelling: { score: spellingScore, max: maxSpellingScore },
+        },
+        feedback: evaluation.feedback,
       },
       suggestions: evaluation.suggestions || [
-        'Develop your arguments with examples',
-        'Ensure proper essay structure',
-        'Stay within word limit (200-300 words)',
+        'Ensure your essay directly addresses all parts of the prompt.',
+        'Develop your main points with specific reasons and examples.',
+        'Check your essay for grammatical accuracy and spelling before submitting.',
       ],
     };
   } catch (error) {

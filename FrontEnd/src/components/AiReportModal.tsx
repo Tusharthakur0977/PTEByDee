@@ -270,31 +270,33 @@ const AIReportModal: React.FC<AIReportModalProps> = ({
             )}
 
           {/* Improvement Suggestions */}
-          {response.suggestions && response.suggestions.length > 0 && (
-            <div className='bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-6 border border-yellow-200 dark:border-yellow-800'>
-              <h4 className='font-semibold text-gray-900 dark:text-white mb-4 flex items-center space-x-2'>
-                <Lightbulb className='h-5 w-5' />
-                <span>Improvement Tips</span>
-              </h4>
-              <div className='space-y-3'>
-                {response.suggestions.map(
-                  (suggestion: string, index: number) => (
-                    <div
-                      key={index}
-                      className='flex items-start space-x-3 p-4 bg-white dark:bg-gray-800 rounded-lg border border-yellow-200 dark:border-yellow-700'
-                    >
-                      <div className='bg-yellow-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold mt-0.5 flex-shrink-0'>
-                        {index + 1}
+          {response.suggestions &&
+            Array.isArray(response.suggestions) &&
+            response.suggestions.length > 0 && (
+              <div className='bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-6 border border-yellow-200 dark:border-yellow-800'>
+                <h4 className='font-semibold text-gray-900 dark:text-white mb-4 flex items-center space-x-2'>
+                  <Lightbulb className='h-5 w-5' />
+                  <span>Improvement Tips</span>
+                </h4>
+                <div className='space-y-3'>
+                  {response.suggestions.map(
+                    (suggestion: string, index: number) => (
+                      <div
+                        key={index}
+                        className='flex items-start space-x-3 p-4 bg-white dark:bg-gray-800 rounded-lg border border-yellow-200 dark:border-yellow-700'
+                      >
+                        <div className='bg-yellow-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold mt-0.5 flex-shrink-0'>
+                          {index + 1}
+                        </div>
+                        <p className='text-gray-700 dark:text-gray-300 leading-relaxed'>
+                          {suggestion}
+                        </p>
                       </div>
-                      <p className='text-gray-700 dark:text-gray-300 leading-relaxed'>
-                        {suggestion}
-                      </p>
-                    </div>
-                  )
-                )}
+                    )
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
         </div>
       </div>
     </div>

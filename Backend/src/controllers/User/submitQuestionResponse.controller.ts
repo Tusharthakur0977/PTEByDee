@@ -192,28 +192,35 @@ export const submitQuestionResponse = asyncHandler(
         }
 
         // Create practice response record
-        await tx.practiceResponse.create({
-          data: {
-            userId,
-            questionId,
-            practiceSessionId: practiceSession.id,
-            questionType: question.questionType.name,
-            userResponse: userResponse,
-            timeTakenSeconds: timeTakenSeconds || 0,
-            isCorrect: evaluation.isCorrect,
-            score: evaluation.score / 100, // Convert to 0-1 scale
-          },
-        });
+        // Only create practice response if we have a valid practice session
+        if (practiceSession) {
+          await tx.practiceResponse.create({
+            data: {
+              userId,
+              questionId,
+              practiceSessionId: practiceSession.id,
+              questionType: question.questionType.name,
+              userResponse: userResponse,
+              timeTakenSeconds: timeTakenSeconds || 0,
+              isCorrect: evaluation.isCorrect,
+              score: evaluation.score / 100, // Convert to 0-1 scale
+            },
+          });
+        }
 
         // Update practice session stats
-        await tx.practiceSession.update({
-          where: { id: practiceSession.id },
-          data: {
-            totalQuestions: { increment: 1 },
-            correctAnswers: evaluation.isCorrect ? { increment: 1 } : undefined,
-            totalTimeSpent: { increment: timeTakenSeconds || 0 },
-          },
-        });
+        if (practiceSession) {
+          await tx.practiceSession.update({
+            where: { id: practiceSession.id },
+            data: {
+              totalQuestions: { increment: 1 },
+              correctAnswers: evaluation.isCorrect
+                ? { increment: 1 }
+                : undefined,
+              totalTimeSpent: { increment: timeTakenSeconds || 0 },
+            },
+          });
+        }
 
         return userResponseRecord;
       });
@@ -230,7 +237,7 @@ export const submitQuestionResponse = asyncHandler(
             isCorrect: evaluation.isCorrect,
             feedback: evaluation.feedback,
             detailedAnalysis: evaluation.detailedAnalysis,
-            suggestions: evaluation.suggestions,
+            suggestions: evaluation.suggestions || [],
           },
           question: {
             id: question.id,
