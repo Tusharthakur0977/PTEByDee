@@ -26,11 +26,16 @@ import { PteQuestionTypeName } from '../types/pte';
 // Helper functions for question transformation
 const getInstructionsForQuestionType = (questionType: string): string => {
   const instructions: { [key: string]: string } = {
-    READ_ALOUD: 'Look at the text below. In 40 seconds, you must read this text aloud as naturally and clearly as possible.',
-    REPEAT_SENTENCE: 'You will hear a sentence. Please repeat the sentence exactly as you hear it.',
-    DESCRIBE_IMAGE: 'Look at the image below. In 25 seconds, please speak into the microphone and describe in detail what the image is showing.',
-    RE_TELL_LECTURE: 'You will hear a lecture. After listening to the lecture, in 10 seconds, please speak into the microphone and retell what you have just heard from the lecture in your own words.',
-    ANSWER_SHORT_QUESTION: 'You will hear a question. Please give a simple and short answer.',
+    READ_ALOUD:
+      'Look at the text below. In 40 seconds, you must read this text aloud as naturally and clearly as possible.',
+    REPEAT_SENTENCE:
+      'You will hear a sentence. Please repeat the sentence exactly as you hear it.',
+    DESCRIBE_IMAGE:
+      'Look at the image below. In 25 seconds, please speak into the microphone and describe in detail what the image is showing.',
+    RE_TELL_LECTURE:
+      'You will hear a lecture. After listening to the lecture, in 10 seconds, please speak into the microphone and retell what you have just heard from the lecture in your own words.',
+    ANSWER_SHORT_QUESTION:
+      'You will hear a question. Please give a simple and short answer.',
   };
   return instructions[questionType] || 'Complete the question as instructed.';
 };
@@ -58,8 +63,12 @@ const getRecordingTimeForQuestionType = (questionType: string): number => {
 };
 
 const Portal: React.FC = () => {
-  const freeTests = mockTests.filter((test) => test.isFree);
-  const premiumTests = mockTests.filter((test) => !test.isFree);
+  const freeTests = mockTests.filter(
+    (test: { isFree: boolean }) => test.isFree
+  );
+  const premiumTests = mockTests.filter(
+    (test: { isFree: boolean }) => !test.isFree
+  );
   const [activeTab, setActiveTab] = React.useState<
     'overview' | 'practice' | 'tests' | 'history'
   >('practice');
@@ -185,35 +194,56 @@ const Portal: React.FC = () => {
       setIsLoadingSelectedQuestion(true);
       const response = await getQuestionWithResponses(questionId);
 
+      // Get question type from either new or old structure
+      const questionData = response.question as any; // Use any to handle dynamic structure
+      const questionType =
+        questionData.type ||
+        questionData.questionType ||
+        questionData.rawQuestion?.questionType;
+      const questionCode =
+        questionData.questionCode || questionData.rawQuestion?.questionCode;
+
       // Transform the question data to match PracticeQuestion structure
       const transformedQuestion = {
-        id: response.question.id,
-        type: response.question.questionType as PteQuestionTypeName,
-        difficultyLevel: response.question.difficultyLevel,
-        title: `${response.question.questionType.replace(/_/g, ' ')} - ${
-          response.question.questionCode
-        }`,
-        instructions: getInstructionsForQuestionType(
-          response.question.questionType
-        ),
-        content: {
-          text: response.question.textContent,
-          audioUrl: response.question.audioUrl,
-          imageUrl: response.question.imageUrl,
-          options: response.question.options,
-          timeLimit: Math.floor(
-            (response.question.durationMillis || 300000) / 1000
-          ),
-          preparationTime: getPreparationTimeForQuestionType(
-            response.question.questionType
-          ),
-          recordingTime: getRecordingTimeForQuestionType(
-            response.question.questionType
-          ),
-          wordCountMin: response.question.wordCountMin,
-          wordCountMax: response.question.wordCountMax,
+        id: questionData.id,
+        type: questionType as PteQuestionTypeName,
+        difficultyLevel: questionData.difficultyLevel,
+        title:
+          questionData.title ||
+          `${questionType?.replace(/_/g, ' ')} - ${questionCode}`,
+        instructions:
+          questionData.instructions ||
+          getInstructionsForQuestionType(questionType),
+        content: questionData.content || {
+          text:
+            questionData.textContent || questionData.rawQuestion?.textContent,
+          questionStatement:
+            questionData.questionStatement ||
+            questionData.rawQuestion?.questionStatement,
+          audioUrl: questionData.audioUrl || questionData.rawQuestion?.audioUrl,
+          imageUrl: questionData.imageUrl || questionData.rawQuestion?.imageUrl,
+          options: questionData.options || questionData.rawQuestion?.options,
+          paragraphs: questionData.content?.paragraphs,
+          blanks: questionData.content?.blanks,
+          timeLimit:
+            questionData.content?.timeLimit ||
+            Math.floor(
+              (questionData.durationMillis ||
+                questionData.rawQuestion?.durationMillis ||
+                300000) / 1000
+            ),
+          preparationTime: getPreparationTimeForQuestionType(questionType),
+          recordingTime: getRecordingTimeForQuestionType(questionType),
+          wordLimit:
+            questionData.content?.wordLimit ||
+            (questionData.wordCountMin && questionData.wordCountMax
+              ? {
+                  min: questionData.wordCountMin,
+                  max: questionData.wordCountMax,
+                }
+              : undefined),
         },
-        questionCode: response.question.questionCode,
+        questionCode: questionCode,
       };
 
       setSelectedQuestionForPractice(transformedQuestion);

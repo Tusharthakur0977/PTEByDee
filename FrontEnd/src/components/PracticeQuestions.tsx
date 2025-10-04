@@ -2,11 +2,11 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
+  Loader,
   RotateCcw,
   X,
-  Loader,
 } from 'lucide-react';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { PracticeQuestion as PracticeQuestionType } from '../services/portal';
 import { submitQuestionResponse } from '../services/questionResponse';
 import { PteQuestionTypeName } from '../types/pte';
@@ -65,12 +65,8 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
         timeTakenSeconds: (question.content.timeLimit || 300) - timeLeft,
       };
 
-      console.log('Submitting response:', responseData);
-
       // Submit for evaluation
       const result = await submitQuestionResponse(responseData);
-
-      console.log('Response evaluation result:', result);
 
       // Update local state with evaluation results
       setEvaluationResult(result.evaluation);
@@ -394,7 +390,8 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
             )}
             <div className='space-y-3'>
               <h4 className='font-medium text-gray-900 dark:text-white'>
-                Choose the correct answer:
+                {question.content.questionStatement ||
+                  'Choose the correct answer:'}
               </h4>
               {question.content.options?.map((option) => (
                 <label
@@ -449,7 +446,8 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
             )}
             <div className='space-y-3'>
               <h4 className='font-medium text-gray-900 dark:text-white'>
-                Choose all correct answers:
+                {question.content.questionStatement ||
+                  'Choose all correct answers:'}
               </h4>
               {question.content.options?.map((option) => (
                 <label
@@ -494,7 +492,18 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
           </div>
         );
 
-      case PteQuestionTypeName.RE_ORDER_PARAGRAPHS:
+      case PteQuestionTypeName.RE_ORDER_PARAGRAPHS: {
+        // Get paragraphs from content.paragraphs or fallback to options
+        const paragraphs =
+          question.content.paragraphs ||
+          (question.content.options && Array.isArray(question.content.options)
+            ? question.content.options.map((opt: any) => ({
+                id: opt.id,
+                text: opt.text,
+                order: opt.correctOrder || opt.order,
+              }))
+            : []);
+
         return (
           <div className='space-y-6'>
             <div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
@@ -503,9 +512,11 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                   Available Paragraphs
                 </h4>
                 <div className='space-y-3 min-h-[300px] p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600'>
-                  {question.content.paragraphs
-                    ?.filter((p) => !response.orderedParagraphs?.includes(p.id))
-                    .map((paragraph) => (
+                  {paragraphs
+                    ?.filter(
+                      (p: any) => !response.orderedParagraphs?.includes(p.id)
+                    )
+                    .map((paragraph: any) => (
                       <div
                         key={paragraph.id}
                         className='p-4 bg-white dark:bg-gray-800 rounded-lg cursor-move shadow-sm hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-600'
@@ -519,8 +530,8 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                         </p>
                       </div>
                     ))}
-                  {question.content.paragraphs?.filter(
-                    (p) => !response.orderedParagraphs?.includes(p.id)
+                  {paragraphs?.filter(
+                    (p: any) => !response.orderedParagraphs?.includes(p.id)
                   ).length === 0 && (
                     <div className='flex items-center justify-center h-full text-gray-500 dark:text-gray-400'>
                       <p className='text-center'>
@@ -541,11 +552,30 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                     if (isCompleted) return;
                     e.preventDefault();
                     const paragraphId = e.dataTransfer.getData('text/plain');
+                    const dropIndex = parseInt(
+                      e.dataTransfer.getData('dropIndex') || '-1'
+                    );
                     const orderedParagraphs = response.orderedParagraphs || [];
-                    setResponse({
-                      ...response,
-                      orderedParagraphs: [...orderedParagraphs, paragraphId],
-                    });
+
+                    // If it's a reorder within the correct order panel
+                    if (dropIndex >= 0) {
+                      const newOrderedParagraphs = [...orderedParagraphs];
+                      const [movedItem] = newOrderedParagraphs.splice(
+                        dropIndex,
+                        1
+                      );
+                      newOrderedParagraphs.push(movedItem);
+                      setResponse({
+                        ...response,
+                        orderedParagraphs: newOrderedParagraphs,
+                      });
+                    } else {
+                      // Adding from available paragraphs
+                      setResponse({
+                        ...response,
+                        orderedParagraphs: [...orderedParagraphs, paragraphId],
+                      });
+                    }
                   }}
                 >
                   {response.orderedParagraphs?.length === 0 && (
@@ -557,50 +587,186 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                   )}
                   {response.orderedParagraphs?.map(
                     (paragraphId: string, index: number) => {
-                      const paragraph = question.content.paragraphs?.find(
-                        (p) => p.id === paragraphId
+                      const paragraph = paragraphs?.find(
+                        (p: any) => p.id === paragraphId
                       );
                       return (
-                        <div
-                          key={paragraphId}
-                          className='p-4 bg-blue-100 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-700 shadow-sm'
-                        >
-                          <div className='flex justify-between items-start gap-3'>
-                            <div className='flex items-start space-x-3'>
-                              <span className='bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded-full min-w-[24px] text-center'>
-                                {index + 1}
-                              </span>
-                              <p className='text-sm text-gray-900 dark:text-white leading-relaxed'>
-                                {paragraph?.text}
-                              </p>
+                        <div key={`container-${paragraphId}`}>
+                          {/* Drop zone above each paragraph */}
+                          <div
+                            className='h-2 border-2 border-dashed border-transparent hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-200 rounded mb-2'
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              e.currentTarget.classList.add(
+                                'border-blue-400',
+                                'bg-blue-50',
+                                'dark:bg-blue-900/20'
+                              );
+                            }}
+                            onDragLeave={(e) => {
+                              e.currentTarget.classList.remove(
+                                'border-blue-400',
+                                'bg-blue-50',
+                                'dark:bg-blue-900/20'
+                              );
+                            }}
+                            onDrop={(e) => {
+                              if (isCompleted) return;
+                              e.preventDefault();
+                              e.stopPropagation();
+                              const draggedId =
+                                e.dataTransfer.getData('text/plain');
+                              const draggedIndex = parseInt(
+                                e.dataTransfer.getData('dropIndex') || '-1'
+                              );
+                              const orderedParagraphs =
+                                response.orderedParagraphs || [];
+
+                              if (draggedIndex >= 0) {
+                                // Reordering within the panel
+                                const newOrderedParagraphs = [
+                                  ...orderedParagraphs,
+                                ];
+                                const [movedItem] = newOrderedParagraphs.splice(
+                                  draggedIndex,
+                                  1
+                                );
+                                newOrderedParagraphs.splice(
+                                  index,
+                                  0,
+                                  movedItem
+                                );
+                                setResponse({
+                                  ...response,
+                                  orderedParagraphs: newOrderedParagraphs,
+                                });
+                              } else {
+                                // Adding from available paragraphs
+                                const newOrderedParagraphs = [
+                                  ...orderedParagraphs,
+                                ];
+                                newOrderedParagraphs.splice(
+                                  index,
+                                  0,
+                                  draggedId
+                                );
+                                setResponse({
+                                  ...response,
+                                  orderedParagraphs: newOrderedParagraphs,
+                                });
+                              }
+                            }}
+                          />
+
+                          <div
+                            className='p-4 bg-blue-100 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-700 shadow-sm cursor-move hover:shadow-md hover:bg-blue-200 dark:hover:bg-blue-900/40 transition-all duration-200'
+                            draggable={!isCompleted}
+                            onDragStart={(e) => {
+                              e.dataTransfer.setData('text/plain', paragraphId);
+                              e.dataTransfer.setData(
+                                'dropIndex',
+                                index.toString()
+                              );
+                              e.currentTarget.style.opacity = '0.5';
+                            }}
+                            onDragEnd={(e) => {
+                              e.currentTarget.style.opacity = '1';
+                            }}
+                          >
+                            <div className='flex justify-between items-start gap-3'>
+                              <div className='flex items-start space-x-3'>
+                                <span className='bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded-full min-w-[24px] text-center'>
+                                  {index + 1}
+                                </span>
+                                <p className='text-sm text-gray-900 dark:text-white leading-relaxed'>
+                                  {paragraph?.text}
+                                </p>
+                              </div>
+                              {!isCompleted && (
+                                <button
+                                  onClick={() => {
+                                    const orderedParagraphs =
+                                      response.orderedParagraphs.filter(
+                                        (id: string) => id !== paragraphId
+                                      );
+                                    setResponse({
+                                      ...response,
+                                      orderedParagraphs,
+                                    });
+                                  }}
+                                  className='text-red-600 hover:text-red-800 p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors'
+                                >
+                                  <X className='w-4 h-4' />
+                                </button>
+                              )}
                             </div>
-                            {!isCompleted && (
-                              <button
-                                onClick={() => {
-                                  const orderedParagraphs =
-                                    response.orderedParagraphs.filter(
-                                      (id: string) => id !== paragraphId
-                                    );
-                                  setResponse({
-                                    ...response,
-                                    orderedParagraphs,
-                                  });
-                                }}
-                                className='text-red-600 hover:text-red-800 p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors'
-                              >
-                                <X className='w-4 h-4' />
-                              </button>
-                            )}
                           </div>
                         </div>
                       );
                     }
+                  )}
+
+                  {/* Drop zone at the end */}
+                  {response.orderedParagraphs?.length > 0 && (
+                    <div
+                      className='h-4 border-2 border-dashed border-transparent hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-200 rounded mt-2'
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.currentTarget.classList.add(
+                          'border-blue-400',
+                          'bg-blue-50',
+                          'dark:bg-blue-900/20'
+                        );
+                      }}
+                      onDragLeave={(e) => {
+                        e.currentTarget.classList.remove(
+                          'border-blue-400',
+                          'bg-blue-50',
+                          'dark:bg-blue-900/20'
+                        );
+                      }}
+                      onDrop={(e) => {
+                        if (isCompleted) return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const draggedId = e.dataTransfer.getData('text/plain');
+                        const draggedIndex = parseInt(
+                          e.dataTransfer.getData('dropIndex') || '-1'
+                        );
+                        const orderedParagraphs =
+                          response.orderedParagraphs || [];
+
+                        if (draggedIndex >= 0) {
+                          // Reordering within the panel - move to end
+                          const newOrderedParagraphs = [...orderedParagraphs];
+                          const [movedItem] = newOrderedParagraphs.splice(
+                            draggedIndex,
+                            1
+                          );
+                          newOrderedParagraphs.push(movedItem);
+                          setResponse({
+                            ...response,
+                            orderedParagraphs: newOrderedParagraphs,
+                          });
+                        } else {
+                          // Adding from available paragraphs to end
+                          setResponse({
+                            ...response,
+                            orderedParagraphs: [
+                              ...orderedParagraphs,
+                              draggedId,
+                            ],
+                          });
+                        }
+                      }}
+                    />
                   )}
                 </div>
               </div>
             </div>
           </div>
         );
+      }
 
       case PteQuestionTypeName.READING_FILL_IN_THE_BLANKS:
         return (
@@ -609,110 +775,265 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
               <h4 className='font-medium text-gray-900 dark:text-white mb-4'>
                 Click on each blank to select the correct word:
               </h4>
-              <div className='text-lg leading-relaxed'>
-                {question.content.text
-                  ?.split('_____')
-                  .map((part, index, array) => (
-                    <span key={index}>
-                      {part}
-                      {index < array.length - 1 && (
-                        <select
-                          value={response.blanks?.[`blank${index + 1}`] || ''}
-                          onChange={(e) =>
-                            setResponse({
-                              ...response,
-                              blanks: {
-                                ...response.blanks,
-                                [`blank${index + 1}`]: e.target.value,
-                              },
-                            })
-                          }
-                          disabled={isCompleted}
-                          className='mx-2 px-3 py-2 border border-green-300 dark:border-green-600 rounded-lg bg-green-50 dark:bg-green-900/20 text-gray-900 dark:text-white min-w-[120px] focus:ring-2 focus:ring-green-500 focus:border-green-500'
-                        >
-                          <option value=''>Select...</option>
-                          {question.content.blanks?.[index]?.options.map(
-                            (option) => (
-                              <option
-                                key={option}
-                                value={option}
-                              >
-                                {option}
-                              </option>
-                            )
-                          )}
-                        </select>
-                      )}
-                    </span>
-                  ))}
-              </div>
-            </div>
-          </div>
-        );
-
-      case PteQuestionTypeName.READING_WRITING_FILL_IN_THE_BLANKS:
-        return (
-          <div className='space-y-6'>
-            <div className='bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-600'>
               <div className='text-base leading-relaxed text-gray-900 dark:text-white'>
                 {question.content.text
                   ?.split('_____')
-                  .map((part, index, array) => (
-                    <span key={index}>
-                      {part}
-                      {index < array.length - 1 && (
-                        <select
-                          value={response.blanks?.[`blank${index + 1}`] || ''}
-                          onChange={(e) =>
-                            setResponse({
-                              ...response,
-                              blanks: {
-                                ...response.blanks,
-                                [`blank${index + 1}`]: e.target.value,
-                              },
-                            })
-                          }
-                          disabled={isCompleted}
-                          className='mx-2 px-3 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white min-w-[120px]'
-                        >
-                          <option value=''>Select...</option>
-                          {question.content.blanks?.[index]?.options.map(
-                            (option) => (
+                  .map((part, index, array) => {
+                    const blankOptions =
+                      question.content.blanks?.[index]?.options || [];
+                    const selectedValue =
+                      response.blanks?.[`blank${index + 1}`] || '';
+                    return (
+                      <span key={index}>
+                        {part}
+                        {index < array.length - 1 && (
+                          <span className='inline-block relative'>
+                            <select
+                              value={selectedValue}
+                              onChange={(e) =>
+                                setResponse({
+                                  ...response,
+                                  blanks: {
+                                    ...response.blanks,
+                                    [`blank${index + 1}`]: e.target.value,
+                                  },
+                                })
+                              }
+                              disabled={isCompleted}
+                              className={`
+                                inline-block mx-1 px-2 py-1 text-sm font-medium rounded-md border-2
+                                transition-all duration-200 cursor-pointer min-w-[100px] max-w-[140px]
+                                ${
+                                  selectedValue
+                                    ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-400 dark:border-blue-500 text-blue-800 dark:text-blue-200'
+                                    : 'bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400'
+                                }
+                                hover:border-blue-400 dark:hover:border-blue-500
+                                focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500
+                                disabled:opacity-50 disabled:cursor-not-allowed
+                              `}
+                            >
                               <option
-                                key={option}
-                                value={option}
+                                value=''
+                                className='text-gray-500 dark:text-gray-400'
                               >
-                                {option}
+                                {selectedValue ? selectedValue : '___'}
                               </option>
-                            )
-                          )}
-                        </select>
-                      )}
-                    </span>
-                  ))}
+                              {blankOptions.length > 0 ? (
+                                blankOptions.map((option: string) => (
+                                  <option
+                                    key={option}
+                                    value={option}
+                                    className='text-gray-900 dark:text-white bg-white dark:bg-gray-800'
+                                  >
+                                    {option}
+                                  </option>
+                                ))
+                              ) : (
+                                <option
+                                  value=''
+                                  disabled
+                                  className='text-gray-400'
+                                >
+                                  No options
+                                </option>
+                              )}
+                            </select>
+                          </span>
+                        )}
+                      </span>
+                    );
+                  })}
               </div>
             </div>
 
-            {/* Available words for reference */}
-            <div className='bg-gray-50 dark:bg-gray-700 p-4 rounded-lg'>
-              <h4 className='font-medium text-gray-900 dark:text-white mb-3 text-sm'>
-                Available Words
-              </h4>
-              <div className='flex flex-wrap gap-2'>
-                {question.content.blanks
-                  ?.flatMap((blank) => blank.options)
-                  .map((word, index) => (
-                    <span
-                      key={index}
-                      className='px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-md text-sm'
+            {/* Show available options for reference */}
+            {/* {question.content.blanks && question.content.blanks.length > 0 && (
+              <div className='bg-gray-50 dark:bg-gray-700 p-4 rounded-lg'>
+                <h4 className='font-medium text-gray-900 dark:text-white mb-3 text-sm'>
+                  Available Options by Blank
+                </h4>
+                <div className='space-y-2'>
+                  {question.content.blanks.map((blank: any, index: number) => (
+                    <div
+                      key={blank.id || index}
+                      className='flex flex-wrap gap-2'
                     >
-                      {word}
-                    </span>
+                      <span className='text-sm font-medium text-gray-600 dark:text-gray-400 min-w-[60px]'>
+                        Blank {index + 1}:
+                      </span>
+                      {blank.options?.map(
+                        (option: string, optIndex: number) => (
+                          <span
+                            key={optIndex}
+                            className='px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded text-sm'
+                          >
+                            {option}
+                          </span>
+                        )
+                      )}
+                    </div>
                   ))}
+                </div>
+              </div>
+            )} */}
+          </div>
+        );
+
+      case PteQuestionTypeName.FILL_IN_THE_BLANKS_DRAG_AND_DROP: {
+        // Get all available options from all blanks
+        const allOptions =
+          question.content.blanks?.flatMap((blank) => blank.options || []) ||
+          [];
+        const uniqueOptions = [...new Set(allOptions)]; // Remove duplicates
+
+        // Track which options are used
+        const usedOptions = Object.values(response.blanks || {}).filter(
+          Boolean
+        );
+
+        return (
+          <div className='space-y-6'>
+            {/* Text with drag and drop blanks */}
+            <div className='bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-600'>
+              <h4 className='font-medium text-gray-900 dark:text-white mb-4'>
+                Drag words from the box below to fill in the blanks:
+              </h4>
+              <div className='text-base leading-relaxed text-gray-900 dark:text-white'>
+                {question.content.text
+                  ?.split('_____')
+                  .map((part, index, array) => {
+                    const selectedValue =
+                      response.blanks?.[`blank${index + 1}`] || '';
+                    return (
+                      <span key={index}>
+                        {part}
+                        {index < array.length - 1 && (
+                          <span className='inline-block relative mx-1'>
+                            <div
+                              className={`inline-block min-w-[120px] px-3 py-2 border-2 border-dashed rounded-lg text-center transition-all duration-200 ${
+                                selectedValue
+                                  ? 'border-green-500 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                                  : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:border-blue-400 dark:hover:border-blue-500'
+                              } ${isCompleted ? 'pointer-events-none' : ''}`}
+                              onDragOver={(e) => e.preventDefault()}
+                              onDrop={(e) => {
+                                if (isCompleted) return;
+                                e.preventDefault();
+                                const draggedWord =
+                                  e.dataTransfer.getData('text/plain');
+                                if (draggedWord) {
+                                  setResponse({
+                                    ...response,
+                                    blanks: {
+                                      ...response.blanks,
+                                      [`blank${index + 1}`]: draggedWord,
+                                    },
+                                  });
+                                }
+                              }}
+                            >
+                              {selectedValue ? (
+                                <span
+                                  className='cursor-pointer font-medium'
+                                  draggable={!isCompleted}
+                                  onDragStart={(e) => {
+                                    e.dataTransfer.setData(
+                                      'text/plain',
+                                      selectedValue
+                                    );
+                                    e.dataTransfer.setData('source', 'blank');
+                                    e.dataTransfer.setData(
+                                      'blankId',
+                                      `blank${index + 1}`
+                                    );
+                                  }}
+                                  onClick={() => {
+                                    if (!isCompleted) {
+                                      // Remove word from blank on click
+                                      const newBlanks = { ...response.blanks };
+                                      delete newBlanks[`blank${index + 1}`];
+                                      setResponse({
+                                        ...response,
+                                        blanks: newBlanks,
+                                      });
+                                    }
+                                  }}
+                                >
+                                  {selectedValue}
+                                </span>
+                              ) : (
+                                <span className='text-gray-400 dark:text-gray-500 text-sm'>
+                                  Drop here
+                                </span>
+                              )}
+                            </div>
+                          </span>
+                        )}
+                      </span>
+                    );
+                  })}
+              </div>
+            </div>
+
+            {/* Available words box */}
+            <div className='bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-600'>
+              <h5 className='font-medium text-gray-900 dark:text-white mb-4'>
+                Available Words:
+              </h5>
+              <div
+                className='flex flex-wrap gap-3 min-h-[60px] p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700'
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  if (isCompleted) return;
+                  e.preventDefault();
+                  const draggedWord = e.dataTransfer.getData('text/plain');
+                  const source = e.dataTransfer.getData('source');
+                  const blankId = e.dataTransfer.getData('blankId');
+
+                  if (source === 'blank' && blankId) {
+                    // Remove word from blank when dropped back to available words
+                    const newBlanks = { ...response.blanks };
+                    delete newBlanks[blankId];
+                    setResponse({
+                      ...response,
+                      blanks: newBlanks,
+                    });
+                  }
+                }}
+              >
+                {uniqueOptions.map((option, index) => {
+                  const isUsed = usedOptions.includes(option);
+                  return (
+                    <div
+                      key={index}
+                      className={`px-4 py-2 rounded-lg border cursor-move transition-all duration-200 ${
+                        isUsed
+                          ? 'bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-400 border-gray-300 dark:border-gray-500 opacity-50'
+                          : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-600 hover:bg-blue-200 dark:hover:bg-blue-900/50'
+                      } ${isCompleted ? 'pointer-events-none' : ''}`}
+                      draggable={!isUsed && !isCompleted}
+                      onDragStart={(e) => {
+                        if (!isUsed) {
+                          e.dataTransfer.setData('text/plain', option);
+                          e.dataTransfer.setData('source', 'available');
+                        }
+                      }}
+                    >
+                      {option}
+                    </div>
+                  );
+                })}
+                {uniqueOptions.length === 0 && (
+                  <p className='text-gray-500 dark:text-gray-400 text-sm italic'>
+                    No words available
+                  </p>
+                )}
               </div>
             </div>
           </div>
         );
+      }
 
       case PteQuestionTypeName.LISTENING_FILL_IN_THE_BLANKS:
         return (
@@ -725,35 +1046,111 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
             </div>
             <div className='bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-600'>
               <h4 className='font-medium text-gray-900 dark:text-white mb-4'>
-                Type the missing words:
+                Listen carefully and select the missing words from the
+                dropdowns:
               </h4>
-              <div className='text-lg leading-relaxed'>
+              <div className='text-base leading-relaxed text-gray-900 dark:text-white'>
                 {question.content.text
                   ?.split('_____')
-                  .map((part, index, array) => (
-                    <span key={index}>
-                      {part}
-                      {index < array.length - 1 && (
-                        <input
-                          type='text'
-                          value={response.blanks?.[`blank${index + 1}`] || ''}
-                          onChange={(e) =>
-                            setResponse({
-                              ...response,
-                              blanks: {
-                                ...response.blanks,
-                                [`blank${index + 1}`]: e.target.value,
-                              },
-                            })
-                          }
-                          disabled={isCompleted}
-                          className='mx-2 px-3 py-2 border border-blue-300 dark:border-blue-600 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-gray-900 dark:text-white min-w-[120px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-                          placeholder='...'
-                        />
-                      )}
-                    </span>
-                  ))}
+                  .map((part, index, array) => {
+                    const blankOptions =
+                      question.content.blanks?.[index]?.options || [];
+                    const selectedValue =
+                      response.blanks?.[`blank${index + 1}`] || '';
+                    return (
+                      <span key={index}>
+                        {part}
+                        {index < array.length - 1 && (
+                          <span className='inline-block relative'>
+                            <select
+                              value={selectedValue}
+                              onChange={(e) =>
+                                setResponse({
+                                  ...response,
+                                  blanks: {
+                                    ...response.blanks,
+                                    [`blank${index + 1}`]: e.target.value,
+                                  },
+                                })
+                              }
+                              disabled={isCompleted}
+                              className={`
+                                inline-block mx-1 px-2 py-1 text-sm font-medium rounded-md border-2
+                                transition-all duration-200 cursor-pointer min-w-[100px] max-w-[140px]
+                                ${
+                                  selectedValue
+                                    ? 'bg-purple-50 dark:bg-purple-900/30 border-purple-400 dark:border-purple-500 text-purple-800 dark:text-purple-200'
+                                    : 'bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400'
+                                }
+                                hover:border-purple-400 dark:hover:border-purple-500
+                                focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500
+                                disabled:opacity-50 disabled:cursor-not-allowed
+                              `}
+                            >
+                              <option
+                                value=''
+                                className='text-gray-500 dark:text-gray-400'
+                              >
+                                {selectedValue ? selectedValue : '___'}
+                              </option>
+                              {blankOptions.length > 0 ? (
+                                blankOptions.map((option: string) => (
+                                  <option
+                                    key={option}
+                                    value={option}
+                                    className='text-gray-900 dark:text-white bg-white dark:bg-gray-800'
+                                  >
+                                    {option}
+                                  </option>
+                                ))
+                              ) : (
+                                <option
+                                  value=''
+                                  disabled
+                                  className='text-gray-400'
+                                >
+                                  No options
+                                </option>
+                              )}
+                            </select>
+                          </span>
+                        )}
+                      </span>
+                    );
+                  })}
               </div>
+
+              {/* Audio replay button */}
+              <div className='mt-4 text-center'>
+                <button
+                  onClick={() => {
+                    const audio = document.querySelector('audio');
+                    if (audio) {
+                      audio.currentTime = 0;
+                      audio.play();
+                    }
+                  }}
+                  disabled={isCompleted}
+                  className='px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors duration-200 disabled:opacity-50'
+                >
+                  🔄 Replay Audio
+                </button>
+              </div>
+            </div>
+
+            {/* Listening tips */}
+            <div className='bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg border border-purple-200 dark:border-purple-800'>
+              <h4 className='font-medium text-purple-900 dark:text-purple-100 mb-2 text-sm'>
+                💡 Listening Tips
+              </h4>
+              <ul className='text-xs text-purple-800 dark:text-purple-200 space-y-1'>
+                <li>
+                  • Listen to the entire audio first before selecting answers
+                </li>
+                <li>• You can replay the audio as many times as needed</li>
+                <li>• Focus on the context around each blank</li>
+                <li>• Pay attention to grammar and word forms</li>
+              </ul>
             </div>
           </div>
         );
@@ -954,10 +1351,12 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
             {question.title}
           </h2>
           <p className='text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide'>
-            {question.type
-              .replace(/_/g, ' ')
-              .toLowerCase()
-              .replace(/\b\w/g, (l) => l.toUpperCase())}
+            {question.type === 'FILL_IN_THE_BLANKS_DRAG_AND_DROP'
+              ? 'Fill in the Blanks (Drag and Drop)'
+              : question.type
+                  .replace(/_/g, ' ')
+                  .toLowerCase()
+                  .replace(/\b\w/g, (l) => l.toUpperCase())}
           </p>
         </div>
         <div className='flex items-center space-x-4'>

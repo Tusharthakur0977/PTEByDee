@@ -10,6 +10,7 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
     // Remove or fix typeRoots to include node_modules/@types
     "typeRoots": ["./node_modules/@types", "./src/types"]
   },

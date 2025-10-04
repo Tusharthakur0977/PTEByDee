@@ -22,6 +22,7 @@ export interface Question {
   orderInTest: number;
   difficultyLevel: 'EASY' | 'MEDIUM' | 'HARD';
   textContent?: string;
+  questionStatement?: string;
   audioUrl?: string;
   imageUrl?: string;
   options?: any;
@@ -109,7 +110,7 @@ export enum PteQuestionTypeName {
   WRITE_ESSAY = 'WRITE_ESSAY',
 
   // Reading
-  READING_WRITING_FILL_IN_THE_BLANKS = 'READING_WRITING_FILL_IN_THE_BLANKS',
+  FILL_IN_THE_BLANKS_DRAG_AND_DROP = 'FILL_IN_THE_BLANKS_DRAG_AND_DROP',
   MULTIPLE_CHOICE_MULTIPLE_ANSWERS_READING = 'MULTIPLE_CHOICE_MULTIPLE_ANSWERS_READING',
   RE_ORDER_PARAGRAPHS = 'RE_ORDER_PARAGRAPHS',
   READING_FILL_IN_THE_BLANKS = 'READING_FILL_IN_THE_BLANKS',
@@ -151,6 +152,7 @@ export interface QuestionWithResponses {
   questionType: PteQuestionTypeName;
   difficultyLevel: 'EASY' | 'MEDIUM' | 'HARD';
   textContent?: string;
+  questionStatement?: string;
   audioUrl?: string;
   imageUrl?: string;
   options?: any;

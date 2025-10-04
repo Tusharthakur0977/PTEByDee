@@ -19,6 +19,7 @@ export const updateQuestion = asyncHandler(
       testId,
       orderInTest,
       textContent,
+      questionStatement,
       audioKey,
       imageKey,
       options,
@@ -28,7 +29,11 @@ export const updateQuestion = asyncHandler(
       durationMillis,
       originalTextWithErrors,
       incorrectWords,
+      blanks,
+      paragraphs,
     } = req.body;
+
+    console.log('SSSSSSSS');
 
     try {
       // Validate ObjectId format
@@ -77,6 +82,8 @@ export const updateQuestion = asyncHandler(
         }
       }
 
+      console.log('WWWWWWWWWWWWWWWWWW');
+
       // Prepare update data
       const updateData: any = {};
 
@@ -86,9 +93,50 @@ export const updateQuestion = asyncHandler(
       if (orderInTest !== undefined) updateData.orderInTest = orderInTest;
       if (textContent !== undefined)
         updateData.textContent = textContent || null;
+      if (questionStatement !== undefined)
+        updateData.questionStatement = questionStatement || null;
       if (audioKey !== undefined) updateData.audioUrl = audioKey || null;
       if (imageKey !== undefined) updateData.imageUrl = imageKey || null;
-      if (options !== undefined) updateData.options = options || null;
+
+      // Handle blanks data for fill-in-the-blanks questions
+      if (blanks !== undefined && Array.isArray(blanks)) {
+        // Transform blanks array into the format expected by the database
+        const processedBlanks = blanks.map((blank: any, index: number) => ({
+          id: blank.id || `blank_${index + 1}`,
+          position: blank.position || index + 1,
+          correctAnswer: blank.correctAnswer,
+          options: blank.options || [],
+        }));
+        updateData.options = processedBlanks;
+
+        // Update correct answers from blanks
+        const processedCorrectAnswers = blanks.reduce(
+          (acc: any, blank: any, index: number) => {
+            acc[`blank${index + 1}`] = blank.correctAnswer;
+            return acc;
+          },
+          {}
+        );
+        updateData.correctAnswers = processedCorrectAnswers;
+      } else if (paragraphs !== undefined && Array.isArray(paragraphs)) {
+        // Handle paragraphs data for re-order paragraphs questions
+        const processedParagraphs = paragraphs.map((paragraph: any) => ({
+          id: paragraph.id || `para_${Date.now()}_${Math.random()}`,
+          text: paragraph.text,
+          correctOrder: paragraph.correctOrder,
+        }));
+        updateData.options = processedParagraphs;
+
+        // Store correct order in correctAnswers field
+        const correctOrder = paragraphs
+          .sort((a: any, b: any) => a.correctOrder - b.correctOrder)
+          .map((p: any) => p.id || `para_${Date.now()}_${Math.random()}`);
+
+        updateData.correctAnswers = { correctOrder };
+      } else if (options !== undefined) {
+        updateData.options = options || null;
+      }
+
       if (correctAnswers !== undefined)
         updateData.correctAnswers = correctAnswers || null;
       if (wordCountMin !== undefined)
@@ -104,6 +152,8 @@ export const updateQuestion = asyncHandler(
 
       updateData.updatedAt = new Date();
 
+      console.log(updateData, 'QWXZZS');
+
       // Update the question
       const updatedQuestion = await prisma.question.update({
         where: { id },
@@ -114,12 +164,6 @@ export const updateQuestion = asyncHandler(
               pteSection: true,
             },
           },
-          // test: {
-          //   select: {
-          //     id: true,
-          //     title: true,
-          //   },
-          // },
           _count: {
             select: {
               UserResponse: true,

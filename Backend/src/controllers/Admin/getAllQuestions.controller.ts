@@ -46,6 +46,12 @@ export const getAllQuestions = asyncHandler(
               mode: 'insensitive',
             },
           },
+          {
+            questionStatement: {
+              contains: search as string,
+              mode: 'insensitive',
+            },
+          },
         ];
       }
 

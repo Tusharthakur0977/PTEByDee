@@ -111,7 +111,7 @@ const QuestionTypeSelector: React.FC<QuestionTypeSelectorProps> = ({
             answer_short_question: MessageSquare,
             summarize_written_text: FileText,
             write_essay: Edit3,
-            reading_writing_fill_in_the_blanks: Edit3,
+            FILL_IN_THE_BLANKS_DRAG_AND_DROP: Edit3,
             multiple_choice_multiple_answers_reading: CheckSquare,
             re_order_paragraphs: RotateCcw,
             reading_fill_in_the_blanks: Search,
@@ -195,9 +195,6 @@ const QuestionTypeSelector: React.FC<QuestionTypeSelectorProps> = ({
     };
     return colorMap[color as keyof typeof colorMap]?.[variant] || '';
   };
-
-  console.log(questionCategories);
-  
 
   return (
     <div className={`space-y-6 ${className}`}>

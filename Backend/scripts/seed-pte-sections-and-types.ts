@@ -85,8 +85,8 @@ const questionTypesData = [
     sectionName: 'Reading',
     types: [
       {
-        name: PteQuestionTypeName.READING_WRITING_FILL_IN_THE_BLANKS,
-        description: 'Fill blanks with appropriate words from given options',
+        name: PteQuestionTypeName.FILL_IN_THE_BLANKS_DRAG_AND_DROP,
+        description: 'Drag and drop words to fill blanks in the text',
         expectedTimePerQuestion: 150, // 2-3 minutes
       },
       {

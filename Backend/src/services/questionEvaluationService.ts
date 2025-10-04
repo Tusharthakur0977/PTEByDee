@@ -13,6 +13,7 @@ interface Question {
   id: string;
   questionCode: string;
   textContent?: string | null;
+  questionStatement?: string | null;
   audioUrl?: string | null;
   imageUrl?: string | null;
   options?: any;
@@ -89,7 +90,7 @@ export async function evaluateQuestionResponse(
       );
 
     case PteQuestionTypeName.READING_FILL_IN_THE_BLANKS:
-    case PteQuestionTypeName.READING_WRITING_FILL_IN_THE_BLANKS:
+    case PteQuestionTypeName.FILL_IN_THE_BLANKS_DRAG_AND_DROP:
     case PteQuestionTypeName.LISTENING_FILL_IN_THE_BLANKS:
       return evaluateFillInTheBlanks(question, userResponse, timeTakenSeconds);
 
@@ -133,8 +134,7 @@ export async function evaluateQuestionResponse(
   }
 }
 
-// SPEAKING
-
+// SPEAKING QUESTION EVALUATION
 /**
  * Evaluate Read Aloud responses (audio-based)
  */
@@ -449,6 +449,185 @@ async function evaluateRepeatSentence(
 }
 
 /**
+ * Evaluate Describe Image responses (audio-based)
+ */
+async function evaluateDescribeImage(
+  question: Question,
+  userResponse: any,
+  timeTakenSeconds?: number
+): Promise<QuestionEvaluationResult> {
+  const transcribedText = userResponse.textResponse;
+
+  // Parse the stored image analysis data
+  let imageAnalysis = null;
+  try {
+    if (question.textContent) {
+      imageAnalysis = JSON.parse(question.textContent);
+    }
+  } catch (error) {
+    console.error('Error parsing image analysis data:', error);
+  }
+
+  const keyElements =
+    imageAnalysis?.keyElements || question.correctAnswers || [];
+  const imageType = imageAnalysis?.imageType || 'image';
+  const mainTopic = imageAnalysis?.mainTopic || 'the image content';
+
+  const prompt = `
+    You are an official PTE Academic grader. Evaluate this "Describe Image" response strictly following the provided scoring rubric.
+
+    **Image Analysis Reference:**
+    - Image Type: ${imageType}
+    - Main Topic: ${mainTopic}
+    - Key Elements to Mention: ${keyElements.join(', ')}
+
+    **User's Description:** "${transcribedText}"
+    **Time Taken:** ${timeTakenSeconds || 'Not specified'} seconds
+
+    **Scoring Rubrics:**
+    **1. Content (Score from 0 to 6):**
+      * **6 pts:** The response describes the image fully and accurately and expands on the relationships between features to provide a nuanced interpretation. A variety of expressions and vocabulary are used with ease and precision. A listener could build a **complete** mental picture.
+      * **5 pts:** The response describes the main features accurately and identifies some relationships without expanding in detail. A variety of expressions and vocabulary are used appropriately. A listener could build an **accurate** mental picture, with minor details missing.
+      * **4 pts:** The response includes some accurate simple descriptions and basic relationships but may not cover all main features. The vocabulary is sufficient for basic descriptions with some repetition. A listener could build a **basic** mental picture.
+      * **3 pts:** The response includes mainly superficial descriptions with minor inaccuracies. The vocabulary is narrow and expressions are used repeatedly. A listener could visualize **elements** of the image, but not a cohesive whole.
+      * **2 pts:** The response includes minimal, superficial descriptions with some inaccuracies. Limited vocabulary and simple expressions dominate. A listener could visualize some elements **with effort**.
+      * **1 pt:** The response is composed of disconnected elements or a list of points without description. Vocabulary is highly restricted. A listener would **struggle** to visualize the image.
+      * **0 pts:** The response is relevant but too limited to assign a higher score.
+
+    **2. Pronunciation (Score from 0 to 5):**
+      * **5:** Native-like; all words are clear and correct.
+      * **4:** Very clear; maybe one or two minor inaccuracies.
+      * **3:** Mostly understandable but with several errors.
+      * **2:** Difficult to follow due to many errors.
+      * **1:** Mostly incorrect transcription.
+
+    **3. Oral Fluency (Score from 0 to 5):**
+      * **5:** Smooth, natural flow with no fillers or hesitations.
+      * **4:** Mostly smooth with one or two minor hesitations.
+      * **3:** Noticeable hesitations that disrupt the flow.
+      * **2:** Uneven, slow, or fragmented speech.
+      * **1:** Very halting speech.
+
+    **Required Output Format:**
+    Respond with a single, minified JSON object in this exact format. Use camelCase for keys.
+    {
+      "scores": {
+        "content": <number_0_to_6>,
+        "pronunciation": <number_0_to_5>,
+        "oralFluency": <number_0_to_5>
+      },
+      "feedback": {
+        "summary": "<A brief, overall summary of the performance>",
+        "content": "<Detailed feedback specifically on the content>",
+        "pronunciation": "<Detailed feedback specifically on pronunciation>",
+        "oralFluency": "<Detailed feedback specifically on oral fluency>"
+      },
+      "suggestions": ["<Actionable suggestion 1>", "<Actionable suggestion 2>"]
+    }
+  `;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are a helpful assistant designed to output JSON for PTE Academic evaluation.',
+        },
+        { role: 'user', content: prompt },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.2,
+    });
+
+    const evaluation = JSON.parse(response.choices[0].message.content || '{}');
+
+    // Parse the OpenAI response format for Describe Image
+    const contentScore = evaluation?.scores?.content || 0;
+    const contentMaxScore = 6;
+    const pronunciationScore = evaluation?.scores?.pronunciation || 0;
+    const pronunciationMaxScore = 5;
+    const oralFluencyScore = evaluation?.scores?.oralFluency || 0;
+    const oralFluencyMaxScore = 5;
+
+    // Calculate percentages
+    const contentPercentage = (contentScore / contentMaxScore) * 100;
+    const oralFluencyPercentage =
+      (oralFluencyScore / oralFluencyMaxScore) * 100;
+    const pronunciationPercentage =
+      (pronunciationScore / pronunciationMaxScore) * 100;
+
+    // Calculate weighted overall score (Content 50%, Oral Fluency 30%, Pronunciation 20%)
+    const overallScore = Math.round(
+      contentPercentage * 0.5 +
+        oralFluencyPercentage * 0.3 +
+        pronunciationPercentage * 0.2
+    );
+
+    // Ensure feedback is always a string
+    let feedbackText = 'Image description response evaluated.';
+
+    return {
+      score: overallScore,
+      isCorrect: overallScore >= 65,
+      feedback: feedbackText,
+      detailedAnalysis: {
+        contentScore,
+        contentMaxScore,
+        contentPercentage: Math.round(contentPercentage),
+        oralFluencyScore,
+        oralFluencyMaxScore,
+        oralFluencyPercentage: Math.round(oralFluencyPercentage),
+        pronunciationScore,
+        pronunciationMaxScore,
+        pronunciationPercentage: Math.round(pronunciationPercentage),
+        recognizedText: transcribedText,
+        timeTaken: timeTakenSeconds || 0,
+        imageAnalysis: imageAnalysis,
+        keyElementsCovered: keyElements,
+        contentFeedback: evaluation.Feedback?.Content || '',
+        oralFluencyFeedback: evaluation.Feedback?.['Oral Fluency'] || '',
+        pronunciationFeedback: evaluation.Feedback?.Pronunciation || '',
+      },
+      suggestions: [
+        'Describe all key elements visible in the image',
+        'Use specific vocabulary related to the image content',
+        'Organize your description logically (overview → details → conclusion)',
+        'Speak clearly and maintain natural pace',
+        'Include relationships between elements when relevant',
+      ],
+    };
+  } catch (error) {
+    console.error('OpenAI evaluation error for Describe Image:', error);
+    return {
+      score: 0,
+      isCorrect: false,
+      feedback: 'Error occurred during evaluation.',
+      detailedAnalysis: {
+        contentScore: 0,
+        contentMaxScore: 5,
+        contentPercentage: 0,
+        oralFluencyScore: 0,
+        oralFluencyMaxScore: 5,
+        oralFluencyPercentage: 0,
+        pronunciationScore: 0,
+        pronunciationMaxScore: 5,
+        pronunciationPercentage: 0,
+        recognizedText: transcribedText,
+        timeTaken: timeTakenSeconds || 0,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+      suggestions: [
+        'Please try again.',
+        'Focus on describing key visual elements.',
+        'Ensure clear pronunciation and logical organization.',
+      ],
+    };
+  }
+}
+
+/**
  * Evaluate Re-tell Lecture responses (audio-based)
  */
 async function evaluateRetellLecture(
@@ -605,205 +784,6 @@ async function evaluateRetellLecture(
 }
 
 /**
- * Evaluate Describe Image responses (audio-based)
- */
-async function evaluateDescribeImage(
-  question: Question,
-  userResponse: any,
-  timeTakenSeconds?: number
-): Promise<QuestionEvaluationResult> {
-  const transcribedText = userResponse.textResponse;
-
-  console.log('Evaluating Describe Image:', {
-    hasTranscribedText: !!transcribedText,
-    textLength: transcribedText?.length,
-    timeTaken: timeTakenSeconds,
-  });
-
-  // Parse the stored image analysis data
-  let imageAnalysis = null;
-  try {
-    if (question.textContent) {
-      imageAnalysis = JSON.parse(question.textContent);
-    }
-  } catch (error) {
-    console.error('Error parsing image analysis data:', error);
-  }
-
-  const keyElements =
-    imageAnalysis?.keyElements || question.correctAnswers || [];
-  const imageType = imageAnalysis?.imageType || 'image';
-  const mainTopic = imageAnalysis?.mainTopic || 'the image content';
-
-  const prompt = `
-    You are an official PTE Academic grader. Evaluate this "Describe Image" response strictly following the provided scoring rubric.
-
-    **Image Analysis Reference:**
-    - Image Type: ${imageType}
-    - Main Topic: ${mainTopic}
-    - Key Elements to Mention: ${keyElements.join(', ')}
-
-    **User's Description:** "${transcribedText}"
-    **Time Taken:** ${timeTakenSeconds || 'Not specified'} seconds
-
-    **Scoring Rubrics:**
-    **1. Content (Score from 0 to 6):**
-      * **6 pts:** The response describes the image fully and accurately and expands on the relationships between features to provide a nuanced interpretation. A variety of expressions and vocabulary are used with ease and precision. A listener could build a **complete** mental picture.
-      * **5 pts:** The response describes the main features accurately and identifies some relationships without expanding in detail. A variety of expressions and vocabulary are used appropriately. A listener could build an **accurate** mental picture, with minor details missing.
-      * **4 pts:** The response includes some accurate simple descriptions and basic relationships but may not cover all main features. The vocabulary is sufficient for basic descriptions with some repetition. A listener could build a **basic** mental picture.
-      * **3 pts:** The response includes mainly superficial descriptions with minor inaccuracies. The vocabulary is narrow and expressions are used repeatedly. A listener could visualize **elements** of the image, but not a cohesive whole.
-      * **2 pts:** The response includes minimal, superficial descriptions with some inaccuracies. Limited vocabulary and simple expressions dominate. A listener could visualize some elements **with effort**.
-      * **1 pt:** The response is composed of disconnected elements or a list of points without description. Vocabulary is highly restricted. A listener would **struggle** to visualize the image.
-      * **0 pts:** The response is relevant but too limited to assign a higher score.
-
-    **2. Pronunciation (Score from 0 to 5):**
-      * **5:** Native-like; all words are clear and correct.
-      * **4:** Very clear; maybe one or two minor inaccuracies.
-      * **3:** Mostly understandable but with several errors.
-      * **2:** Difficult to follow due to many errors.
-      * **1:** Mostly incorrect transcription.
-
-    **3. Oral Fluency (Score from 0 to 5):**
-      * **5:** Smooth, natural flow with no fillers or hesitations.
-      * **4:** Mostly smooth with one or two minor hesitations.
-      * **3:** Noticeable hesitations that disrupt the flow.
-      * **2:** Uneven, slow, or fragmented speech.
-      * **1:** Very halting speech.
-
-    **Required Output Format:**
-    Respond with a single, minified JSON object in this exact format. Use camelCase for keys.
-    {
-      "scores": {
-        "content": <number_0_to_6>,
-        "pronunciation": <number_0_to_5>,
-        "oralFluency": <number_0_to_5>
-      },
-      "feedback": {
-        "summary": "<A brief, overall summary of the performance>",
-        "content": "<Detailed feedback specifically on the content>",
-        "pronunciation": "<Detailed feedback specifically on pronunciation>",
-        "oralFluency": "<Detailed feedback specifically on oral fluency>"
-      },
-      "suggestions": ["<Actionable suggestion 1>", "<Actionable suggestion 2>"]
-    }
-  `;
-
-  try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You are a helpful assistant designed to output JSON for PTE Academic evaluation.',
-        },
-        { role: 'user', content: prompt },
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.2,
-    });
-
-    const evaluation = JSON.parse(response.choices[0].message.content || '{}');
-    console.log(evaluation, 'DESCRIBE IMAGE EVALUATION');
-
-    // Parse the OpenAI response format for Describe Image
-    const contentScore = evaluation?.scores?.content || 0;
-    const contentMaxScore = 6;
-    const pronunciationScore = evaluation?.scores?.pronunciation || 0;
-    const pronunciationMaxScore = 5;
-    const oralFluencyScore = evaluation?.scores?.oralFluency || 0;
-    const oralFluencyMaxScore = 5;
-
-    // Calculate percentages
-    const contentPercentage = (contentScore / contentMaxScore) * 100;
-    const oralFluencyPercentage =
-      (oralFluencyScore / oralFluencyMaxScore) * 100;
-    const pronunciationPercentage =
-      (pronunciationScore / pronunciationMaxScore) * 100;
-
-    // Calculate weighted overall score (Content 50%, Oral Fluency 30%, Pronunciation 20%)
-    const overallScore = Math.round(
-      contentPercentage * 0.5 +
-        oralFluencyPercentage * 0.3 +
-        pronunciationPercentage * 0.2
-    );
-
-    console.log('DESCRIBE IMAGE SCORE CALCULATION:', {
-      contentScore: `${contentScore}/${contentMaxScore} = ${Math.round(
-        contentPercentage
-      )}%`,
-      oralFluencyScore: `${oralFluencyScore}/${oralFluencyMaxScore} = ${Math.round(
-        oralFluencyPercentage
-      )}%`,
-      pronunciationScore: `${pronunciationScore}/${pronunciationMaxScore} = ${Math.round(
-        pronunciationPercentage
-      )}%`,
-      overallScore: `${overallScore}/100`,
-    });
-
-    // Ensure feedback is always a string
-    let feedbackText = 'Image description response evaluated.';
-
-    return {
-      score: overallScore,
-      isCorrect: overallScore >= 65,
-      feedback: feedbackText,
-      detailedAnalysis: {
-        contentScore,
-        contentMaxScore,
-        contentPercentage: Math.round(contentPercentage),
-        oralFluencyScore,
-        oralFluencyMaxScore,
-        oralFluencyPercentage: Math.round(oralFluencyPercentage),
-        pronunciationScore,
-        pronunciationMaxScore,
-        pronunciationPercentage: Math.round(pronunciationPercentage),
-        recognizedText: transcribedText,
-        timeTaken: timeTakenSeconds || 0,
-        imageAnalysis: imageAnalysis,
-        keyElementsCovered: keyElements,
-        contentFeedback: evaluation.Feedback?.Content || '',
-        oralFluencyFeedback: evaluation.Feedback?.['Oral Fluency'] || '',
-        pronunciationFeedback: evaluation.Feedback?.Pronunciation || '',
-      },
-      suggestions: [
-        'Describe all key elements visible in the image',
-        'Use specific vocabulary related to the image content',
-        'Organize your description logically (overview → details → conclusion)',
-        'Speak clearly and maintain natural pace',
-        'Include relationships between elements when relevant',
-      ],
-    };
-  } catch (error) {
-    console.error('OpenAI evaluation error for Describe Image:', error);
-    return {
-      score: 0,
-      isCorrect: false,
-      feedback: 'Error occurred during evaluation.',
-      detailedAnalysis: {
-        contentScore: 0,
-        contentMaxScore: 5,
-        contentPercentage: 0,
-        oralFluencyScore: 0,
-        oralFluencyMaxScore: 5,
-        oralFluencyPercentage: 0,
-        pronunciationScore: 0,
-        pronunciationMaxScore: 5,
-        pronunciationPercentage: 0,
-        recognizedText: transcribedText,
-        timeTaken: timeTakenSeconds || 0,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      },
-      suggestions: [
-        'Please try again.',
-        'Focus on describing key visual elements.',
-        'Ensure clear pronunciation and logical organization.',
-      ],
-    };
-  }
-}
-
-/**
  * Checks if a user's answer contains any of the correct answer keywords.
  * This is a case-insensitive, partial match check.
  */
@@ -874,8 +854,7 @@ function evaluateAnswerShortQuestion(question: Question, userResponse: any) {
   }
 }
 
-// WRITING
-
+// WRITING QUESTION EVALUATION
 /**
  * Evaluate Summarize Written Text responses
  */
@@ -1156,7 +1135,6 @@ async function evaluateWriteEssay(
     });
 
     const evaluation = JSON.parse(response.choices[0].message.content || '{}');
-    console.log('WRITE ESSAY EVALUATION:', evaluation);
 
     // Extract individual scores for each trait
     const scores = evaluation.scores || {};
@@ -1197,20 +1175,6 @@ async function evaluateWriteEssay(
 
     // Calculate the overall score as a percentage
     const overallScore = Math.round((totalAchievedScore / totalMaxScore) * 100);
-
-    // Debug logging for score calculation
-    console.log('WRITE ESSAY SCORE CALCULATION:', {
-      contentScore: `${contentScore}/${maxContentScore}`,
-      formScore: `${formScore}/${maxFormScore}`,
-      devScore: `${devScore}/${maxDevScore}`,
-      grammarScore: `${grammarScore}/${maxGrammarScore}`,
-      lingRangeScore: `${lingRangeScore}/${maxLingRangeScore}`,
-      vocabScore: `${vocabScore}/${maxVocabScore}`,
-      spellingScore: `${spellingScore}/${maxSpellingScore}`,
-      totalAchievedScore,
-      totalMaxScore,
-      overallScore: `${overallScore}%`,
-    });
 
     return {
       score: overallScore,
@@ -1255,6 +1219,350 @@ async function evaluateWriteEssay(
   }
 }
 
+// READING QUESTION EVALUATION
+/**
+ * Evaluate Multiple Choice Single Answer responses
+ */
+async function evaluateMultipleChoiceSingle(
+  question: Question,
+  userResponse: any,
+  timeTakenSeconds?: number
+): Promise<QuestionEvaluationResult> {
+  const selectedOption = userResponse.selectedOption;
+  const correctAnswers = question.options
+    .filter((opt: any) => opt.isCorrect)
+    .map((opt: any) => opt.id);
+
+  const isCorrect = correctAnswers.includes(selectedOption);
+  const score = isCorrect ? 100 : 0;
+
+  // Get the selected option text for feedback
+  const options = question.options || [];
+  const selectedOptionText =
+    options.find((opt: any) => opt.id === selectedOption)?.text ||
+    'Unknown option';
+  const correctOptionText =
+    options.find((opt: any) => correctAnswers.includes(opt.id))?.text ||
+    'Unknown option';
+
+  return {
+    score,
+    isCorrect,
+    feedback: isCorrect
+      ? `Correct! You selected: "${selectedOptionText}"`
+      : `Incorrect. You selected: "${selectedOptionText}". The correct answer is: "${correctOptionText}"`,
+    detailedAnalysis: {
+      selectedOption,
+      correctAnswers,
+      selectedOptionText,
+      correctOptionText,
+      timeTaken: timeTakenSeconds || 0,
+    },
+    suggestions: isCorrect
+      ? ['Great job! Continue practicing similar questions.']
+      : [
+          'Review the passage/audio more carefully',
+          'Look for key information that supports the correct answer',
+          'Practice elimination techniques for wrong options',
+        ],
+  };
+}
+
+/**
+ * Evaluate Multiple Choice Multiple Answers responses
+ */
+async function evaluateMultipleChoiceMultiple(
+  question: Question,
+  userResponse: any,
+  timeTakenSeconds?: number
+): Promise<QuestionEvaluationResult> {
+  const selectedOptions = userResponse.selectedOptions || [];
+  const correctAnswers = question.options
+    .filter((opt: any) => opt.isCorrect)
+    .map((opt: any) => opt.id);
+
+  // Count how many of the user's selections are correct
+  const correctSelected = selectedOptions.filter((option: string) =>
+    correctAnswers.includes(option)
+  ).length;
+
+  // Count how many of the user's selections are incorrect
+  const incorrectSelected = selectedOptions.filter(
+    (option: string) => !correctAnswers.includes(option)
+  ).length;
+
+  const totalCorrectAnswers = correctAnswers.length;
+
+  const score = Math.max(0, correctSelected - incorrectSelected);
+
+  const isCorrect = score === totalCorrectAnswers && incorrectSelected === 0;
+
+  return {
+    score,
+    isCorrect,
+    feedback: `You selected ${correctSelected} correct and ${incorrectSelected} incorrect options out of ${correctAnswers.length} total correct answers.`,
+    detailedAnalysis: {
+      selectedOptions,
+      correctAnswers,
+      correctSelected,
+      incorrectSelected,
+      totalCorrect: correctAnswers.length,
+      partialScore: score,
+    },
+    suggestions: [
+      'Read all options carefully before selecting',
+      'Look for multiple pieces of evidence in the text/audio',
+      'Avoid selecting options that are only partially correct',
+    ],
+  };
+}
+
+/**
+ * Evaluate Re-order Paragraphs responses
+ */
+async function evaluateReorderParagraphs(
+  question: Question,
+  userResponse: any,
+  timeTakenSeconds?: number
+): Promise<QuestionEvaluationResult> {
+  const userOrder = userResponse.orderedParagraphs || [];
+  const correctOrder = question.correctAnswers?.correctOrder || [];
+
+  // Calculate adjacent pairs scoring (PTE scoring method)
+  let correctPairs = 0;
+  for (let i = 0; i < userOrder.length - 1; i++) {
+    const currentIndex = correctOrder.indexOf(userOrder[i]);
+    const nextIndex = correctOrder.indexOf(userOrder[i + 1]);
+    if (
+      currentIndex !== -1 &&
+      nextIndex !== -1 &&
+      nextIndex === currentIndex + 1
+    ) {
+      correctPairs++;
+    }
+  }
+
+  const maxPairs = Math.max(0, correctOrder.length - 1);
+  const score = maxPairs > 0 ? (correctPairs / maxPairs) * 100 : 0;
+  const isCorrect = score === 100;
+
+  return {
+    score,
+    isCorrect,
+    feedback: `You got ${correctPairs} out of ${maxPairs} paragraph pairs in the correct order.`,
+    detailedAnalysis: {
+      userOrder,
+      correctOrder,
+      correctPairs,
+      maxPairs,
+      pairScore: score,
+    },
+    suggestions: [
+      'Look for logical connectors between paragraphs',
+      'Identify the introduction and conclusion paragraphs first',
+      'Follow the chronological or logical flow of ideas',
+    ],
+  };
+}
+
+/**
+ * Evaluate Fill in the Blanks responses
+ */
+async function evaluateFillInTheBlanks(
+  question: Question,
+  userResponse: any,
+  timeTakenSeconds?: number
+): Promise<QuestionEvaluationResult> {
+  const userBlanks = userResponse.blanks || {};
+
+  // Extract correct answers from the options array
+  const correctBlanks: { [key: string]: string } = {};
+
+  // The question.options contains the blanks with their correct answers
+  if (question.options && Array.isArray(question.options)) {
+    question.options.forEach((blank: any, index: number) => {
+      const blankKey = `blank${index + 1}`;
+      correctBlanks[blankKey] = blank.correctAnswer;
+    });
+  }
+
+  let correctCount = 0;
+  let totalBlanks = 0;
+  const blankResults: any = {};
+
+  Object.keys(correctBlanks).forEach((blankKey) => {
+    totalBlanks++;
+    const userAnswer = userBlanks[blankKey]?.toLowerCase().trim();
+    const correctAnswer = correctBlanks[blankKey]?.toLowerCase().trim();
+    const isBlankCorrect = userAnswer === correctAnswer;
+
+    if (isBlankCorrect) {
+      correctCount++;
+    }
+
+    blankResults[blankKey] = {
+      userAnswer: userBlanks[blankKey],
+      correctAnswer: correctBlanks[blankKey],
+      isCorrect: isBlankCorrect,
+    };
+  });
+
+  const score =
+    totalBlanks > 0 ? Math.round((correctCount / totalBlanks) * 100) : 0;
+  const isCorrect = score >= 65; // Consider 65% as passing
+
+  // Generate AI feedback
+  const aiFeedback = await generateFillInTheBlanksAIFeedback(
+    question,
+    userResponse,
+    blankResults,
+    score
+  );
+
+  return {
+    score,
+    isCorrect,
+    feedback: aiFeedback.feedback,
+    detailedAnalysis: {
+      blankResults,
+      correctCount,
+      totalBlanks,
+      timeTaken: timeTakenSeconds || 0,
+      ...aiFeedback.detailedAnalysis,
+    },
+    suggestions: aiFeedback.suggestions,
+  };
+}
+
+/**
+ * Generate AI feedback for Fill in the Blanks responses
+ */
+async function generateFillInTheBlanksAIFeedback(
+  question: any,
+  userResponse: any,
+  blankResults: any,
+  score: number
+): Promise<{
+  feedback: string;
+  detailedAnalysis: any;
+  suggestions: string[];
+}> {
+  try {
+    const prompt = `
+You are an expert PTE Academic evaluator specializing in Fill in the Blanks questions.
+
+**Question Text:**
+${question.textContent}
+
+**Question Type:** ${question.questionType.name}
+
+**User's Answers:**
+${Object.entries(blankResults)
+  .map(
+    ([key, result]: [string, any]) =>
+      `${key}: "${result.userAnswer}" (Correct: "${result.correctAnswer}") - ${
+        result.isCorrect ? '✓' : '✗'
+      }`
+  )
+  .join('\n')}
+
+### **Scoring Rubrics**
+    1 Each correctly completed blank
+    0 Minimum score
+
+**Overall Score:** ${score}%
+
+Please provide:
+1. **Feedback**: Constructive feedback on the user's performance (2-3 sentences)
+2. **Detailed Analysis**: Analysis of vocabulary, grammar, and context understanding
+3. **Suggestions**: 3-4 specific improvement tips
+
+Respond in JSON format:
+{
+  "feedback": "Your feedback here",
+  "detailedAnalysis": {
+    "vocabularyAccuracy": 85,
+    "grammarUnderstanding": 90,
+    "contextComprehension": 80,
+    "commonMistakes": ["mistake1", "mistake2"]
+  },
+  "suggestions": ["suggestion1", "suggestion2", "suggestion3"]
+}
+`;
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.3,
+      max_tokens: 800,
+      response_format: { type: 'json_object' },
+    });
+
+    const aiResponse = response.choices[0]?.message?.content;
+    if (!aiResponse) {
+      throw new Error('No response from AI');
+    }
+
+    console.log('AI RESPONSE:', aiResponse);
+
+    const parsedResponse = JSON.parse(aiResponse);
+    return {
+      feedback: parsedResponse.feedback || 'Response evaluated successfully.',
+      detailedAnalysis: parsedResponse.detailedAnalysis || {},
+      suggestions: parsedResponse.suggestions || [],
+    };
+  } catch (error) {
+    console.error(
+      'Error generating AI feedback for fill in the blanks:',
+      error
+    );
+
+    // Fallback feedback based on score
+    let feedback = '';
+    let suggestions = [];
+
+    if (score >= 80) {
+      feedback =
+        'Excellent work! You demonstrated strong vocabulary and context understanding.';
+      suggestions = [
+        'Continue practicing with more challenging texts',
+        'Focus on academic vocabulary expansion',
+        'Practice identifying word forms and collocations',
+      ];
+    } else if (score >= 60) {
+      feedback =
+        "Good effort! You got most answers correct but there's room for improvement.";
+      suggestions = [
+        'Pay attention to grammatical context around blanks',
+        'Consider word forms (noun, verb, adjective, adverb)',
+        'Read the entire sentence before selecting answers',
+        'Practice more vocabulary in academic contexts',
+      ];
+    } else {
+      feedback =
+        'Keep practicing! Focus on understanding context and grammar patterns.';
+      suggestions = [
+        'Read the entire passage first to understand the topic',
+        'Look for grammatical clues around each blank',
+        'Study common academic vocabulary and collocations',
+        'Practice identifying parts of speech',
+      ];
+    }
+
+    return {
+      feedback,
+      detailedAnalysis: {
+        vocabularyAccuracy: Math.max(0, score - 10),
+        grammarUnderstanding: Math.max(0, score - 5),
+        contextComprehension: score,
+        aiEvaluationFailed: true,
+      },
+      suggestions,
+    };
+  }
+}
+
+// LISTENING QUESTION EVALUATION
 /**
  * Evaluate Summarize Spoken Text responses
  */
@@ -1267,12 +1575,6 @@ async function evaluateSummarizeSpokenText(
   const wordCount = userText
     .split(/\s+/)
     .filter((word: string | any[]) => word.length > 0).length;
-
-  console.log('Evaluating Summarize Spoken Text:', {
-    wordCount,
-    wordLimits: { min: question.wordCountMin, max: question.wordCountMax },
-    timeTaken: timeTakenSeconds,
-  });
 
   const prompt = `
     Evaluate this PTE Summarize Spoken Text response:
@@ -1339,202 +1641,6 @@ async function evaluateSummarizeSpokenText(
       suggestions: ['Please try again later'],
     };
   }
-}
-
-/**
- * Evaluate Multiple Choice Single Answer responses
- */
-async function evaluateMultipleChoiceSingle(
-  question: Question,
-  userResponse: any,
-  timeTakenSeconds?: number
-): Promise<QuestionEvaluationResult> {
-  const selectedOption = userResponse.selectedOption;
-  const correctAnswers = Array.isArray(question.correctAnswers)
-    ? question.correctAnswers
-    : [question.correctAnswers];
-
-  const isCorrect = correctAnswers.includes(selectedOption);
-  const score = isCorrect ? 100 : 0;
-
-  // Get the selected option text for feedback
-  const options = question.options || [];
-  const selectedOptionText =
-    options.find((opt: any) => opt.id === selectedOption)?.text ||
-    'Unknown option';
-  const correctOptionText =
-    options.find((opt: any) => correctAnswers.includes(opt.id))?.text ||
-    'Unknown option';
-
-  return {
-    score,
-    isCorrect,
-    feedback: isCorrect
-      ? `Correct! You selected: "${selectedOptionText}"`
-      : `Incorrect. You selected: "${selectedOptionText}". The correct answer is: "${correctOptionText}"`,
-    detailedAnalysis: {
-      selectedOption,
-      correctAnswers,
-      selectedOptionText,
-      correctOptionText,
-      timeTaken: timeTakenSeconds || 0,
-    },
-    suggestions: isCorrect
-      ? ['Great job! Continue practicing similar questions.']
-      : [
-          'Review the passage/audio more carefully',
-          'Look for key information that supports the correct answer',
-          'Practice elimination techniques for wrong options',
-        ],
-  };
-}
-
-/**
- * Evaluate Multiple Choice Multiple Answers responses
- */
-async function evaluateMultipleChoiceMultiple(
-  question: Question,
-  userResponse: any,
-  timeTakenSeconds?: number
-): Promise<QuestionEvaluationResult> {
-  const selectedOptions = userResponse.selectedOptions || [];
-  const correctAnswers = Array.isArray(question.correctAnswers)
-    ? question.correctAnswers
-    : [question.correctAnswers];
-
-  // Calculate partial scoring
-  const correctSelected = selectedOptions.filter((option: string) =>
-    correctAnswers.includes(option)
-  ).length;
-
-  const incorrectSelected = selectedOptions.filter(
-    (option: string) => !correctAnswers.includes(option)
-  ).length;
-
-  const score =
-    Math.max(0, (correctSelected - incorrectSelected) / correctAnswers.length) *
-    100;
-  const isCorrect = score === 100;
-
-  return {
-    score,
-    isCorrect,
-    feedback: `You selected ${correctSelected} correct and ${incorrectSelected} incorrect options out of ${correctAnswers.length} total correct answers.`,
-    detailedAnalysis: {
-      selectedOptions,
-      correctAnswers,
-      correctSelected,
-      incorrectSelected,
-      totalCorrect: correctAnswers.length,
-      partialScore: score,
-    },
-    suggestions: [
-      'Read all options carefully before selecting',
-      'Look for multiple pieces of evidence in the text/audio',
-      'Avoid selecting options that are only partially correct',
-    ],
-  };
-}
-
-/**
- * Evaluate Re-order Paragraphs responses
- */
-async function evaluateReorderParagraphs(
-  question: Question,
-  userResponse: any,
-  timeTakenSeconds?: number
-): Promise<QuestionEvaluationResult> {
-  const userOrder = userResponse.orderedParagraphs || [];
-  const correctOrder = question.correctAnswers || [];
-
-  // Calculate adjacent pairs scoring (PTE scoring method)
-  let correctPairs = 0;
-  for (let i = 0; i < userOrder.length - 1; i++) {
-    const currentIndex = correctOrder.indexOf(userOrder[i]);
-    const nextIndex = correctOrder.indexOf(userOrder[i + 1]);
-    if (
-      currentIndex !== -1 &&
-      nextIndex !== -1 &&
-      nextIndex === currentIndex + 1
-    ) {
-      correctPairs++;
-    }
-  }
-
-  const maxPairs = Math.max(0, correctOrder.length - 1);
-  const score = maxPairs > 0 ? (correctPairs / maxPairs) * 100 : 0;
-  const isCorrect = score === 100;
-
-  return {
-    score,
-    isCorrect,
-    feedback: `You got ${correctPairs} out of ${maxPairs} paragraph pairs in the correct order.`,
-    detailedAnalysis: {
-      userOrder,
-      correctOrder,
-      correctPairs,
-      maxPairs,
-      pairScore: score,
-    },
-    suggestions: [
-      'Look for logical connectors between paragraphs',
-      'Identify the introduction and conclusion paragraphs first',
-      'Follow the chronological or logical flow of ideas',
-    ],
-  };
-}
-
-/**
- * Evaluate Fill in the Blanks responses
- */
-async function evaluateFillInTheBlanks(
-  question: Question,
-  userResponse: any,
-  timeTakenSeconds?: number
-): Promise<QuestionEvaluationResult> {
-  const userBlanks = userResponse.blanks || {};
-  const correctBlanks = question.correctAnswers || {};
-
-  let correctCount = 0;
-  let totalBlanks = 0;
-  const blankResults: any = {};
-
-  Object.keys(correctBlanks).forEach((blankKey) => {
-    totalBlanks++;
-    const userAnswer = userBlanks[blankKey]?.toLowerCase().trim();
-    const correctAnswer = correctBlanks[blankKey]?.toLowerCase().trim();
-    const isBlankCorrect = userAnswer === correctAnswer;
-
-    if (isBlankCorrect) {
-      correctCount++;
-    }
-
-    blankResults[blankKey] = {
-      userAnswer: userBlanks[blankKey],
-      correctAnswer: correctBlanks[blankKey],
-      isCorrect: isBlankCorrect,
-    };
-  });
-
-  const score = totalBlanks > 0 ? (correctCount / totalBlanks) * 100 : 0;
-  const isCorrect = score === 100;
-
-  return {
-    score,
-    isCorrect,
-    feedback: `You filled ${correctCount} out of ${totalBlanks} blanks correctly.`,
-    detailedAnalysis: {
-      blankResults,
-      correctCount,
-      totalBlanks,
-      accuracy: score,
-    },
-    suggestions: [
-      'Pay attention to grammar and word forms',
-      'Consider the context around each blank',
-      'Review collocations and common word combinations',
-    ],
-  };
 }
 
 /**

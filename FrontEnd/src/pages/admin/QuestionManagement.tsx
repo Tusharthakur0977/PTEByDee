@@ -23,6 +23,7 @@ interface Question {
   id: string;
   questionCode: string;
   textContent?: string;
+  questionStatement?: string;
   audioUrl?: string;
   imageUrl?: string;
   options?: any;

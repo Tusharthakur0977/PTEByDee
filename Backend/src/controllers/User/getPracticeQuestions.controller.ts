@@ -2,8 +2,9 @@ import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import prisma from '../../config/prismaInstance';
 import { STATUS_CODES } from '../../utils/constants';
-import { sendResponse } from '../../utils/helpers';
+import { sendResponse, shuffleArray } from '../../utils/helpers';
 import { SecureUrlService } from '../../services/secureUrlService';
+import jwt from 'jsonwebtoken';
 
 /**
  * @desc    Get practice questions by question type for portal exercises
@@ -266,14 +267,16 @@ export const getPracticeQuestions = asyncHandler(
               paragraphs:
                 question.questionType.name === 'RE_ORDER_PARAGRAPHS'
                   ? transformParagraphsForReorder(
-                      question.textContent!,
+                      question.options,
                       question.correctAnswers
                     )
                   : undefined,
               blanks: question.questionType.name.includes('FILL_IN_THE_BLANKS')
                 ? transformBlanksForFillIn(
                     question.textContent!,
-                    question.correctAnswers
+                    question.correctAnswers,
+                    question.options,
+                    question.questionType.name
                   )
                 : undefined,
               wordLimit:
@@ -319,7 +322,6 @@ export const getPracticeQuestions = asyncHandler(
 );
 
 // Add jwt import at the top
-import jwt from 'jsonwebtoken';
 // Helper functions
 function formatQuestionTypeName(name: string): string {
   return name
@@ -352,7 +354,7 @@ function getInstructionsForQuestionType(questionType: string): string {
       'The text boxes in the left panel have been placed in a random order. Restore the original order by dragging the text boxes from the left panel to the right panel.',
     READING_FILL_IN_THE_BLANKS:
       'Below is a text with blanks. Click on each blank, a list of choices will appear. Select the appropriate answer choice for each blank.',
-    READING_WRITING_FILL_IN_THE_BLANKS:
+    FILL_IN_THE_BLANKS_DRAG_AND_DROP:
       'In the text below some words are missing. Drag words from the box below to the appropriate place in the text. To undo an answer choice, drag the word back to the box below the text.',
     SUMMARIZE_SPOKEN_TEXT:
       'You will hear a lecture. Write a summary for a fellow student who was not present at the lecture. You should write 50-70 words. You have 10 minutes to finish this task.',
@@ -408,37 +410,67 @@ function getRecordingTime(
 }
 
 function transformParagraphsForReorder(
-  textContent?: string,
+  options?: any,
   correctAnswers?: any
 ): any[] | undefined {
-  if (!textContent || !correctAnswers) return undefined;
+  // If options contains paragraphs data (new format)
+  if (options && Array.isArray(options) && options.length > 0) {
+    // Check if it's the new paragraph format
+    if (options[0].text && options[0].correctOrder !== undefined) {
+      const transformed = shuffleArray(
+        options.map((paragraph: any) => ({
+          id: paragraph.id,
+          text: paragraph.text,
+          order: paragraph.correctOrder,
+        }))
+      );
 
-  // Split text into paragraphs and create reorder structure
-  const paragraphs = textContent.split('\n\n').filter((p) => p.trim());
+      return transformed;
+    }
+  }
 
-  return paragraphs.map((text, index) => ({
-    id: `p${index + 1}`,
-    text: text.trim(),
-    order: index + 1,
-  }));
+  // Fallback for old format or empty data
+  return undefined;
 }
 
 function transformBlanksForFillIn(
   textContent?: string,
-  correctAnswers?: any
+  correctAnswers?: any,
+  storedOptions?: any,
+  questionType?: string
 ): any[] | undefined {
-  if (!textContent || !correctAnswers) return undefined;
+  if (!textContent) return undefined;
 
   // Count blanks in text and create structure
   const blankCount = (textContent.match(/_____/g) || []).length;
+
+  // If we have stored options (from database), use them
+  if (storedOptions && Array.isArray(storedOptions)) {
+    return storedOptions
+      .slice(0, blankCount)
+      .map((blank: any, index: number) => ({
+        id: blank.id || `blank${index + 1}`,
+        position: blank.position || index + 1,
+        // For Reading Writing Fill in the Blanks (drag and drop), shuffle the options
+        options:
+          questionType === 'FILL_IN_THE_BLANKS_DRAG_AND_DROP'
+            ? shuffleArray([...(blank.options || [])])
+            : blank.options || [],
+        correctAnswer: blank.correctAnswer || '',
+      }));
+  }
+
+  // Fallback: create structure from correctAnswers (for backward compatibility)
   const answers = Array.isArray(correctAnswers)
     ? correctAnswers
+    : typeof correctAnswers === 'object'
+    ? Object.values(correctAnswers)
     : [correctAnswers];
 
   return Array.from({ length: blankCount }, (_, index) => ({
     id: `blank${index + 1}`,
     position: index + 1,
-    options: [], // Would need to be configured separately
+    options: [], // Empty options for backward compatibility
     correctAnswer: answers[index] || '',
   }));
 }

@@ -7,6 +7,7 @@ export interface CreateQuestionData {
   orderInTest?: number;
   difficultyLevel?: 'EASY' | 'MEDIUM' | 'HARD';
   textContent?: string;
+  questionStatement?: string; // For multiple choice questions
   audioKey?: string;
   imageKey?: string;
   options?: any;
@@ -16,6 +17,8 @@ export interface CreateQuestionData {
   durationMillis?: number;
   originalTextWithErrors?: string;
   incorrectWords?: any;
+  blanks?: any[]; // For fill-in-the-blanks questions with dropdown options
+  paragraphs?: any[]; // For re-order paragraphs questions
 }
 
 // Removed redundant UpdateQuestionData interface

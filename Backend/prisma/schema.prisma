@@ -308,6 +308,7 @@ model Question {
 
     // Question content fields - tailored for PTE Academic question types
     textContent String? // For Read Aloud, Summarize Written Text, Essay, Reading Fill in the Blanks, R&W Fill in the Blanks, Re-order Paragraphs, Highlight Incorrect Words
+    questionStatement String? // The actual question being asked (e.g., "What can we infer from the passage?", "Which of the following statements are incorrect?")
     audioUrl    String? // For Repeat Sentence, Re-tell Lecture, Answer Short Question, Summarize Spoken Text, Listening Fill in the Blanks, Highlight Correct Summary, Select Missing Word, Write from Dictation
     imageUrl    String? // For Describe Image (URL to the image)
 
@@ -539,7 +540,7 @@ enum PteQuestionTypeName {
     WRITE_ESSAY
 
     // Reading
-    READING_WRITING_FILL_IN_THE_BLANKS // Combined skill type
+    FILL_IN_THE_BLANKS_DRAG_AND_DROP // Drag and Drop Fill in the Blanks
     MULTIPLE_CHOICE_MULTIPLE_ANSWERS_READING // Specific to Reading
     RE_ORDER_PARAGRAPHS
     READING_FILL_IN_THE_BLANKS // Specific to Reading

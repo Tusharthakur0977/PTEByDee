@@ -22,6 +22,7 @@ export const createQuestion = asyncHandler(
       questionTypeId,
       difficultyLevel = 'MEDIUM', // Default to MEDIUM if not provided
       textContent,
+      questionStatement,
       audioKey,
       imageKey,
       options,
@@ -31,6 +32,8 @@ export const createQuestion = asyncHandler(
       durationMillis,
       originalTextWithErrors,
       incorrectWords,
+      blanks,
+      paragraphs, // For RE_ORDER_PARAGRAPHS questions
     } = req.body;
 
     try {
@@ -93,6 +96,7 @@ export const createQuestion = asyncHandler(
       // Validate question content based on question type
       const validationResult = validateQuestionContent(questionType.name, {
         textContent,
+        questionStatement,
         audioKey,
         imageKey,
         options,
@@ -102,6 +106,8 @@ export const createQuestion = asyncHandler(
         durationMillis,
         originalTextWithErrors,
         incorrectWords,
+        blanks,
+        paragraphs,
       });
 
       if (!validationResult.isValid) {
@@ -218,6 +224,56 @@ export const createQuestion = asyncHandler(
         }
       }
 
+      // Handle blanks data for fill-in-the-blanks questions
+      let finalOptions = options;
+      if (
+        blanks &&
+        Array.isArray(blanks) &&
+        questionType.name.includes('FILL_IN_THE_BLANKS')
+      ) {
+        // Transform blanks array into the format expected by the database
+        const processedBlanks = blanks.map((blank: any, index: number) => ({
+          id: blank.id || `blank_${index + 1}`,
+          position: blank.position || index + 1,
+          correctAnswer: blank.correctAnswer,
+          options: blank.options || [],
+        }));
+        finalOptions = processedBlanks;
+
+        // Update correct answers from blanks if not already provided
+        if (!finalCorrectAnswers) {
+          const processedCorrectAnswers = blanks.reduce(
+            (acc: any, blank: any, index: number) => {
+              acc[`blank${index + 1}`] = blank.correctAnswer;
+              return acc;
+            },
+            {}
+          );
+          finalCorrectAnswers = processedCorrectAnswers;
+        }
+      }
+
+      // Handle paragraphs data for re-order paragraphs questions
+      if (
+        paragraphs &&
+        Array.isArray(paragraphs) &&
+        questionType.name === 'RE_ORDER_PARAGRAPHS'
+      ) {
+        // Store paragraphs in options field
+        finalOptions = paragraphs.map((paragraph: any) => ({
+          id: paragraph.id || `para_${Date.now()}_${Math.random()}`,
+          text: paragraph.text,
+          correctOrder: paragraph.correctOrder,
+        }));
+
+        // Store correct order in correctAnswers field
+        const correctOrder = paragraphs
+          .sort((a: any, b: any) => a.correctOrder - b.correctOrder)
+          .map((p: any) => p.id || `para_${Date.now()}_${Math.random()}`);
+
+        finalCorrectAnswers = { correctOrder };
+      }
+
       // Create the question
       const question = await prisma.question.create({
         data: {
@@ -225,9 +281,10 @@ export const createQuestion = asyncHandler(
           questionTypeId,
           difficultyLevel,
           textContent: finalContent || audioTranscript || null,
+          questionStatement: questionStatement || null,
           audioUrl: audioKey || null, // Store S3 key in audioUrl field
           imageUrl: imageKey || null, // Store S3 key in imageUrl field
-          options: options || null,
+          options: finalOptions || null,
           correctAnswers: finalCorrectAnswers || null,
           wordCountMin: wordCountMin || null,
           wordCountMax: wordCountMax || null,
@@ -281,6 +338,7 @@ function validateQuestionContent(
 ): { isValid: boolean; message: string } {
   const {
     textContent,
+    questionStatement,
     audioKey,
     imageKey,
     options,
@@ -289,6 +347,8 @@ function validateQuestionContent(
     wordCountMax,
     originalTextWithErrors,
     incorrectWords,
+    blanks,
+    paragraphs,
   } = content;
 
   switch (questionType) {
@@ -348,6 +408,13 @@ function validateQuestionContent(
             'Text content or audio is required for multiple choice questions.',
         };
       }
+      if (!questionStatement) {
+        return {
+          isValid: false,
+          message:
+            'Question statement is required for multiple choice questions.',
+        };
+      }
       if (!options || !Array.isArray(options) || options.length < 2) {
         return {
           isValid: false,
@@ -365,7 +432,7 @@ function validateQuestionContent(
       break;
 
     case 'READING_FILL_IN_THE_BLANKS':
-    case 'READING_WRITING_FILL_IN_THE_BLANKS':
+    case 'FILL_IN_THE_BLANKS_DRAG_AND_DROP':
     case 'LISTENING_FILL_IN_THE_BLANKS':
       if (!textContent && !audioKey) {
         return {
@@ -374,29 +441,86 @@ function validateQuestionContent(
             'Text content or audio is required for fill in the blanks questions.',
         };
       }
-      if (!correctAnswers) {
+      if (!correctAnswers && !blanks) {
         return {
           isValid: false,
           message:
-            'Correct answers are required for fill in the blanks questions.',
+            'Correct answers or blanks configuration is required for fill in the blanks questions.',
         };
+      }
+      // Validate blanks structure if provided
+      if (blanks && Array.isArray(blanks)) {
+        for (let i = 0; i < blanks.length; i++) {
+          const blank = blanks[i];
+          if (!blank.correctAnswer) {
+            return {
+              isValid: false,
+              message: `Blank ${i + 1} must have a correct answer.`,
+            };
+          }
+          if (
+            !blank.options ||
+            !Array.isArray(blank.options) ||
+            blank.options.length < 2
+          ) {
+            return {
+              isValid: false,
+              message: `Blank ${i + 1} must have at least 2 dropdown options.`,
+            };
+          }
+          // Ensure correct answer is included in options
+          if (!blank.options.includes(blank.correctAnswer)) {
+            return {
+              isValid: false,
+              message: `Blank ${
+                i + 1
+              }: correct answer must be included in the dropdown options.`,
+            };
+          }
+        }
       }
       break;
 
     case 'RE_ORDER_PARAGRAPHS':
-      if (!textContent) {
+      if (!paragraphs || !Array.isArray(paragraphs) || paragraphs.length < 2) {
         return {
           isValid: false,
           message:
-            'Text content is required for Re-order Paragraphs questions.',
+            'At least 2 paragraphs are required for Re-order Paragraphs questions.',
         };
       }
-      if (!correctAnswers) {
-        return {
-          isValid: false,
-          message:
-            'Correct order is required for Re-order Paragraphs questions.',
-        };
+
+      // Validate each paragraph has required fields
+      for (let i = 0; i < paragraphs.length; i++) {
+        const paragraph = paragraphs[i];
+        if (!paragraph.text || !paragraph.text.trim()) {
+          return {
+            isValid: false,
+            message: `Paragraph ${i + 1}: text is required.`,
+          };
+        }
+        if (!paragraph.correctOrder || paragraph.correctOrder < 1) {
+          return {
+            isValid: false,
+            message: `Paragraph ${
+              i + 1
+            }: correct order is required and must be greater than 0.`,
+          };
+        }
+      }
+
+      // Validate correct order sequence (should be 1, 2, 3, ...)
+      const orders = paragraphs
+        .map((p) => p.correctOrder)
+        .sort((a, b) => a - b);
+      for (let i = 0; i < orders.length; i++) {
+        if (orders[i] !== i + 1) {
+          return {
+            isValid: false,
+            message:
+              'Paragraph correct order must be a sequence starting from 1 (1, 2, 3, ...).',
+          };
+        }
       }
       break;
 

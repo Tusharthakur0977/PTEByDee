@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import prisma from '../../config/prismaInstance';
 import { STATUS_CODES } from '../../utils/constants';
-import { sendResponse } from '../../utils/helpers';
+import { sendResponse, shuffleArray } from '../../utils/helpers';
 import { SecureUrlService } from '../../services/secureUrlService';
 import jwt from 'jsonwebtoken';
 
@@ -143,26 +143,70 @@ export const getQuestionWithResponses = asyncHandler(
             : null,
       }));
 
+      // Transform question data to match getPracticeQuestions format
+      const transformedQuestion = {
+        id: question.id,
+        type: question.questionType.name,
+        difficultyLevel: question.difficultyLevel,
+        title: `${question.questionType.name} - ${question.questionCode}`,
+        instructions: `Instructions for ${question.questionType.name}`, // You might want to add proper instructions
+        content: {
+          text: question.textContent,
+          questionStatement: question.questionStatement,
+          audioUrl,
+          imageUrl: imageSignedUrl,
+          options: question.options,
+          paragraphs:
+            question.questionType.name === 'RE_ORDER_PARAGRAPHS'
+              ? transformParagraphsForReorder(
+                  question.options,
+                  question.correctAnswers
+                )
+              : undefined,
+          blanks: question.questionType.name.includes('FILL_IN_THE_BLANKS')
+            ? transformBlanksForFillIn(
+                question.textContent!,
+                question.correctAnswers,
+                question.options,
+                question.questionType.name
+              )
+            : undefined,
+          wordLimit:
+            question.wordCountMin && question.wordCountMax
+              ? {
+                  min: question.wordCountMin,
+                  max: question.wordCountMax,
+                }
+              : undefined,
+          timeLimit: question.durationMillis
+            ? Math.floor(question.durationMillis / 1000)
+            : undefined,
+        },
+        // Include raw question data for backward compatibility
+        rawQuestion: {
+          id: question.id,
+          questionCode: question.questionCode,
+          questionType: question.questionType.name,
+          difficultyLevel: question.difficultyLevel,
+          textContent: question.textContent,
+          questionStatement: question.questionStatement,
+          audioUrl,
+          imageUrl: imageSignedUrl,
+          options: question.options,
+          correctAnswers: question.correctAnswers,
+          wordCountMin: question.wordCountMin,
+          wordCountMax: question.wordCountMax,
+          durationMillis: question.durationMillis,
+          originalTextWithErrors: question.originalTextWithErrors,
+          incorrectWords: question.incorrectWords,
+        },
+      };
+
       return sendResponse(
         res,
         STATUS_CODES.OK,
         {
-          question: {
-            id: question.id,
-            questionCode: question.questionCode,
-            questionType: question.questionType.name,
-            difficultyLevel: question.difficultyLevel,
-            textContent: question.textContent,
-            audioUrl,
-            imageUrl: imageSignedUrl,
-            options: question.options,
-            correctAnswers: question.correctAnswers,
-            wordCountMin: question.wordCountMin,
-            wordCountMax: question.wordCountMax,
-            durationMillis: question.durationMillis,
-            originalTextWithErrors: question.originalTextWithErrors,
-            incorrectWords: question.incorrectWords,
-          },
+          question: transformedQuestion,
           responses: transformedResponses,
           total: transformedResponses.length,
         },
@@ -179,3 +223,72 @@ export const getQuestionWithResponses = asyncHandler(
     }
   }
 );
+
+// Helper functions for data transformation (copied from getPracticeQuestions)
+function transformParagraphsForReorder(
+  options?: any,
+  correctAnswers?: any
+): any[] | undefined {
+  // If options contains paragraphs data (new format)
+  if (options && Array.isArray(options) && options.length > 0) {
+    // Check if it's the new paragraph format
+    if (options[0].text && options[0].correctOrder !== undefined) {
+      const transformed = shuffleArray(
+        options.map((paragraph: any) => ({
+          id: paragraph.id,
+          text: paragraph.text,
+          order: paragraph.correctOrder,
+        }))
+      );
+      return transformed;
+    }
+  }
+
+  // Fallback for old format or empty data
+  return undefined;
+}
+
+function transformBlanksForFillIn(
+  textContent?: string,
+  correctAnswers?: any,
+  options?: any,
+  questionType?: string
+): any[] | undefined {
+  // If options contains blanks data (new format)
+  if (options && Array.isArray(options) && options.length > 0) {
+    // Check if it's the new blanks format
+    if (options[0].correctAnswer !== undefined && options[0].options) {
+      // For Reading Writing Fill in the Blanks (drag and drop), shuffle the options
+      if (questionType === 'FILL_IN_THE_BLANKS_DRAG_AND_DROP') {
+        return options.map((blank: any) => ({
+          ...blank,
+          options: shuffleArray([...blank.options]), // Shuffle options for each blank
+        }));
+      }
+      return options;
+    }
+  }
+
+  // Fallback for old format
+  if (!textContent) return undefined;
+
+  // Count blanks in text content
+  const blankMatches = textContent.match(/___+/g);
+  const blankCount = blankMatches ? blankMatches.length : 0;
+
+  if (blankCount === 0) return undefined;
+
+  // Fallback: create structure from correctAnswers (for backward compatibility)
+  const answers = Array.isArray(correctAnswers)
+    ? correctAnswers
+    : typeof correctAnswers === 'object'
+    ? Object.values(correctAnswers)
+    : [correctAnswers];
+
+  return Array.from({ length: blankCount }, (_, index) => ({
+    id: `blank${index + 1}`,
+    position: index + 1,
+    options: [], // Empty options for backward compatibility
+    correctAnswer: answers[index] || '',
+  }));
+}

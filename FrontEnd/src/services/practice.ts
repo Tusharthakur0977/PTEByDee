@@ -195,10 +195,19 @@ export const calculateQuestionScore = (
       };
     }
     case PteQuestionTypeName.READING_FILL_IN_THE_BLANKS:
-    case PteQuestionTypeName.READING_WRITING_FILL_IN_THE_BLANKS:
+    case PteQuestionTypeName.FILL_IN_THE_BLANKS_DRAG_AND_DROP:
     case PteQuestionTypeName.LISTENING_FILL_IN_THE_BLANKS: {
       const userBlanks = userResponse.blanks || {};
-      const correctBlanks = correctAnswer || {};
+      let correctBlanks = correctAnswer || {};
+
+      // If correctAnswer is structured as blanks array, convert it
+      if (Array.isArray(correctAnswer)) {
+        correctBlanks = {};
+        correctAnswer.forEach((blank: any) => {
+          correctBlanks[`blank${blank.position}`] = blank.correctAnswer;
+        });
+      }
+
       let correctCount = 0;
       let totalBlanks = 0;
 

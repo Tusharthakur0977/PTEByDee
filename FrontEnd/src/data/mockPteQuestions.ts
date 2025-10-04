@@ -7,6 +7,7 @@ export interface MockQuestion {
   instructions: string;
   content: {
     text?: string;
+    questionStatement?: string;
     audioUrl?: string;
     imageUrl?: string;
     options?: Array<{
@@ -128,8 +129,8 @@ export const mockQuestions: MockQuestion[] = [
   // Reading Questions
   {
     id: 'rwfib_001',
-    type: PteQuestionTypeName.READING_WRITING_FILL_IN_THE_BLANKS,
-    title: 'Reading & Writing Fill in the Blanks - Education',
+    type: PteQuestionTypeName.FILL_IN_THE_BLANKS_DRAG_AND_DROP,
+    title: 'Fill in the Blanks (Drag and Drop) - Education',
     instructions:
       'In the text below some words are missing. Drag words from the box below to the appropriate place in the text. To undo an answer choice, drag the word back to the box below the text.',
     content: {

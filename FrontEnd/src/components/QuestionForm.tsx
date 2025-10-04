@@ -36,6 +36,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
     orderInTest: question?.orderInTest || 1,
     difficultyLevel: question?.difficultyLevel || 'MEDIUM',
     textContent: question?.textContent || '',
+    questionStatement: question?.questionStatement || '',
     audioKey: question?.audioUrl || '',
     imageKey: question?.imageUrl || '',
     options: question?.options || [],
@@ -327,7 +328,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
         'MULTIPLE_CHOICE_SINGLE_ANSWER_READING',
         'MULTIPLE_CHOICE_MULTIPLE_ANSWERS_READING',
         'READING_FILL_IN_THE_BLANKS',
-        'READING_WRITING_FILL_IN_THE_BLANKS',
+        'FILL_IN_THE_BLANKS_DRAG_AND_DROP',
         'RE_ORDER_PARAGRAPHS',
       ].includes(selectedQuestionType.name),
 
@@ -353,7 +354,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
 
       requiresBlanks: [
         'READING_FILL_IN_THE_BLANKS',
-        'READING_WRITING_FILL_IN_THE_BLANKS',
+        'FILL_IN_THE_BLANKS_DRAG_AND_DROP',
         'LISTENING_FILL_IN_THE_BLANKS',
       ].includes(selectedQuestionType.name),
     };
@@ -362,6 +363,34 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
   };
 
   const requirements = getQuestionTypeRequirements();
+
+  // Auto-generate blank options when text content changes for fill-in-the-blanks
+  React.useEffect(() => {
+    if (requirements.requiresBlanks && formData.textContent) {
+      const blankCount = (formData.textContent.match(/_____/g) || []).length;
+      const currentBlanks = formData.blanks || [];
+
+      // Only update if blank count changed
+      if (blankCount !== currentBlanks.length) {
+        const newBlanks = Array.from({ length: blankCount }, (_, index) => {
+          const existingBlank = currentBlanks[index];
+          return (
+            existingBlank || {
+              id: `blank_${Date.now()}_${index}`,
+              position: index + 1,
+              correctAnswer: '',
+              options: [''],
+            }
+          );
+        });
+
+        setFormData((prev) => ({
+          ...prev,
+          blanks: newBlanks,
+        }));
+      }
+    }
+  }, [formData.textContent, requirements.requiresBlanks]);
 
   const renderQuestionTypeSpecificFields = () => {
     if (!selectedQuestionType) return null;
@@ -452,7 +481,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
         );
 
       case 'READING_FILL_IN_THE_BLANKS':
-      case 'READING_WRITING_FILL_IN_THE_BLANKS':
+      case 'FILL_IN_THE_BLANKS_DRAG_AND_DROP':
       case 'LISTENING_FILL_IN_THE_BLANKS':
         return (
           <div className='space-y-6'>
@@ -539,7 +568,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                         <div>
                           <div className='flex items-center justify-between mb-2'>
                             <label className='block text-xs font-medium text-gray-600'>
-                              Distractor Options
+                              Dropdown Options
                             </label>
                             <button
                               type='button'
@@ -549,6 +578,10 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                               + Add Option
                             </button>
                           </div>
+                          <p className='text-xs text-gray-500 mb-2'>
+                            Add all options that will appear in the dropdown.
+                            The correct answer will be automatically included.
+                          </p>
                           <div className='space-y-2'>
                             {blank.options?.map(
                               (option: string, optionIndex: number) => (
@@ -567,9 +600,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                                       )
                                     }
                                     className='flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:border-transparent'
-                                    placeholder={`Distractor option ${
-                                      optionIndex + 1
-                                    }`}
+                                    placeholder={`Option ${optionIndex + 1}`}
                                   />
                                   <button
                                     type='button'
@@ -584,6 +615,35 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                               )
                             )}
                           </div>
+
+                          {/* Auto-add correct answer button */}
+                          {blank.correctAnswer &&
+                            !blank.options?.includes(blank.correctAnswer) && (
+                              <button
+                                type='button'
+                                onClick={() => {
+                                  const newBlanks = [
+                                    ...(formData.blanks || []),
+                                  ];
+                                  if (
+                                    !newBlanks[blankIndex].options.includes(
+                                      blank.correctAnswer
+                                    )
+                                  ) {
+                                    newBlanks[blankIndex].options.push(
+                                      blank.correctAnswer
+                                    );
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      blanks: newBlanks,
+                                    }));
+                                  }
+                                }}
+                                className='mt-2 text-xs bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200 transition-colors'
+                              >
+                                + Add Correct Answer to Options
+                              </button>
+                            )}
                         </div>
                       </div>
                     </div>
@@ -593,8 +653,8 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
 
               {(formData.blanks || []).length === 0 && (
                 <p className='text-sm text-gray-500 text-center py-4'>
-                  No blanks configured yet. Add blanks to match the _____ in
-                  your text.
+                  No blanks configured yet. Add text content with _____ to
+                  automatically generate blank fields.
                 </p>
               )}
             </div>
@@ -920,6 +980,32 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                   </div>
                 )}
 
+              {/* Question Statement for Multiple Choice Questions */}
+              {requirements.requiresOptions && (
+                <div className='mb-6'>
+                  <label className='block text-sm font-medium text-gray-700 mb-2'>
+                    Question Statement *
+                  </label>
+                  <input
+                    type='text'
+                    value={formData.questionStatement}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        questionStatement: e.target.value,
+                      }))
+                    }
+                    className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                    placeholder='e.g., "What can we infer from the passage?", "Which of the following statements are incorrect?"'
+                    required
+                  />
+                  <p className='text-xs text-gray-500 mt-1'>
+                    Enter the actual question that will be asked to students
+                    based on the text/audio content above
+                  </p>
+                </div>
+              )}
+
               {/* Audio Upload */}
               {requirements.requiresAudio && (
                 <div className='mb-6'>
@@ -1106,9 +1192,16 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
               {requirements.requiresOptions && (
                 <div className='mb-6'>
                   <div className='flex items-center justify-between mb-3'>
-                    <label className='block text-sm font-medium text-gray-700'>
-                      Answer Options *
-                    </label>
+                    <div>
+                      <label className='block text-sm font-medium text-gray-700'>
+                        Answer Options *
+                      </label>
+                      <p className='text-xs text-gray-500 mt-1'>
+                        {selectedQuestionType.name.includes('SINGLE_ANSWER')
+                          ? 'Select one correct answer (radio buttons)'
+                          : 'Select multiple correct answers (checkboxes)'}
+                      </p>
+                    </div>
                     <button
                       type='button'
                       onClick={addOption}
@@ -1120,38 +1213,66 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
 
                   <div className='space-y-3'>
                     {(formData.options || []).map(
-                      (option: any, index: number) => (
-                        <div
-                          key={option.id || index}
-                          className='flex items-center gap-3 p-3 border border-gray-200 rounded-lg bg-white'
-                        >
-                          <input
-                            type='checkbox'
-                            checked={option.isCorrect || false}
-                            onChange={(e) =>
-                              updateOption(index, 'isCorrect', e.target.checked)
-                            }
-                            className='w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500'
-                          />
-                          <input
-                            type='text'
-                            value={option.text || ''}
-                            onChange={(e) =>
-                              updateOption(index, 'text', e.target.value)
-                            }
-                            className='flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
-                            placeholder={`Option ${index + 1}`}
-                            required
-                          />
-                          <button
-                            type='button'
-                            onClick={() => removeOption(index)}
-                            className='p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors'
+                      (option: any, index: number) => {
+                        const isSingleAnswer =
+                          selectedQuestionType.name.includes('SINGLE_ANSWER');
+
+                        return (
+                          <div
+                            key={option.id || index}
+                            className='flex items-center gap-3 p-3 border border-gray-200 rounded-lg bg-white'
                           >
-                            <X className='w-4 h-4' />
-                          </button>
-                        </div>
-                      )
+                            <input
+                              type={isSingleAnswer ? 'radio' : 'checkbox'}
+                              name={
+                                isSingleAnswer ? 'correctAnswer' : undefined
+                              }
+                              checked={option.isCorrect || false}
+                              onChange={(e) => {
+                                if (isSingleAnswer) {
+                                  // For single answer, uncheck all others first
+                                  const updatedOptions = (
+                                    formData.options || []
+                                  ).map((opt: any, i: number) => ({
+                                    ...opt,
+                                    isCorrect:
+                                      i === index ? e.target.checked : false,
+                                  }));
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    options: updatedOptions,
+                                  }));
+                                } else {
+                                  // For multiple answers, just toggle this option
+                                  updateOption(
+                                    index,
+                                    'isCorrect',
+                                    e.target.checked
+                                  );
+                                }
+                              }}
+                              className='w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500'
+                            />
+                            <input
+                              type='text'
+                              value={option.text || ''}
+                              onChange={(e) =>
+                                updateOption(index, 'text', e.target.value)
+                              }
+                              className='flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                              placeholder={`Option ${index + 1}`}
+                              required
+                            />
+                            <button
+                              type='button'
+                              onClick={() => removeOption(index)}
+                              className='p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors'
+                            >
+                              <X className='w-4 h-4' />
+                            </button>
+                          </div>
+                        );
+                      }
                     )}
                   </div>
 
@@ -1191,7 +1312,10 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                 )}
                 {requirements.requiresImage && <li>• Image URL is required</li>}
                 {requirements.requiresOptions && (
-                  <li>• Answer options are required</li>
+                  <>
+                    <li>• Question statement is required</li>
+                    <li>• Answer options are required</li>
+                  </>
                 )}
                 {requirements.requiresWordCount && (
                   <li>• Word count limits are required</li>
@@ -1207,6 +1331,12 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                 )}
                 {requirements.requiresBlanks && (
                   <li>• Blank options and correct answers are required</li>
+                )}
+                {requirements.requiresBlanks && (
+                  <li>
+                    • Each blank must have at least 3-5 dropdown options
+                    including the correct answer
+                  </li>
                 )}
               </ul>
             </div>
