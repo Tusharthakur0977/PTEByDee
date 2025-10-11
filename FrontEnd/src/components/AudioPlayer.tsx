@@ -13,6 +13,7 @@ interface AudioPlayerProps {
   src: string;
   title?: string;
   autoPlay?: boolean;
+  autoPlayDelay?: number; // Delay in milliseconds before auto-playing
   showControls?: boolean;
   onEnded?: () => void;
   onPlay?: () => void;
@@ -25,6 +26,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   src,
   title,
   autoPlay = false,
+  autoPlayDelay = 0,
   showControls = true,
   onEnded,
   onPlay,
@@ -52,7 +54,13 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
       setIsLoading(false);
       if (autoPlay && !hasStarted) {
         setHasStarted(true);
-        handlePlay();
+        if (autoPlayDelay > 0) {
+          setTimeout(() => {
+            handlePlay();
+          }, autoPlayDelay);
+        } else {
+          handlePlay();
+        }
       }
     };
 

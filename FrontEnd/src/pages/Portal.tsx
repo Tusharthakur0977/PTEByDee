@@ -164,7 +164,6 @@ const Portal: React.FC = () => {
   };
 
   const handleQuestionComplete = (response: any) => {
-    console.log('Question completed:', response);
     // Refresh stats if we're on overview tab
     if (activeTab === 'overview') {
       fetchPracticeStats();
@@ -227,11 +226,13 @@ const Portal: React.FC = () => {
           blanks: questionData.content?.blanks,
           timeLimit:
             questionData.content?.timeLimit ||
-            Math.floor(
-              (questionData.durationMillis ||
-                questionData.rawQuestion?.durationMillis ||
-                300000) / 1000
-            ),
+            (questionType === 'SUMMARIZE_SPOKEN_TEXT'
+              ? 600 // 10 minutes for summarize spoken text
+              : Math.floor(
+                  (questionData.durationMillis ||
+                    questionData.rawQuestion?.durationMillis ||
+                    300000) / 1000
+                )),
           preparationTime: getPreparationTimeForQuestionType(questionType),
           recordingTime: getRecordingTimeForQuestionType(questionType),
           wordLimit:

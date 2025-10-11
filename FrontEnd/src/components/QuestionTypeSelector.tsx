@@ -296,7 +296,7 @@ const QuestionTypeSelector: React.FC<QuestionTypeSelectorProps> = ({
                           {questionType.title}
                         </h4>
                         <div className='flex items-center justify-between'>
-                          <div
+                          {/* <div
                             className={`px-2 py-1 ${getColorClasses(
                               category.color,
                               'bg'
@@ -306,7 +306,7 @@ const QuestionTypeSelector: React.FC<QuestionTypeSelectorProps> = ({
                             )} rounded-md text-xs font-medium`}
                           >
                             {questionType.duration}
-                          </div>
+                          </div> */}
                           {questionType.questionCount !== undefined && (
                             <div className='text-xs text-gray-500 dark:text-gray-400'>
                               {questionType.questionCount} questions

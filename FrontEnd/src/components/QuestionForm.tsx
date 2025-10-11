@@ -355,7 +355,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
       requiresBlanks: [
         'READING_FILL_IN_THE_BLANKS',
         'FILL_IN_THE_BLANKS_DRAG_AND_DROP',
-        'LISTENING_FILL_IN_THE_BLANKS',
+        // Note: LISTENING_FILL_IN_THE_BLANKS removed - blanks are auto-generated from audio
       ].includes(selectedQuestionType.name),
     };
 
@@ -482,7 +482,6 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
 
       case 'READING_FILL_IN_THE_BLANKS':
       case 'FILL_IN_THE_BLANKS_DRAG_AND_DROP':
-      case 'LISTENING_FILL_IN_THE_BLANKS':
         return (
           <div className='space-y-6'>
             {/* Text with blanks */}
@@ -661,32 +660,141 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
           </div>
         );
 
-      case 'HIGHLIGHT_INCORRECT_WORDS':
+      case 'LISTENING_FILL_IN_THE_BLANKS':
         return (
           <div className='space-y-6'>
+            {/* Auto-generation notice */}
+            <div className='bg-blue-50 border border-blue-200 rounded-lg p-4'>
+              <div className='flex items-start space-x-3'>
+                <div className='flex-shrink-0'>
+                  <svg
+                    className='w-5 h-5 text-blue-400'
+                    fill='currentColor'
+                    viewBox='0 0 20 20'
+                  >
+                    <path
+                      fillRule='evenodd'
+                      d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z'
+                      clipRule='evenodd'
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <h4 className='text-sm font-medium text-blue-800'>
+                    Auto-Generated Content
+                  </h4>
+                  <p className='text-sm text-blue-700 mt-1'>
+                    For Listening Fill in the Blanks questions, the text content
+                    with blanks will be automatically generated from your
+                    uploaded audio file.
+                  </p>
+                  <p className='text-sm text-blue-700 mt-2'>
+                    Simply upload an audio file and the system will:
+                  </p>
+                  <ul className='text-sm text-blue-700 mt-1 ml-4 list-disc'>
+                    <li>Transcribe the audio content</li>
+                    <li>Identify key words to remove</li>
+                    <li>Create multiple choice options for each blank</li>
+                    <li>Generate the complete fill-in-the-blanks exercise</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Optional text content override */}
             <div className='mb-6'>
               <label className='block text-sm font-medium text-gray-700 mb-2'>
-                Original Text with Errors *
+                Text Content with Blanks (Optional)
               </label>
               <textarea
-                value={formData.originalTextWithErrors}
+                value={formData.textContent}
                 onChange={(e) =>
                   setFormData((prev) => ({
                     ...prev,
-                    originalTextWithErrors: e.target.value,
+                    textContent: e.target.value,
+                  }))
+                }
+                className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                rows={6}
+                placeholder='Leave empty to auto-generate from audio, or enter custom text with _____ for blanks.'
+              />
+              <p className='text-xs text-gray-500 mt-1'>
+                If provided, use _____ (5 underscores) to mark blanks in the
+                text. Otherwise, content will be auto-generated from the audio
+                file.
+              </p>
+            </div>
+          </div>
+        );
+
+      case 'HIGHLIGHT_INCORRECT_WORDS':
+        return (
+          <div className='space-y-6'>
+            {/* Auto-generation notice */}
+            <div className='bg-blue-50 border border-blue-200 rounded-lg p-4'>
+              <div className='flex items-start space-x-3'>
+                <div className='flex-shrink-0'>
+                  <svg
+                    className='w-5 h-5 text-blue-400'
+                    fill='currentColor'
+                    viewBox='0 0 20 20'
+                  >
+                    <path
+                      fillRule='evenodd'
+                      d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z'
+                      clipRule='evenodd'
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <h4 className='text-sm font-medium text-blue-800'>
+                    Auto-Generated Content
+                  </h4>
+                  <p className='text-sm text-blue-700 mt-1'>
+                    For Highlight Incorrect Words questions, the text with
+                    errors will be automatically generated from your uploaded
+                    audio file.
+                  </p>
+                  <p className='text-sm text-blue-700 mt-2'>
+                    Simply upload an audio file and the system will:
+                  </p>
+                  <ul className='text-sm text-blue-700 mt-1 ml-4 list-disc'>
+                    <li>Transcribe the audio content</li>
+                    <li>Replace 3-5 words with similar but incorrect words</li>
+                    <li>Create a list of incorrect words for evaluation</li>
+                    <li>Generate the complete highlight exercise</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Optional text content override */}
+            <div className='mb-6'>
+              <label className='block text-sm font-medium text-gray-700 mb-2'>
+                Text Content with Errors (Optional)
+              </label>
+              <textarea
+                value={formData.textContent}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    textContent: e.target.value,
                   }))
                 }
                 className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
                 rows={4}
-                placeholder='Enter the text with intentional errors that students need to identify...'
-                required
+                placeholder='Leave empty to auto-generate from audio, or enter custom text with intentional errors...'
               />
             </div>
 
             <div className='mb-6'>
               <label className='block text-sm font-medium text-gray-700 mb-2'>
-                Incorrect Words *
+                Incorrect Words (Optional)
               </label>
+              <p className='text-sm text-gray-600 mb-3'>
+                Leave empty to auto-generate from audio, or manually specify the
+                incorrect words.
+              </p>
               <div className='space-y-2'>
                 {(formData.incorrectWords || []).map(
                   (word: string, index: number) => (
@@ -707,7 +815,6 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                         }}
                         className='flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
                         placeholder={`Incorrect word ${index + 1}`}
-                        required
                       />
                       <button
                         type='button'

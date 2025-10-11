@@ -241,20 +241,22 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
         </div>
       )}
 
-      {/* Upload Success */}
-      {uploadSuccess && !isUploading && (
-        <div className='bg-green-50 dark:bg-green-900/20 p-6 rounded-xl border border-green-200 dark:border-green-700'>
-          <div className='flex items-center justify-center space-x-3 mb-4'>
-            <CheckCircle className='h-6 w-6 text-green-600 dark:text-green-400' />
-            <span className='text-green-800 dark:text-green-200 font-bold text-lg'>
-              Upload Successful!
+      {/* Upload Success - Subtle notification */}
+      {/* {uploadSuccess && !isUploading && (
+        <div className='bg-green-50/50 dark:bg-green-900/10 p-4 rounded-lg border border-green-200/50 dark:border-green-800/20'>
+          <div className='flex items-center justify-center space-x-2 mb-2'>
+            <div className='bg-green-500 p-1.5 rounded-full'>
+              <CheckCircle className='h-4 w-4 text-white' />
+            </div>
+            <span className='text-green-800 dark:text-green-200 font-medium text-sm'>
+              Upload Complete
             </span>
           </div>
-          <div className='text-center text-sm text-green-700 dark:text-green-300'>
-            Your audio recording has been uploaded and is ready for evaluation.
+          <div className='text-center text-xs text-green-600 dark:text-green-400'>
+            Recording uploaded successfully and ready for evaluation.
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Upload Error */}
       {uploadError && !isUploading && (
@@ -309,20 +311,20 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
             </audio>
           </div>
 
-          {/* Upload status indicator */}
+          {/* Upload status indicator - subtle but elegant */}
           {uploadSuccess && (
-            <div className='mt-4 text-center'>
-              <div className='inline-flex items-center space-x-2 bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200 px-4 py-2 rounded-full text-sm font-medium'>
-                <CheckCircle className='h-4 w-4' />
-                <span>Ready for evaluation</span>
+            <div className='mt-3 text-center'>
+              <div className='inline-flex items-center space-x-2 bg-green-50 dark:bg-green-900/10 text-green-700 dark:text-green-300 px-3 py-1.5 rounded-lg text-xs font-medium border border-green-200 dark:border-green-800/30'>
+                <div className='w-2 h-2 bg-green-500 rounded-full animate-pulse'></div>
+                <span>Uploaded & Ready</span>
               </div>
             </div>
           )}
 
           {uploadError && (
-            <div className='mt-4 text-center'>
-              <div className='inline-flex items-center space-x-2 bg-red-100 dark:bg-red-800 text-red-800 dark:text-red-200 px-4 py-2 rounded-full text-sm font-medium'>
-                <AlertCircle className='h-4 w-4' />
+            <div className='mt-3 text-center'>
+              <div className='inline-flex items-center space-x-2 bg-red-50 dark:bg-red-900/10 text-red-700 dark:text-red-300 px-3 py-1.5 rounded-lg text-xs font-medium border border-red-200 dark:border-red-800/30'>
+                <AlertCircle className='h-3 w-3' />
                 <span>Upload failed</span>
               </div>
             </div>

@@ -139,10 +139,63 @@ const QuestionPreview: React.FC<QuestionPreviewProps> = ({
         {question.textContent && (
           <div className='bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4'>
             <div className='flex items-center gap-2 mb-2'>
-              <FileText className='w-4 h-4 text-blue-600 dark:text-blue-400' />
+              {/* Use Volume2 icon for audio transcripts, FileText for regular text */}
+              {question.audioUrl &&
+              [
+                'SUMMARIZE_SPOKEN_TEXT',
+                'MULTIPLE_CHOICE_MULTIPLE_ANSWERS_LISTENING',
+                'LISTENING_FILL_IN_THE_BLANKS',
+                'HIGHLIGHT_CORRECT_SUMMARY',
+                'MULTIPLE_CHOICE_SINGLE_ANSWER_LISTENING',
+                'SELECT_MISSING_WORD',
+                'HIGHLIGHT_INCORRECT_WORDS',
+                'WRITE_FROM_DICTATION',
+                'REPEAT_SENTENCE',
+                'RE_TELL_LECTURE',
+                'ANSWER_SHORT_QUESTION',
+              ].includes(question.questionType.name) ? (
+                <Volume2 className='w-4 h-4 text-blue-600 dark:text-blue-400' />
+              ) : (
+                <FileText className='w-4 h-4 text-blue-600 dark:text-blue-400' />
+              )}
               <span className='text-sm font-medium text-blue-800 dark:text-blue-300'>
-                Text Content
+                {/* Show "Audio Transcript" for listening questions with audio, otherwise "Text Content" */}
+                {question.audioUrl &&
+                [
+                  'SUMMARIZE_SPOKEN_TEXT',
+                  'MULTIPLE_CHOICE_MULTIPLE_ANSWERS_LISTENING',
+                  'LISTENING_FILL_IN_THE_BLANKS',
+                  'HIGHLIGHT_CORRECT_SUMMARY',
+                  'MULTIPLE_CHOICE_SINGLE_ANSWER_LISTENING',
+                  'SELECT_MISSING_WORD',
+                  'HIGHLIGHT_INCORRECT_WORDS',
+                  'WRITE_FROM_DICTATION',
+                  'REPEAT_SENTENCE',
+                  'RE_TELL_LECTURE',
+                  'ANSWER_SHORT_QUESTION',
+                ].includes(question.questionType.name)
+                  ? 'Audio Transcript'
+                  : 'Text Content'}
               </span>
+              {/* Add transcript indicator */}
+              {question.audioUrl &&
+                [
+                  'SUMMARIZE_SPOKEN_TEXT',
+                  'MULTIPLE_CHOICE_MULTIPLE_ANSWERS_LISTENING',
+                  'LISTENING_FILL_IN_THE_BLANKS',
+                  'HIGHLIGHT_CORRECT_SUMMARY',
+                  'MULTIPLE_CHOICE_SINGLE_ANSWER_LISTENING',
+                  'SELECT_MISSING_WORD',
+                  'HIGHLIGHT_INCORRECT_WORDS',
+                  'WRITE_FROM_DICTATION',
+                  'REPEAT_SENTENCE',
+                  'RE_TELL_LECTURE',
+                  'ANSWER_SHORT_QUESTION',
+                ].includes(question.questionType.name) && (
+                  <span className='text-xs bg-blue-200 dark:bg-blue-700 text-blue-800 dark:text-blue-200 px-2 py-1 rounded-full'>
+                    Auto-generated
+                  </span>
+                )}
             </div>
             <p className='text-sm text-blue-700 dark:text-blue-300 line-clamp-4'>
               {question.textContent}

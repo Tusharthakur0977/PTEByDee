@@ -91,8 +91,14 @@ export async function evaluateQuestionResponse(
 
     case PteQuestionTypeName.READING_FILL_IN_THE_BLANKS:
     case PteQuestionTypeName.FILL_IN_THE_BLANKS_DRAG_AND_DROP:
-    case PteQuestionTypeName.LISTENING_FILL_IN_THE_BLANKS:
       return evaluateFillInTheBlanks(question, userResponse, timeTakenSeconds);
+
+    case PteQuestionTypeName.LISTENING_FILL_IN_THE_BLANKS:
+      return evaluateListeningFillInTheBlanks(
+        question,
+        userResponse,
+        timeTakenSeconds
+      );
 
     case PteQuestionTypeName.SUMMARIZE_SPOKEN_TEXT:
       return evaluateSummarizeSpokenText(
@@ -175,6 +181,27 @@ async function evaluateReadAloud(
         * 1: Very halting speech with many pauses or fillers.
 
     ---
+    ### **Error Analysis Instructions**
+
+    **CRITICAL:** You must provide detailed error analysis by identifying specific mistakes in the user's transcribed speech.
+
+    **For each error you find:**
+    1. Identify the EXACT word or phrase that contains the error (just the word, not surrounding text)
+    2. Provide the correct replacement from the original text
+    3. Give a clear explanation of the pronunciation or fluency issue
+    4. Set position to {"start": 0, "end": 1} (we'll match by word content, not position)
+
+    **Error Types to Look For:**
+    - **Pronunciation**: Mispronounced words, incorrect stress, unclear articulation
+    - **Fluency**: Hesitations, filler words (um, uh, er), unnatural pauses
+    - **Content**: Omitted words, inserted words, word substitutions
+
+    **IMPORTANT:**
+    - Only include errors that actually exist in the transcription
+    - For "text" field, provide ONLY the incorrect word/phrase from transcription
+    - Be very specific with the exact word that's wrong
+
+    ---
     ### **Required Output Format**
     Your final output **must** be a single JSON object.
 
@@ -182,7 +209,57 @@ async function evaluateReadAloud(
     **Transcribed User Text**: "${transcribedText}"
     **Time Taken**: ${timeTakenSeconds || 'Not specified'} seconds
 
-    Provide your evaluation as a JSON object:
+    Provide your evaluation as a JSON object with error analysis:
+    {
+      "content": {
+        "score": <number_0_to_3>,
+        "maxScore": 3,
+        "wordAnalysis": []
+      },
+      "pronunciation": {
+        "score": <number_0_to_5>,
+        "maxScore": 5
+      },
+      "oralFluency": {
+        "score": <number_0_to_5>,
+        "maxScore": 5
+      },
+      "feedback": {
+        "content": "Content feedback",
+        "pronunciation": "Pronunciation feedback",
+        "oralFluency": "Fluency feedback",
+        "summary": "Overall feedback"
+      },
+      "errorAnalysis": {
+        "pronunciationErrors": [
+          {
+            "text": "mispronounced word",
+            "type": "pronunciation",
+            "position": { "start": 0, "end": 1 },
+            "correction": "correct pronunciation",
+            "explanation": "explanation of pronunciation error"
+          }
+        ],
+        "fluencyErrors": [
+          {
+            "text": "um",
+            "type": "fluency",
+            "position": { "start": 0, "end": 1 },
+            "correction": "",
+            "explanation": "filler word that disrupts fluency"
+          }
+        ],
+        "contentErrors": [
+          {
+            "text": "omitted word",
+            "type": "content",
+            "position": { "start": 0, "end": 1 },
+            "correction": "correct word from original",
+            "explanation": "word was omitted from original text"
+          }
+        ]
+      }
+    }
   `;
 
   try {
@@ -222,9 +299,7 @@ async function evaluateReadAloud(
       fluencyMaxScore > 0 ? (fluencyScore / fluencyMaxScore) * 100 : 0;
 
     const overallScore = Math.round(
-      contentPercentage * 0.6 +
-        pronunciationPercentage * 0.25 +
-        fluencyPercentage * 0.15
+      contentScore + pronunciationScore + fluencyScore
     );
 
     return {
@@ -235,6 +310,7 @@ async function evaluateReadAloud(
         evaluation.feedback?.summary ||
         'Audio response evaluated successfully.',
       detailedAnalysis: {
+        overallScore,
         contentScore,
         contentMaxScore: maxContentScore,
         contentPercentage: Math.round(contentPercentage),
@@ -248,6 +324,21 @@ async function evaluateReadAloud(
         wordByWordAnalysis: wordAnalysis,
         timeTaken: timeTakenSeconds || 0,
         fullEvaluation: evaluation, // Store the complete OpenAI response
+        // Add structured scores for consistent frontend display
+        scores: {
+          content: { score: contentScore, max: maxContentScore },
+          pronunciation: {
+            score: pronunciationScore,
+            max: pronunciationMaxScore,
+          },
+          oralFluency: { score: fluencyScore, max: fluencyMaxScore },
+        },
+        errorAnalysis: evaluation.errorAnalysis || {
+          pronunciationErrors: [],
+          fluencyErrors: [],
+          contentErrors: [],
+        },
+        userText: transcribedText, // Include transcribed text for highlighting
       },
       suggestions: evaluation.feedback?.suggestions || [
         'Practice reading aloud regularly',
@@ -349,6 +440,35 @@ async function evaluateRepeatSentence(
       "oralFluency": string,          // Specific feedback on fluency
       "suggestions": [string, ...]    // Actionable improvement tips
     },
+    "errorAnalysis": {
+      "pronunciationErrors": [
+        {
+          "text": "mispronounced word",
+          "type": "pronunciation",
+          "position": { "start": 0, "end": 1 },
+          "correction": "correct pronunciation",
+          "explanation": "explanation of pronunciation error"
+        }
+      ],
+      "fluencyErrors": [
+        {
+          "text": "um",
+          "type": "fluency",
+          "position": { "start": 0, "end": 1 },
+          "correction": "",
+          "explanation": "filler word that disrupts fluency"
+        }
+      ],
+      "contentErrors": [
+        {
+          "text": "wrong word",
+          "type": "content",
+          "position": { "start": 0, "end": 1 },
+          "correction": "correct word from original",
+          "explanation": "word substitution or omission error"
+        }
+      ]
+    },
     "analysis": {
       "recognizedText": string
     }
@@ -391,9 +511,7 @@ async function evaluateRepeatSentence(
     const fluencyPercentage = (fluencyScore / 5) * 100;
 
     const overallScore = Math.round(
-      contentPercentage * 0.6 +
-        pronunciationPercentage * 0.25 +
-        fluencyPercentage * 0.15
+      contentScore + pronunciationScore + fluencyScore
     );
 
     return {
@@ -404,6 +522,7 @@ async function evaluateRepeatSentence(
         evaluation.feedback?.summary ||
         'Audio response evaluated successfully.',
       detailedAnalysis: {
+        overallScore,
         contentScore,
         contentMaxScore: maxContentScore,
         contentPercentage: Math.round(contentPercentage),
@@ -415,6 +534,18 @@ async function evaluateRepeatSentence(
         wordByWordAnalysis: wordAnalysis,
         timeTaken: timeTakenSeconds || 0,
         fullEvaluation: evaluation, // Store the complete OpenAI response
+        // Add structured scores for consistent frontend display
+        scores: {
+          content: { score: contentScore, max: maxContentScore },
+          pronunciation: { score: pronunciationScore, max: 5 },
+          oralFluency: { score: fluencyScore, max: 5 },
+        },
+        errorAnalysis: evaluation.errorAnalysis || {
+          pronunciationErrors: [],
+          fluencyErrors: [],
+          contentErrors: [],
+        },
+        userText: transcribedText, // Include transcribed text for highlighting
       },
       suggestions: evaluation.feedback?.suggestions || [
         'Practice repeating sentences clearly',
@@ -522,7 +653,36 @@ async function evaluateDescribeImage(
         "pronunciation": "<Detailed feedback specifically on pronunciation>",
         "oralFluency": "<Detailed feedback specifically on oral fluency>"
       },
-      "suggestions": ["<Actionable suggestion 1>", "<Actionable suggestion 2>"]
+      "suggestions": ["<Actionable suggestion 1>", "<Actionable suggestion 2>"],
+      "errorAnalysis": {
+        "pronunciationErrors": [
+          {
+            "text": "mispronounced word",
+            "type": "pronunciation",
+            "position": { "start": 0, "end": 1 },
+            "correction": "correct pronunciation",
+            "explanation": "explanation of pronunciation error"
+          }
+        ],
+        "fluencyErrors": [
+          {
+            "text": "um",
+            "type": "fluency",
+            "position": { "start": 0, "end": 1 },
+            "correction": "",
+            "explanation": "filler word that disrupts fluency"
+          }
+        ],
+        "contentErrors": [
+          {
+            "text": "incorrect description",
+            "type": "content",
+            "position": { "start": 0, "end": 1 },
+            "correction": "accurate description",
+            "explanation": "description does not match image content"
+          }
+        ]
+      }
     }
   `;
 
@@ -559,11 +719,7 @@ async function evaluateDescribeImage(
       (pronunciationScore / pronunciationMaxScore) * 100;
 
     // Calculate weighted overall score (Content 50%, Oral Fluency 30%, Pronunciation 20%)
-    const overallScore = Math.round(
-      contentPercentage * 0.5 +
-        oralFluencyPercentage * 0.3 +
-        pronunciationPercentage * 0.2
-    );
+    const overallScore = contentScore + oralFluencyScore + pronunciationScore;
 
     // Ensure feedback is always a string
     let feedbackText = 'Image description response evaluated.';
@@ -573,6 +729,14 @@ async function evaluateDescribeImage(
       isCorrect: overallScore >= 65,
       feedback: feedbackText,
       detailedAnalysis: {
+        scores: {
+          content: { score: contentScore, max: contentMaxScore },
+          oralFluency: { score: oralFluencyScore, max: oralFluencyMaxScore },
+          pronunciation: {
+            score: pronunciationScore,
+            max: pronunciationMaxScore,
+          },
+        },
         contentScore,
         contentMaxScore,
         contentPercentage: Math.round(contentPercentage),
@@ -589,6 +753,12 @@ async function evaluateDescribeImage(
         contentFeedback: evaluation.Feedback?.Content || '',
         oralFluencyFeedback: evaluation.Feedback?.['Oral Fluency'] || '',
         pronunciationFeedback: evaluation.Feedback?.Pronunciation || '',
+        errorAnalysis: evaluation.errorAnalysis || {
+          pronunciationErrors: [],
+          fluencyErrors: [],
+          contentErrors: [],
+        },
+        userText: transcribedText, // Include transcribed text for highlighting
       },
       suggestions: [
         'Describe all key elements visible in the image',
@@ -677,14 +847,74 @@ async function evaluateRetellLecture(
     * Assess fluency through speech patterns evident in the transcription
 
     ---
+    ### **Error Analysis Instructions**
+
+    **CRITICAL:** You must provide detailed error analysis by identifying specific mistakes in the user's transcribed speech.
+
+    **For each error you find:**
+    1. Identify the EXACT word or phrase that contains the error (just the word, not surrounding text)
+    2. Provide the correct replacement from the original lecture
+    3. Give a clear explanation of the pronunciation, fluency, or content issue
+    4. Set position to {"start": 0, "end": 1} (we'll match by word content, not position)
+
+    **Error Types to Look For:**
+    - **Pronunciation**: Mispronounced words, incorrect stress, unclear articulation
+    - **Fluency**: Hesitations, filler words (um, uh, er), unnatural pauses
+    - **Content**: Omitted key points, incorrect information, word substitutions
+
+    **IMPORTANT:**
+    - Only include errors that actually exist in the transcription
+    - For "text" field, provide ONLY the incorrect word/phrase from transcription
+    - Be very specific with the exact word that's wrong
+
+    ---
     ### **Required Output Format**
-    Your final output **must** be a single JSON object.
+    Your final output **must** be a single JSON object with the following structure:
 
     **Original Lecture**: "${originalLecture}"
     **User's Transcribed Response**: "${transcribedText}"
     **Time Taken**: ${timeTakenSeconds || 'Not specified'} seconds
 
-    Provide your evaluation as a JSON object:
+    {
+      "Content": <number_0_to_6>,
+      "Oral Fluency": <number_0_to_5>,
+      "Pronunciation": <number_0_to_5>,
+      "feedback": {
+        "content": "Specific feedback on content accuracy and comprehension",
+        "oralFluency": "Specific feedback on speech flow and fluency",
+        "pronunciation": "Specific feedback on pronunciation clarity"
+      },
+      "suggestions": ["Actionable tip 1", "Actionable tip 2", "Actionable tip 3"],
+      "errorAnalysis": {
+        "pronunciationErrors": [
+          {
+            "text": "mispronounced word",
+            "type": "pronunciation",
+            "position": { "start": 0, "end": 1 },
+            "correction": "correct pronunciation",
+            "explanation": "explanation of pronunciation error"
+          }
+        ],
+        "fluencyErrors": [
+          {
+            "text": "um",
+            "type": "fluency",
+            "position": { "start": 0, "end": 1 },
+            "correction": "",
+            "explanation": "filler word that disrupts fluency"
+          }
+        ],
+        "contentErrors": [
+          {
+            "text": "incorrect information",
+            "type": "content",
+            "position": { "start": 0, "end": 1 },
+            "correction": "correct information from lecture",
+            "explanation": "content accuracy issue"
+          }
+        ]
+      }
+    }
   `;
 
   try {
@@ -721,11 +951,7 @@ async function evaluateRetellLecture(
       (pronunciationScore / pronunciationMaxScore) * 100;
 
     // Weight the scores: Content 40%, Oral Fluency 35%, Pronunciation 25%
-    const overallScore = Math.round(
-      contentPercentage * 0.4 +
-        oralFluencyPercentage * 0.35 +
-        pronunciationPercentage * 0.25
-    );
+    const overallScore = contentScore + oralFluencyScore + pronunciationScore;
 
     return {
       score: overallScore,
@@ -735,6 +961,14 @@ async function evaluateRetellLecture(
         evaluation.feedback?.summary ||
         'Re-tell Lecture response evaluated successfully.',
       detailedAnalysis: {
+        scores: {
+          content: { score: contentScore, max: contentMaxScore },
+          oralFluency: { score: oralFluencyScore, max: oralFluencyMaxScore },
+          pronunciation: {
+            score: pronunciationScore,
+            max: pronunciationMaxScore,
+          },
+        },
         contentScore,
         contentMaxScore: contentMaxScore,
         contentPercentage: Math.round(contentPercentage),
@@ -747,6 +981,12 @@ async function evaluateRetellLecture(
         recognizedText: evaluation.analysis?.recognizedText || transcribedText,
         timeTaken: timeTakenSeconds || 0,
         fullEvaluation: evaluation,
+        errorAnalysis: evaluation.errorAnalysis || {
+          pronunciationErrors: [],
+          fluencyErrors: [],
+          contentErrors: [],
+        },
+        userText: transcribedText, // Include transcribed text for highlighting
       },
       suggestions: evaluation.feedback?.suggestions || [
         'Focus on main ideas and key points',
@@ -811,15 +1051,42 @@ function evaluateAnswerShortQuestion(question: Question, userResponse: any) {
   try {
     const isCorrect = isAnswerCorrect(transcribedText, correctAnswers);
 
+    // Generate error analysis for incorrect answers
+    const errorAnalysis = {
+      pronunciationErrors: [] as any[],
+      fluencyErrors: [] as any[],
+      contentErrors: [] as any[],
+    };
+
+    if (!isCorrect && transcribedText) {
+      // Add content error for incorrect answer
+      errorAnalysis.contentErrors.push({
+        text: transcribedText,
+        type: 'content',
+        position: { start: 0, end: 1 },
+        correction: correctAnswers?.[0] || 'Expected answer',
+        explanation: `Incorrect answer. Expected one of: ${
+          correctAnswers?.join(', ') || 'correct answer'
+        }`,
+      });
+    }
+
     if (isCorrect) {
       return {
-        score: 100,
+        score: 1,
         isCorrect: true,
         feedback: 'Your answer is correct.',
         detailedAnalysis: {
+          overallScore: 1,
           evaluationMethod: 'Partial Match',
           transcribedText,
           correctAnswers,
+          // Add structured scores for consistent frontend display
+          scores: {
+            vocabulary: { score: 1, max: 1 },
+          },
+          errorAnalysis,
+          userText: transcribedText, // Include transcribed text for highlighting
         },
         suggestions: ['Excellent! Your answer was concise and accurate.'],
       };
@@ -829,9 +1096,16 @@ function evaluateAnswerShortQuestion(question: Question, userResponse: any) {
         isCorrect: false,
         feedback: 'Your answer is incorrect.',
         detailedAnalysis: {
+          overallScore: 0,
           evaluationMethod: 'Partial Match',
           transcribedText,
           correctAnswers,
+          // Add structured scores for consistent frontend display
+          scores: {
+            vocabulary: { score: 0, max: 1 },
+          },
+          errorAnalysis,
+          userText: transcribedText, // Include transcribed text for highlighting
         },
         suggestions: [
           'Listen carefully and ensure your answer directly addresses the question.',
@@ -909,6 +1183,27 @@ async function evaluateSummarizeWrittenText(
     * **0 pts:** Has defective word choice which could hinder communication.
 
     ---
+    ### **Error Analysis Instructions**
+
+    **CRITICAL:** You must provide detailed error analysis by identifying specific mistakes in the user's text.
+
+    **For each error you find:**
+    1. Identify the EXACT word or phrase that contains the error (just the word, not surrounding text)
+    2. Provide the correct replacement
+    3. Give a clear explanation
+    4. Set position to {"start": 0, "end": 1} (we'll match by word content, not position)
+
+    **Error Types to Look For:**
+    - **Grammar**: Subject-verb disagreement, wrong tenses, missing/incorrect articles, preposition errors
+    - **Spelling**: Misspelled words (check carefully)
+    - **Vocabulary**: Wrong word choice, repetitive words, unclear expressions
+
+    **IMPORTANT:**
+    - Only include errors that actually exist
+    - For "text" field, provide ONLY the incorrect word/phrase, nothing else
+    - Be very specific with the exact word that's wrong
+
+    ---
     ### **Required Output Format**
     Your final output **must** be a single, minified JSON object with NO markdown. Adhere strictly to this schema:
     {
@@ -924,6 +1219,35 @@ async function evaluateSummarizeWrittenText(
         "form": "Specific feedback on form.",
         "grammar": "Specific feedback on grammar.",
         "vocabulary": "Specific feedback on vocabulary."
+      },
+      "errorAnalysis": {
+        "grammarErrors": [
+          {
+            "text": "word or phrase with error",
+            "type": "grammar",
+            "position": { "start": 0, "end": 5 },
+            "correction": "suggested correction",
+            "explanation": "explanation of the error"
+          }
+        ],
+        "spellingErrors": [
+          {
+            "text": "misspelled word",
+            "type": "spelling",
+            "position": { "start": 10, "end": 15 },
+            "correction": "correct spelling",
+            "explanation": "spelling correction needed"
+          }
+        ],
+        "vocabularyIssues": [
+          {
+            "text": "inappropriate word choice",
+            "type": "vocabulary",
+            "position": { "start": 20, "end": 30 },
+            "correction": "better word choice",
+            "explanation": "more appropriate vocabulary"
+          }
+        ]
       },
       "suggestions": ["Actionable tip 1.", "Actionable tip 2."]
     }
@@ -958,28 +1282,36 @@ async function evaluateSummarizeWrittenText(
     const maxGrammarScore = 2;
     const maxVocabularyScore = 2;
 
-    const contentScorePercenateg = (contentScore / maxContentScore) * 100;
-    const formScorePercentage = (formScore / maxFormScore) * 100;
-    const grammarScorePercentage = (grammarScore / maxGrammarScore) * 100;
-    const vocabularyScorePercentage =
-      (vocabularyScore / maxVocabularyScore) * 100;
-
     // Calculate the total achieved score and the total possible score
     const totalAchievedScore =
       contentScore + formScore + grammarScore + vocabularyScore;
     const totalMaxScore =
       maxContentScore + maxFormScore + maxGrammarScore + maxVocabularyScore; // Total is 9
 
-    // Calculate the overall score as a percentage
-    const overallScore = Math.round((totalAchievedScore / totalMaxScore) * 100);
+    // Calculate the overall score as actual points earned
+    const overallScore = totalAchievedScore;
+
+    // Calculate percentage for isCorrect check (65% threshold)
+    const percentageScore = Math.round(
+      (totalAchievedScore / totalMaxScore) * 100
+    );
 
     return {
       score: overallScore,
-      isCorrect: overallScore >= 65,
+      isCorrect: percentageScore >= 65,
       feedback:
         evaluation.feedback?.summary || 'Summary evaluated successfully.',
       detailedAnalysis: {
         overallScore,
+        scores: {
+          content: { score: contentScore, max: maxContentScore },
+          form: {
+            score: formScore,
+            max: maxFormScore,
+          },
+          grammar: { score: grammarScore, max: maxGrammarScore },
+          vocabulary: { score: vocabularyScore, max: maxVocabularyScore },
+        },
         contentScore,
         maxContentScore,
         formScore,
@@ -991,6 +1323,12 @@ async function evaluateSummarizeWrittenText(
         actualWordCount: wordCount,
         timeTaken: timeTakenSeconds || 0,
         feedback: evaluation.feedback,
+        errorAnalysis: evaluation.errorAnalysis || {
+          grammarErrors: [],
+          spellingErrors: [],
+          vocabularyIssues: [],
+        },
+        userText: userText, // Include original text for highlighting
       },
       suggestions: evaluation.suggestions || [
         'Ensure your summary includes all the main points of the original text.',
@@ -1093,6 +1431,27 @@ async function evaluateWriteEssay(
     * **0:** More than one spelling error.
 
     ---
+    ### **Error Analysis Instructions**
+
+    **CRITICAL:** You must provide detailed error analysis by identifying specific mistakes in the user's text.
+
+    **For each error you find:**
+    1. Identify the EXACT word or phrase that contains the error (just the word, not surrounding text)
+    2. Provide the correct replacement
+    3. Give a clear explanation
+    4. Set position to {"start": 0, "end": 1} (we'll match by word content, not position)
+
+    **Error Types to Look For:**
+    - **Grammar**: Subject-verb disagreement, wrong tenses, missing/incorrect articles, preposition errors
+    - **Spelling**: Misspelled words (check carefully)
+    - **Vocabulary**: Wrong word choice, repetitive words, unclear expressions
+
+    **IMPORTANT:**
+    - Only include errors that actually exist
+    - For "text" field, provide ONLY the incorrect word/phrase, nothing else
+    - Be very specific with the exact word that's wrong
+
+    ---
     ### **Required Output Format**
     Your final output **must** be a single, minified JSON object with NO markdown. Adhere strictly to this schema:
     {
@@ -1114,6 +1473,35 @@ async function evaluateWriteEssay(
         "generalLinguisticRange": "Specific feedback on linguistic range.",
         "vocabularyRange": "Specific feedback on vocabulary.",
         "spelling": "Specific feedback on spelling."
+      },
+      "errorAnalysis": {
+        "grammarErrors": [
+          {
+            "text": "word or phrase with error",
+            "type": "grammar",
+            "position": { "start": 0, "end": 5 },
+            "correction": "suggested correction",
+            "explanation": "explanation of the error"
+          }
+        ],
+        "spellingErrors": [
+          {
+            "text": "misspelled word",
+            "type": "spelling",
+            "position": { "start": 10, "end": 15 },
+            "correction": "correct spelling",
+            "explanation": "spelling correction needed"
+          }
+        ],
+        "vocabularyIssues": [
+          {
+            "text": "inappropriate word choice",
+            "type": "vocabulary",
+            "position": { "start": 20, "end": 30 },
+            "correction": "better word choice",
+            "explanation": "more appropriate vocabulary"
+          }
+        ]
       },
       "suggestions": ["Actionable tip 1.", "Actionable tip 2."]
     }
@@ -1173,12 +1561,17 @@ async function evaluateWriteEssay(
       maxVocabScore +
       maxSpellingScore; // Total is 26
 
-    // Calculate the overall score as a percentage
-    const overallScore = Math.round((totalAchievedScore / totalMaxScore) * 100);
+    // Calculate the overall score as actual points earned
+    const overallScore = totalAchievedScore;
+
+    // Calculate percentage for isCorrect check (65% threshold)
+    const percentageScore = Math.round(
+      (totalAchievedScore / totalMaxScore) * 100
+    );
 
     return {
       score: overallScore,
-      isCorrect: overallScore >= 65,
+      isCorrect: percentageScore >= 65,
       feedback: evaluation.feedback?.summary || 'Essay evaluated successfully.',
       detailedAnalysis: {
         overallScore,
@@ -1197,6 +1590,12 @@ async function evaluateWriteEssay(
           spelling: { score: spellingScore, max: maxSpellingScore },
         },
         feedback: evaluation.feedback,
+        errorAnalysis: evaluation.errorAnalysis || {
+          grammarErrors: [],
+          spellingErrors: [],
+          vocabularyIssues: [],
+        },
+        userText: userText, // Include original text for highlighting
       },
       suggestions: evaluation.suggestions || [
         'Ensure your essay directly addresses all parts of the prompt.',
@@ -1234,7 +1633,6 @@ async function evaluateMultipleChoiceSingle(
     .map((opt: any) => opt.id);
 
   const isCorrect = correctAnswers.includes(selectedOption);
-  const score = isCorrect ? 100 : 0;
 
   // Get the selected option text for feedback
   const options = question.options || [];
@@ -1245,18 +1643,28 @@ async function evaluateMultipleChoiceSingle(
     options.find((opt: any) => correctAnswers.includes(opt.id))?.text ||
     'Unknown option';
 
+  // Determine if this is a reading or listening question based on question type
+  const isReadingQuestion = question.questionType.name.includes('READING');
+  const skillType = isReadingQuestion ? 'reading' : 'listening';
+  const actualScore = isCorrect ? 1 : 0;
+
   return {
-    score,
+    score: actualScore,
     isCorrect,
     feedback: isCorrect
       ? `Correct! You selected: "${selectedOptionText}"`
       : `Incorrect. You selected: "${selectedOptionText}". The correct answer is: "${correctOptionText}"`,
     detailedAnalysis: {
+      overallScore: actualScore,
       selectedOption,
       correctAnswers,
       selectedOptionText,
       correctOptionText,
       timeTaken: timeTakenSeconds || 0,
+      // Add structured scores for consistent frontend display
+      scores: {
+        [skillType]: { score: actualScore, max: 1 },
+      },
     },
     suggestions: isCorrect
       ? ['Great job! Continue practicing similar questions.']
@@ -1293,21 +1701,32 @@ async function evaluateMultipleChoiceMultiple(
 
   const totalCorrectAnswers = correctAnswers.length;
 
-  const score = Math.max(0, correctSelected - incorrectSelected);
+  // Use correct/total format like Fill in the Blanks
+  const score = correctSelected; // Show actual correct count
+  const isCorrect =
+    correctSelected === totalCorrectAnswers && incorrectSelected === 0;
 
-  const isCorrect = score === totalCorrectAnswers && incorrectSelected === 0;
+  // Determine if this is a reading or listening question
+  const isReadingQuestion = question.questionType.name.includes('READING');
+  const skillType = isReadingQuestion ? 'reading' : 'listening';
 
   return {
     score,
     isCorrect,
     feedback: `You selected ${correctSelected} correct and ${incorrectSelected} incorrect options out of ${correctAnswers.length} total correct answers.`,
     detailedAnalysis: {
+      overallScore: score,
       selectedOptions,
       correctAnswers,
       correctSelected,
       incorrectSelected,
       totalCorrect: correctAnswers.length,
+      totalOptions: correctAnswers.length, // For consistent display
       partialScore: score,
+      // Add structured scores for consistent frontend display
+      scores: {
+        [skillType]: { score: correctSelected, max: totalCorrectAnswers },
+      },
     },
     suggestions: [
       'Read all options carefully before selecting',
@@ -1343,19 +1762,25 @@ async function evaluateReorderParagraphs(
   }
 
   const maxPairs = Math.max(0, correctOrder.length - 1);
-  const score = maxPairs > 0 ? (correctPairs / maxPairs) * 100 : 0;
-  const isCorrect = score === 100;
+  // Use correct/total format like Fill in the Blanks
+  const score = correctPairs; // Show actual correct pairs count
+  const isCorrect = correctPairs === maxPairs;
 
   return {
     score,
     isCorrect,
     feedback: `You got ${correctPairs} out of ${maxPairs} paragraph pairs in the correct order.`,
     detailedAnalysis: {
+      overallScore: score,
       userOrder,
       correctOrder,
       correctPairs,
       maxPairs,
-      pairScore: score,
+      totalPairs: maxPairs, // For consistent display
+      // Add structured scores for consistent frontend display
+      scores: {
+        reading: { score: correctPairs, max: maxPairs },
+      },
     },
     suggestions: [
       'Look for logical connectors between paragraphs',
@@ -1407,9 +1832,9 @@ async function evaluateFillInTheBlanks(
     };
   });
 
-  const score =
-    totalBlanks > 0 ? Math.round((correctCount / totalBlanks) * 100) : 0;
-  const isCorrect = score >= 65; // Consider 65% as passing
+  // Use actual correct/total format instead of percentage
+  const score = correctCount; // Show actual correct count
+  const isCorrect = correctCount >= Math.ceil(totalBlanks * 0.65); // 65% threshold
 
   // Generate AI feedback
   const aiFeedback = await generateFillInTheBlanksAIFeedback(
@@ -1419,15 +1844,24 @@ async function evaluateFillInTheBlanks(
     score
   );
 
+  // Determine if this is a reading or listening question
+  const isReadingQuestion = question.questionType.name.includes('READING');
+  const skillType = isReadingQuestion ? 'reading' : 'reading'; // Both are reading-based
+
   return {
     score,
     isCorrect,
     feedback: aiFeedback.feedback,
     detailedAnalysis: {
+      overallScore: score,
       blankResults,
       correctCount,
       totalBlanks,
       timeTaken: timeTakenSeconds || 0,
+      // Add structured scores for consistent frontend display
+      scores: {
+        [skillType]: { score: correctCount, max: totalBlanks },
+      },
       ...aiFeedback.detailedAnalysis,
     },
     suggestions: aiFeedback.suggestions,
@@ -1503,8 +1937,6 @@ Respond in JSON format:
       throw new Error('No response from AI');
     }
 
-    console.log('AI RESPONSE:', aiResponse);
-
     const parsedResponse = JSON.parse(aiResponse);
     return {
       feedback: parsedResponse.feedback || 'Response evaluated successfully.',
@@ -1577,23 +2009,120 @@ async function evaluateSummarizeSpokenText(
     .filter((word: string | any[]) => word.length > 0).length;
 
   const prompt = `
-    Evaluate this PTE Summarize Spoken Text response:
-    
-    Task: Listen to audio and write summary (${question.wordCountMin}-${
-    question.wordCountMax
-  } words)
-    User Summary: "${userText}"
-    Word Count: ${wordCount}
-    Time Taken: ${timeTakenSeconds || 'Not specified'} seconds
-    
-    Evaluate based on listening comprehension and summary writing skills:
-    1. Content accuracy and main ideas capture (0-5 points)
-    2. Form compliance (word count within limits) (0-2 points)
-    3. Grammar and vocabulary (0-3 points)
-    
-    Calculate overall score (0-100) and provide feedback.
-    
-    Respond with a JSON object containing score, isCorrect, feedback, detailedAnalysis, and suggestions.
+    **Your Role:** You are an expert PTE Academic grader for the "Summarize Spoken Text" task.
+
+    **Objective:** Evaluate the user's summary based on the official PTE scoring rubric. You must score the response on five distinct traits using the detailed rubrics below.
+
+    ---
+    ### **Input for Evaluation**
+
+    * **Task:** Listen to audio and write a summary (50-70 words)
+    * **User's Summary:**
+    "${userText}"
+
+    * **Word Count:** ${wordCount}
+    * **Required Word Range:** ${question.wordCountMin || 50}-${
+    question.wordCountMax || 70
+  } words
+
+    ---
+    ### **Scoring Rubrics**
+
+    **1. Content (Score from 0 to 1):**
+    * **1:** The response is relevant and meaningfully summarized, demonstrating good comprehension of the source text. Main ideas are captured and presented coherently with proper synthesis and the response is relevant but not meaningfully summarized, demonstrating limited comprehension of the source text. The response is composed of disconnected ideas or excerpts from the source text without any context or attempt at synthesis. Main ideas are omitted or misrepresented. The response lacks coherence and is difficult to follow.
+    * **0:** Response is too limited to assign a higher score and demonstrates no comprehension of the source text.
+
+    **2. Form (Score from 0 to 2):**
+    * **2:** Contains 50-70 words
+    * **1:** Contains 40-49 words or 71-100 words
+    * **0:** Contains less than 40 words or more than 100 words. Summary is written in capital letters, contains no punctuation or consists only of bullet points or very short sentences.
+
+    **3. Grammar (Score from 0 to 2):**
+    * **2:** Correct grammatical structures
+    * **1:** Contains grammatical errors with no hindrance to communication
+    * **0:** Defective grammatical structure which could hinder communication
+
+    **4. Vocabulary (Score from 0 to 2):**
+    * **2:** Appropriate choice of words
+    * **1:** Some lexical errors but with no hindrance to communication
+    * **0:** Defective word choice which could hinder communication
+
+    **5. Spelling (Score from 0 to 2):**
+    * **2:** Correct spelling
+    * **1:** One spelling error
+    * **0:** More than one spelling error
+
+    ---
+    ### **Error Analysis Instructions**
+
+    **CRITICAL:** You must provide detailed error analysis by identifying specific mistakes in the user's text.
+
+    **For each error you find:**
+    1. Identify the EXACT word or phrase that contains the error (just the word, not surrounding text)
+    2. Provide the correct replacement
+    3. Give a clear explanation
+    4. Set position to {"start": 0, "end": 1} (we'll match by word content, not position)
+
+    **Error Types to Look For:**
+    - **Grammar**: Subject-verb disagreement, wrong tenses, missing/incorrect articles, preposition errors
+    - **Spelling**: Misspelled words (check carefully)
+    - **Vocabulary**: Wrong word choice, repetitive words, unclear expressions
+
+    **IMPORTANT:**
+    - Only include errors that actually exist
+    - For "text" field, provide ONLY the incorrect word/phrase, nothing else
+    - Be very specific with the exact word that's wrong
+
+    ---
+    ### **Required Output Format**
+    Your final output **must** be a single, minified JSON object with NO markdown. Adhere strictly to this schema:
+    {
+      "scores": {
+        "content": <number_0_to_1>,
+        "form": <number_0_to_2>,
+        "grammar": <number_0_to_2>,
+        "vocabulary": <number_0_to_2>,
+        "spelling": <number_0_to_2>
+      },
+      "feedback": {
+        "summary": "A brief overall assessment of the summary.",
+        "content": "Specific feedback on content comprehension and relevance.",
+        "form": "Specific feedback on word count and format.",
+        "grammar": "Specific feedback on grammatical structures.",
+        "vocabulary": "Specific feedback on word choice and usage.",
+        "spelling": "Specific feedback on spelling accuracy."
+      },
+      "suggestions": ["Actionable tip 1.", "Actionable tip 2.", "Actionable tip 3."],
+      "errorAnalysis": {
+        "grammarErrors": [
+          {
+            "text": "word or phrase with error",
+            "type": "grammar",
+            "position": { "start": 0, "end": 1 },
+            "correction": "suggested correction",
+            "explanation": "explanation of the error"
+          }
+        ],
+        "spellingErrors": [
+          {
+            "text": "misspelled word",
+            "type": "spelling",
+            "position": { "start": 0, "end": 1 },
+            "correction": "correct spelling",
+            "explanation": "spelling correction needed"
+          }
+        ],
+        "vocabularyIssues": [
+          {
+            "text": "inappropriate word choice",
+            "type": "vocabulary",
+            "position": { "start": 0, "end": 1 },
+            "correction": "better word choice",
+            "explanation": "more appropriate vocabulary"
+          }
+        ]
+      }
+    }
   `;
 
   try {
@@ -1613,18 +2142,65 @@ async function evaluateSummarizeSpokenText(
 
     const evaluation = JSON.parse(response.choices[0].message.content || '{}');
 
+    // Extract individual scores for each trait
+    const scores = evaluation.scores || {};
+    const contentScore = scores.content || 0;
+    const formScore = scores.form || 0;
+    const grammarScore = scores.grammar || 0;
+    const vocabularyScore = scores.vocabulary || 0;
+    const spellingScore = scores.spelling || 0;
+
+    // Calculate the total achieved score and the total possible score
+    const totalAchievedScore =
+      contentScore + formScore + grammarScore + vocabularyScore + spellingScore;
+    const totalMaxScore = 9;
+
+    // Calculate the overall score as actual points earned
+    const overallScore = totalAchievedScore;
+
+    // Calculate percentage for isCorrect check (65% threshold)
+    const percentageScore = Math.round(
+      (totalAchievedScore / totalMaxScore) * 100
+    );
+
     return {
-      score: evaluation.score || 0,
-      isCorrect: (evaluation.score || 0) >= 65,
-      feedback: evaluation.feedback || 'Spoken text summary evaluated.',
-      detailedAnalysis: evaluation.detailedAnalysis || {
+      score: overallScore,
+      isCorrect: percentageScore >= 65,
+      feedback:
+        evaluation.feedback?.summary ||
+        'Spoken text summary evaluated successfully.',
+      detailedAnalysis: {
+        overallScore,
         actualWordCount: wordCount,
-        requiredRange: `${question.wordCountMin}-${question.wordCountMax}`,
-        timeTaken: timeTakenSeconds || 0,
+        requiredWordRange: `${question.wordCountMin || 50}-${
+          question.wordCountMax || 70
+        }`,
+        timeTakenSeconds: timeTakenSeconds || 0,
+        scores: {
+          content: { score: contentScore, max: 1 },
+          form: { score: formScore, max: 2 },
+          grammar: { score: grammarScore, max: 2 },
+          vocabulary: { score: vocabularyScore, max: 2 },
+          spelling: { score: spellingScore, max: 2 },
+        },
+        breakdown: {
+          content: `${contentScore}/1 - Content relevance and comprehension`,
+          form: `${formScore}/2 - Word count and format`,
+          grammar: `${grammarScore}/2 - Grammatical structures`,
+          vocabulary: `${vocabularyScore}/2 - Word choice and usage`,
+          spelling: `${spellingScore}/2 - Spelling accuracy`,
+        },
+        feedback: evaluation.feedback || {},
+        errorAnalysis: evaluation.errorAnalysis || {
+          grammarErrors: [],
+          spellingErrors: [],
+          vocabularyIssues: [],
+        },
+        userText: userText, // Include original text for highlighting
       },
       suggestions: evaluation.suggestions || [
         'Focus on main ideas from the audio',
-        'Stay within word count limits',
+        'Stay within word count limits (50-70 words)',
         'Use proper grammar and vocabulary',
       ],
     };
@@ -1635,8 +2211,27 @@ async function evaluateSummarizeSpokenText(
       isCorrect: false,
       feedback: 'Unable to evaluate response at this time.',
       detailedAnalysis: {
+        overallScore: 0,
         actualWordCount: wordCount,
-        timeTaken: timeTakenSeconds || 0,
+        requiredWordRange: `${question.wordCountMin || 50}-${
+          question.wordCountMax || 70
+        }`,
+        timeTakenSeconds: timeTakenSeconds || 0,
+        scores: {
+          content: { score: 0, max: 2 },
+          form: { score: 0, max: 2 },
+          grammar: { score: 0, max: 2 },
+          vocabulary: { score: 0, max: 2 },
+          spelling: { score: 0, max: 2 },
+        },
+        breakdown: {
+          content: '0/2 - Content relevance and comprehension',
+          form: '0/2 - Word count and format',
+          grammar: '0/2 - Grammatical structures',
+          vocabulary: '0/2 - Word choice and usage',
+          spelling: '0/2 - Spelling accuracy',
+        },
+        feedback: {},
       },
       suggestions: ['Please try again later'],
     };
@@ -1654,31 +2249,47 @@ async function evaluateHighlightIncorrectWords(
   const highlightedWords = userResponse.highlightedWords || [];
   const incorrectWords = question.incorrectWords || [];
 
-  const correctHighlights = highlightedWords.filter((word: string) =>
-    incorrectWords.includes(word)
-  ).length;
+  // Helper function to clean words (remove punctuation for comparison)
+  const cleanWord = (word: string): string => {
+    return word.replace(/[^\w]/g, '').toLowerCase();
+  };
 
-  const incorrectHighlights = highlightedWords.filter(
-    (word: string) => !incorrectWords.includes(word)
-  ).length;
+  // Create cleaned versions for comparison
+  const cleanedHighlighted = highlightedWords.map(cleanWord);
+  const cleanedIncorrect = incorrectWords.map(cleanWord);
 
-  const score =
-    Math.max(
-      0,
-      (correctHighlights - incorrectHighlights) / incorrectWords.length
-    ) * 100;
-  const isCorrect = score === 100;
+  const correctHighlights = highlightedWords.filter((word: string) => {
+    const cleanedWord = cleanWord(word);
+    return cleanedIncorrect.includes(cleanedWord);
+  }).length;
+
+  const incorrectHighlights = highlightedWords.filter((word: string) => {
+    const cleanedWord = cleanWord(word);
+    return !cleanedIncorrect.includes(cleanedWord);
+  }).length;
+
+  // Use correct/total format like Fill in the Blanks
+  const score = correctHighlights; // Show actual correct highlights count
+  const isCorrect =
+    correctHighlights === incorrectWords.length && incorrectHighlights === 0;
 
   return {
     score,
     isCorrect,
-    feedback: `You correctly identified ${correctHighlights} incorrect words and incorrectly highlighted ${incorrectHighlights} correct words.`,
+    feedback: `You correctly identified ${correctHighlights} out of ${incorrectWords.length} incorrect words and incorrectly highlighted ${incorrectHighlights} correct words.`,
     detailedAnalysis: {
+      overallScore: score,
       highlightedWords,
       incorrectWords,
+      cleanedHighlighted,
+      cleanedIncorrect,
       correctHighlights,
       incorrectHighlights,
       totalIncorrectWords: incorrectWords.length,
+      // Add structured scores for consistent frontend display
+      scores: {
+        listening: { score: correctHighlights, max: incorrectWords.length },
+      },
     },
     suggestions: [
       'Listen carefully to identify differences between audio and text',
@@ -1697,8 +2308,8 @@ async function evaluateWriteFromDictation(
   timeTakenSeconds?: number
 ): Promise<QuestionEvaluationResult> {
   const userText = userResponse.text?.toLowerCase().trim() || '';
-  const correctText = question.correctAnswers?.toLowerCase().trim() || '';
-
+  const correctText = question.textContent?.toLowerCase().trim() || '';
+  ``;
   // Calculate word-level accuracy
   const userWords = userText
     .split(/\s+/)
@@ -1722,20 +2333,72 @@ async function evaluateWriteFromDictation(
       : 0;
   const isCorrect = accuracy >= 80; // 80% accuracy threshold
 
+  // Generate error analysis for incorrect words
+  const errorAnalysis = {
+    spellingErrors: [] as any[],
+    grammarErrors: [] as any[],
+    vocabularyIssues: [] as any[],
+  };
+
+  // Compare words and identify errors
+  for (let i = 0; i < Math.max(userWords.length, correctWords.length); i++) {
+    const userWord = userWords[i] || '';
+    const correctWord = correctWords[i] || '';
+
+    if (userWord !== correctWord) {
+      if (correctWord && !userWord) {
+        // Missing word
+        errorAnalysis.spellingErrors.push({
+          text: '(missing)',
+          type: 'spelling',
+          position: { start: 0, end: 1 },
+          correction: correctWord,
+          explanation: `Missing word: "${correctWord}"`,
+        });
+      } else if (userWord && !correctWord) {
+        // Extra word
+        errorAnalysis.spellingErrors.push({
+          text: userWord,
+          type: 'spelling',
+          position: { start: 0, end: 1 },
+          correction: '',
+          explanation: `Extra word that should be removed`,
+        });
+      } else if (userWord && correctWord) {
+        // Incorrect word
+        errorAnalysis.spellingErrors.push({
+          text: userWord,
+          type: 'spelling',
+          position: { start: 0, end: 1 },
+          correction: correctWord,
+          explanation: `Incorrect spelling or word`,
+        });
+      }
+    }
+  }
+
+  // Use correct/total format like Fill in the Blanks
+  const score = correctWordCount; // Show actual correct words count
+
   return {
-    score: accuracy,
+    score,
     isCorrect,
-    feedback: `You typed ${correctWordCount} out of ${
-      correctWords.length
-    } words correctly (${Math.round(accuracy)}% accuracy).`,
+    feedback: `You typed ${correctWordCount} out of ${correctWords.length} words correctly.`,
     detailedAnalysis: {
-      userText,
+      overallScore: score,
+      userText: userResponse.text || '', // Include original text for highlighting
       correctText,
       userWords,
       correctWords,
       correctWordCount,
       totalWords: correctWords.length,
       accuracy,
+      // Add structured scores for consistent frontend display
+      scores: {
+        listening: { score: correctWordCount, max: correctWords.length },
+        writing: { score: correctWordCount, max: correctWords.length }, // Also tests writing
+      },
+      errorAnalysis,
     },
     suggestions: [
       'Focus on spelling accuracy',
@@ -1755,12 +2418,13 @@ async function evaluateHighlightCorrectSummary(
 ): Promise<QuestionEvaluationResult> {
   const selectedSummary =
     userResponse.selectedSummary || userResponse.selectedOptions?.[0];
-  const correctAnswers = Array.isArray(question.correctAnswers)
-    ? question.correctAnswers
-    : [question.correctAnswers];
+  const correctAnswers = question.options.filter((opt: any) => opt.isCorrect);
 
-  const isCorrect = correctAnswers.includes(selectedSummary);
-  const score = isCorrect ? 100 : 0;
+  const correctAnswerIds = correctAnswers.map((opt: any) => opt.id);
+
+  const isCorrect = correctAnswerIds.includes(selectedSummary);
+  // Use 1/0 format for single answer questions
+  const score = isCorrect ? 1 : 0;
 
   return {
     score,
@@ -1769,9 +2433,14 @@ async function evaluateHighlightCorrectSummary(
       ? 'Correct! You selected the best summary.'
       : 'Incorrect. The selected summary does not best represent the audio content.',
     detailedAnalysis: {
+      overallScore: score,
       selectedSummary,
-      correctAnswers,
+      correctAnswerIds,
       timeTaken: timeTakenSeconds || 0,
+      // Add structured scores for consistent frontend display
+      scores: {
+        listening: { score: score, max: 1 },
+      },
     },
     suggestions: isCorrect
       ? ['Excellent listening comprehension!']
@@ -1793,12 +2462,12 @@ async function evaluateSelectMissingWord(
 ): Promise<QuestionEvaluationResult> {
   const selectedWord =
     userResponse.selectedWord || userResponse.selectedOptions?.[0];
-  const correctAnswers = Array.isArray(question.correctAnswers)
-    ? question.correctAnswers
-    : [question.correctAnswers];
+  const correctAnswers = question.options.filter((opt: any) => opt.isCorrect);
+  const correctAnswerIds = correctAnswers.map((opt: any) => opt.id);
 
-  const isCorrect = correctAnswers.includes(selectedWord);
-  const score = isCorrect ? 100 : 0;
+  const isCorrect = correctAnswerIds.includes(selectedWord);
+  // Use 1/0 format for single answer questions
+  const score = isCorrect ? 1 : 0;
 
   return {
     score,
@@ -1807,9 +2476,14 @@ async function evaluateSelectMissingWord(
       ? 'Correct! You identified the missing word accurately.'
       : 'Incorrect. Listen again for context clues about the missing word.',
     detailedAnalysis: {
+      overallScore: score,
       selectedWord,
-      correctAnswers,
+      correctAnswers: correctAnswerIds,
       timeTaken: timeTakenSeconds || 0,
+      // Add structured scores for consistent frontend display
+      scores: {
+        listening: { score: score, max: 1 },
+      },
     },
     suggestions: isCorrect
       ? ['Great listening skills!']
@@ -1819,4 +2493,256 @@ async function evaluateSelectMissingWord(
           'Consider the logical flow of the sentence',
         ],
   };
+}
+
+/**
+ * Evaluate Listening Fill in the Blanks responses with flexible text matching
+ */
+async function evaluateListeningFillInTheBlanks(
+  question: Question,
+  userResponse: any,
+  timeTakenSeconds?: number
+): Promise<QuestionEvaluationResult> {
+  const userBlanks = userResponse.blanks || {};
+
+  // Extract correct answers from the options array
+  const correctBlanks: { [key: string]: string } = {};
+
+  // The question.options contains the blanks with their correct answers
+  if (question.options && Array.isArray(question.options)) {
+    question.options.forEach((blank: any, index: number) => {
+      const blankKey = `blank${index + 1}`;
+      correctBlanks[blankKey] = blank.correctAnswer;
+    });
+  }
+
+  let correctCount = 0;
+  let totalBlanks = 0;
+  const blankResults: any = {};
+
+  Object.keys(correctBlanks).forEach((blankKey) => {
+    totalBlanks++;
+    const userAnswer = userBlanks[blankKey]?.toLowerCase().trim();
+    const correctAnswer = correctBlanks[blankKey]?.toLowerCase().trim();
+
+    // More flexible matching for listening questions
+    const isBlankCorrect = isListeningAnswerCorrect(userAnswer, correctAnswer);
+
+    if (isBlankCorrect) {
+      correctCount++;
+    }
+
+    blankResults[blankKey] = {
+      userAnswer: userBlanks[blankKey],
+      correctAnswer: correctBlanks[blankKey],
+      isCorrect: isBlankCorrect,
+    };
+  });
+
+  // Use actual correct/total format instead of percentage
+  const score = correctCount; // Show actual correct count
+  const isCorrect = correctCount >= Math.ceil(totalBlanks * 0.6); // 60% threshold for listening
+
+  // Generate AI feedback for listening
+  const aiFeedback = await generateListeningFillInTheBlanksAIFeedback(
+    question,
+    userResponse,
+    blankResults,
+    score
+  );
+
+  // Generate error analysis for incorrect blanks
+  const errorAnalysis = {
+    spellingErrors: [] as any[],
+    grammarErrors: [] as any[],
+    vocabularyIssues: [] as any[],
+  };
+
+  // Create a text representation for error highlighting
+  let userText = '';
+  let correctText = '';
+
+  Object.keys(correctBlanks).forEach((blankKey, index) => {
+    const userAnswer = userBlanks[blankKey] || '(blank)';
+    const correctAnswer = correctBlanks[blankKey];
+    const isBlankCorrect = blankResults[blankKey].isCorrect;
+
+    if (index > 0) {
+      userText += ' ';
+      correctText += ' ';
+    }
+
+    userText += userAnswer;
+    correctText += correctAnswer;
+
+    // Add error if blank is incorrect
+    if (!isBlankCorrect && userAnswer !== '(blank)') {
+      errorAnalysis.spellingErrors.push({
+        text: userAnswer,
+        type: 'spelling',
+        position: { start: 0, end: 1 },
+        correction: correctAnswer,
+        explanation: `Incorrect word for blank ${
+          index + 1
+        }. Expected: "${correctAnswer}"`,
+      });
+    }
+  });
+
+  return {
+    isCorrect,
+    score,
+    feedback: aiFeedback.feedback,
+    suggestions: aiFeedback.suggestions,
+    detailedAnalysis: {
+      overallScore: score,
+      detailedResults: blankResults,
+      correctCount,
+      totalBlanks,
+      timeTakenSeconds,
+      // Add structured scores for consistent frontend display
+      scores: {
+        listening: { score: correctCount, max: totalBlanks },
+        writing: { score: correctCount, max: totalBlanks }, // Listening fill in blanks also tests writing
+      },
+      errorAnalysis,
+      userText, // Include text representation for highlighting
+    },
+  };
+}
+
+/**
+ * Check if listening answer is correct with flexible matching
+ */
+function isListeningAnswerCorrect(
+  userAnswer: string,
+  correctAnswer: string
+): boolean {
+  if (!userAnswer || !correctAnswer) return false;
+
+  const user = userAnswer.toLowerCase().trim();
+  const correct = correctAnswer.toLowerCase().trim();
+
+  // Exact match
+  if (user === correct) return true;
+
+  // Handle common variations and typos
+  // Remove punctuation and extra spaces
+  const cleanUser = user
+    .replace(/[^\w\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const cleanCorrect = correct
+    .replace(/[^\w\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (cleanUser === cleanCorrect) return true;
+
+  // Check for common spelling variations
+  if (areWordsPhoneticallySimilar(cleanUser, cleanCorrect)) return true;
+
+  // Check if user answer contains the correct word (for compound words)
+  if (
+    cleanCorrect.includes(' ') &&
+    cleanUser.includes(cleanCorrect.split(' ')[0])
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Check if two words are phonetically similar (basic implementation)
+ */
+function areWordsPhoneticallySimilar(word1: string, word2: string): boolean {
+  if (Math.abs(word1.length - word2.length) > 2) return false;
+
+  // Simple Levenshtein distance check for typos
+  const distance = levenshteinDistance(word1, word2);
+  const maxLength = Math.max(word1.length, word2.length);
+
+  // Allow 1-2 character differences for words longer than 3 characters
+  if (maxLength > 3 && distance <= 2) return true;
+  if (maxLength <= 3 && distance <= 1) return true;
+
+  return false;
+}
+
+/**
+ * Calculate Levenshtein distance between two strings
+ */
+function levenshteinDistance(str1: string, str2: string): number {
+  const matrix = Array(str2.length + 1)
+    .fill(null)
+    .map(() => Array(str1.length + 1).fill(null));
+
+  for (let i = 0; i <= str1.length; i++) matrix[0][i] = i;
+  for (let j = 0; j <= str2.length; j++) matrix[j][0] = j;
+
+  for (let j = 1; j <= str2.length; j++) {
+    for (let i = 1; i <= str1.length; i++) {
+      const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
+      matrix[j][i] = Math.min(
+        matrix[j][i - 1] + 1, // deletion
+        matrix[j - 1][i] + 1, // insertion
+        matrix[j - 1][i - 1] + indicator // substitution
+      );
+    }
+  }
+
+  return matrix[str2.length][str1.length];
+}
+
+/**
+ * Generate AI feedback for listening fill in the blanks
+ */
+async function generateListeningFillInTheBlanksAIFeedback(
+  question: Question,
+  userResponse: any,
+  blankResults: any,
+  score: number
+): Promise<{ feedback: string; suggestions: string[] }> {
+  const correctCount = Object.values(blankResults).filter(
+    (result: any) => result.isCorrect
+  ).length;
+  const totalBlanks = Object.keys(blankResults).length;
+
+  let feedback = '';
+  const suggestions: string[] = [];
+
+  if (score >= 80) {
+    feedback = `Excellent listening comprehension! You correctly identified ${correctCount} out of ${totalBlanks} words.`;
+    suggestions.push('Continue practicing with varied audio content');
+    suggestions.push('Focus on maintaining this level of accuracy');
+  } else if (score >= 60) {
+    feedback = `Good listening skills! You got ${correctCount} out of ${totalBlanks} words correct.`;
+    suggestions.push('Listen for context clues to help identify missing words');
+    suggestions.push('Pay attention to grammatical patterns');
+    suggestions.push('Practice with similar audio content');
+  } else {
+    feedback = `Keep practicing your listening skills. You identified ${correctCount} out of ${totalBlanks} words correctly.`;
+    suggestions.push('Listen to the audio multiple times if allowed');
+    suggestions.push('Focus on understanding the overall meaning first');
+    suggestions.push('Pay attention to word stress and pronunciation');
+    suggestions.push('Practice with shorter audio clips to build confidence');
+  }
+
+  // Add specific feedback for incorrect answers
+  const incorrectBlanks = Object.entries(blankResults)
+    .filter(([_, result]: [string, any]) => !result.isCorrect)
+    .slice(0, 2); // Limit to first 2 incorrect answers
+
+  if (incorrectBlanks.length > 0) {
+    feedback += '\n\nSpecific areas to focus on:\n';
+    incorrectBlanks.forEach(([blankKey, result]: [string, any]) => {
+      const blankNumber = blankKey.replace('blank', '');
+      feedback += `• Blank ${blankNumber}: You wrote "${
+        result.userAnswer || '(empty)'
+      }", but the correct answer is "${result.correctAnswer}"\n`;
+    });
+  }
+
+  return { feedback, suggestions };
 }

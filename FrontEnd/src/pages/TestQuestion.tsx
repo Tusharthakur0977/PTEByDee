@@ -28,20 +28,28 @@ const TestQuestion: React.FC = () => {
   const currentQuestionIndex = parseInt(questionNumber || '1') - 1;
   const currentQuestion = test?.questions[currentQuestionIndex];
 
-  useEffect(() => {
-    if (currentQuestion?.durationMillis) {
-      setTimeLeft(Math.floor(currentQuestion.durationMillis / 1000));
-    }
-  }, [currentQuestion]);
+  // Check if this question type should have a timer
+  const shouldShowTimer =
+    currentQuestion?.questionType?.name === 'SUMMARIZE_WRITTEN_TEXT' ||
+    currentQuestion?.questionType?.name === 'WRITE_ESSAY' ||
+    currentQuestion?.questionType?.name === 'SUMMARIZE_SPOKEN_TEXT';
 
   useEffect(() => {
+    if (currentQuestion?.durationMillis && shouldShowTimer) {
+      setTimeLeft(Math.floor(currentQuestion.durationMillis / 1000));
+    }
+  }, [currentQuestion, shouldShowTimer]);
+
+  useEffect(() => {
+    if (!shouldShowTimer) return; // Skip timer logic for questions without timers
+
     if (timeLeft > 0) {
       const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
       return () => clearTimeout(timer);
     } else if (timeLeft === 0 && !isSubmitted) {
       handleSubmit();
     }
-  }, [timeLeft, isSubmitted]);
+  }, [timeLeft, isSubmitted, shouldShowTimer]);
 
   if (!test || !currentQuestion) {
     return (
@@ -366,16 +374,19 @@ const TestQuestion: React.FC = () => {
               </span>
             </div>
             <div className='flex items-center space-x-4'>
-              <div className='flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-300'>
-                <Clock className='h-4 w-4' />
-                <span
-                  className={`font-mono ${
-                    timeLeft < 60 ? 'text-red-600 dark:text-red-400' : ''
-                  }`}
-                >
-                  {formatTime(timeLeft)}
-                </span>
-              </div>
+              {/* Only show timer for specific question types */}
+              {shouldShowTimer && (
+                <div className='flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-300'>
+                  <Clock className='h-4 w-4' />
+                  <span
+                    className={`font-mono ${
+                      timeLeft < 60 ? 'text-red-600 dark:text-red-400' : ''
+                    }`}
+                  >
+                    {formatTime(timeLeft)}
+                  </span>
+                </div>
+              )}
               {isRecording && (
                 <div className='flex items-center space-x-2 text-red-600 dark:text-red-400'>
                   <div className='w-2 h-2 bg-red-600 rounded-full animate-pulse'></div>

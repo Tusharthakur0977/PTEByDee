@@ -40,6 +40,8 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
   const [isProcessingAudio, setIsProcessingAudio] = useState(false);
   const [isAudioReady, setIsAudioReady] = useState(false);
   const [evaluationResult, setEvaluationResult] = useState<any>(null);
+  const [isAudioFinished, setIsAudioFinished] = useState(false);
+  const [resetKey, setResetKey] = useState(0);
 
   // Check if current question is audio-based
   const isAudioBasedQuestion = [
@@ -48,8 +50,25 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
     'DESCRIBE_IMAGE',
     'RE_TELL_LECTURE',
     'ANSWER_SHORT_QUESTION',
-    'SUMMARIZE_SPOKEN_TEXT',
   ].includes(question.type);
+
+  // Reset everything when question changes
+  useEffect(() => {
+    setIsCompleted(false);
+    setResponse({});
+    setEvaluationResult(null);
+    setTimeLeft(question.content.timeLimit || 300);
+    setPreparationTime(question.content.preparationTime || 0);
+    setIsPreparationPhase(!!question.content.preparationTime);
+    setIsAudioReady(false);
+    setIsProcessingAudio(false);
+    setIsAudioFinished(false); // Reset audio finished state for new question
+    // Don't reset AudioRecorder on question change - let it handle its own cleanup
+  }, [
+    question.id,
+    question.content.timeLimit,
+    question.content.preparationTime,
+  ]);
 
   const handleSubmit = useCallback(async () => {
     if (isCompleted || isSubmitting) return;
@@ -115,8 +134,16 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
     isAudioBasedQuestion,
   ]);
 
-  // Timer effect
+  // Check if this question type should have a timer
+  const shouldShowTimer =
+    question.type === PteQuestionTypeName.SUMMARIZE_WRITTEN_TEXT ||
+    question.type === PteQuestionTypeName.WRITE_ESSAY ||
+    question.type === PteQuestionTypeName.SUMMARIZE_SPOKEN_TEXT;
+
+  // Timer effect - only run for questions that should have timers
   useEffect(() => {
+    if (!shouldShowTimer) return; // Skip timer logic for questions without timers
+
     if (isPreparationPhase && preparationTime > 0) {
       const timer = setTimeout(
         () => setPreparationTime(preparationTime - 1),
@@ -146,6 +173,7 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
     question.content,
     isAudioBasedQuestion,
     handleSubmit,
+    shouldShowTimer,
   ]);
 
   const formatTime = (seconds: number) => {
@@ -184,6 +212,17 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
     setIsPreparationPhase(!!question.content.preparationTime);
     setIsAudioReady(false);
     setIsProcessingAudio(false);
+    setIsAudioFinished(false);
+
+    // Force AudioRecorder to re-render and reset
+    setResetKey((prev) => prev + 1);
+
+    // Reset audio players
+    const audioRecorders = document.querySelectorAll('audio');
+    audioRecorders.forEach((audio) => {
+      audio.currentTime = 0;
+      audio.pause();
+    });
   };
 
   const renderQuestionContent = () => {
@@ -196,14 +235,14 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 {question.content.text}
               </p>
             </div>
-            {!isPreparationPhase && (
-              <AudioRecorder
-                onRecordingComplete={handleAudioRecordingComplete}
-                maxDuration={question.content.recordingTime}
-                autoUpload={true}
-                disabled={isCompleted}
-              />
-            )}
+            {/* Always show recorder for READ_ALOUD since there's no preparation time */}
+            <AudioRecorder
+              onRecordingComplete={handleAudioRecordingComplete}
+              maxDuration={question.content.recordingTime}
+              autoUpload={true}
+              disabled={isCompleted}
+              key={`recorder-${question.id}-${resetKey}`} // Reset on question change or manual reset
+            />
           </div>
         );
 
@@ -214,7 +253,10 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
               <AudioPlayer
                 src={question.content.audioUrl || ''}
                 title='Listen to the sentence'
-                autoPlay={!isPreparationPhase}
+                autoPlay={true}
+                autoPlayDelay={isPreparationPhase ? 2000 : 1000} // Delay based on preparation phase
+                onEnded={() => setIsAudioFinished(true)}
+                key={`audio-${question.id}`} // Reset on question change
               />
             </div>
             {!isPreparationPhase && (
@@ -222,7 +264,8 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 onRecordingComplete={handleAudioRecordingComplete}
                 maxDuration={question.content.recordingTime}
                 autoUpload={true}
-                disabled={isCompleted}
+                disabled={isCompleted || !isAudioFinished}
+                key={`recorder-${question.id}-${resetKey}`} // Reset on question change or manual reset
               />
             )}
           </div>
@@ -238,14 +281,13 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 className='max-w-full h-auto rounded-lg shadow-lg max-h-96'
               />
             </div>
-            {!isPreparationPhase && (
-              <AudioRecorder
-                onRecordingComplete={handleAudioRecordingComplete}
-                maxDuration={question.content.recordingTime}
-                autoUpload={true}
-                disabled={isCompleted}
-              />
-            )}
+            <AudioRecorder
+              onRecordingComplete={handleAudioRecordingComplete}
+              maxDuration={question.content.recordingTime}
+              autoUpload={true}
+              disabled={isCompleted}
+              key={`recorder-${question.id}-${resetKey}`} // Reset on question change or manual reset
+            />
           </div>
         );
 
@@ -256,17 +298,19 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
               <AudioPlayer
                 src={question.content.audioUrl || ''}
                 title='Listen to the lecture'
-                autoPlay={!isPreparationPhase}
+                autoPlay={true} // Always auto-play the lecture
+                autoPlayDelay={1000} // Small delay to ensure proper loading
+                onEnded={() => setIsAudioFinished(true)}
+                key={`audio-${question.id}`} // Reset on question change
               />
             </div>
-            {!isPreparationPhase && (
-              <AudioRecorder
-                onRecordingComplete={handleAudioRecordingComplete}
-                maxDuration={question.content.recordingTime}
-                autoUpload={true}
-                disabled={isCompleted}
-              />
-            )}
+            <AudioRecorder
+              onRecordingComplete={handleAudioRecordingComplete}
+              maxDuration={question.content.recordingTime}
+              autoUpload={true}
+              disabled={isCompleted || !isAudioFinished}
+              key={`recorder-${question.id}-${resetKey}`} // Reset on question change or manual reset
+            />
           </div>
         );
 
@@ -277,7 +321,10 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
               <AudioPlayer
                 src={question.content.audioUrl || ''}
                 title='Listen to the question'
-                autoPlay={!isPreparationPhase}
+                autoPlay={true}
+                autoPlayDelay={isPreparationPhase ? 2000 : 1000} // Delay based on preparation phase
+                onEnded={() => setIsAudioFinished(true)}
+                key={`audio-${question.id}`} // Reset on question change
               />
             </div>
             {!isPreparationPhase && (
@@ -285,7 +332,8 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 onRecordingComplete={handleAudioRecordingComplete}
                 maxDuration={question.content.recordingTime}
                 autoUpload={true}
-                disabled={isCompleted}
+                disabled={isCompleted || !isAudioFinished}
+                key={`recorder-${question.id}-${resetKey}`} // Reset on question change or manual reset
               />
             )}
           </div>
@@ -298,6 +346,9 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
               <AudioPlayer
                 src={question.content.audioUrl || ''}
                 title='Listen to the lecture'
+                autoPlay={true}
+                autoPlayDelay={1000}
+                key={`audio-${question.id}`} // Reset on question change
               />
             </div>
             <div>
@@ -309,12 +360,6 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                   {response.text?.split(' ').filter((w: string) => w.length > 0)
                     .length || 0}{' '}
                   words
-                  {question.content.wordLimit && (
-                    <span className='ml-2'>
-                      (Required: {question.content.wordLimit.min}-
-                      {question.content.wordLimit.max})
-                    </span>
-                  )}
                 </div>
               </div>
               <textarea
@@ -348,12 +393,6 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                   {response.text?.split(' ').filter((w: string) => w.length > 0)
                     .length || 0}{' '}
                   words
-                  {question.content.wordLimit && (
-                    <span className='ml-2'>
-                      (Required: {question.content.wordLimit.min}-
-                      {question.content.wordLimit.max})
-                    </span>
-                  )}
                 </div>
               </div>
               <textarea
@@ -385,13 +424,15 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 <AudioPlayer
                   src={question.content.audioUrl}
                   title='Listen to the recording'
+                  autoPlay={true}
+                  autoPlayDelay={1000}
+                  key={`audio-${question.id}`} // Reset on question change
                 />
               </div>
             )}
             <div className='space-y-3'>
               <h4 className='font-medium text-gray-900 dark:text-white'>
-                {question.content.questionStatement ||
-                  'Choose the correct answer:'}
+                Choose the correct answer:
               </h4>
               {question.content.options?.map((option) => (
                 <label
@@ -441,13 +482,15 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 <AudioPlayer
                   src={question.content.audioUrl}
                   title='Listen to the recording'
+                  autoPlay={true}
+                  autoPlayDelay={1000}
+                  key={`audio-${question.id}`} // Reset on question change
                 />
               </div>
             )}
             <div className='space-y-3'>
               <h4 className='font-medium text-gray-900 dark:text-white'>
-                {question.content.questionStatement ||
-                  'Choose all correct answers:'}
+                Choose all correct answers:
               </h4>
               {question.content.options?.map((option) => (
                 <label
@@ -987,7 +1030,7 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 onDrop={(e) => {
                   if (isCompleted) return;
                   e.preventDefault();
-                  const draggedWord = e.dataTransfer.getData('text/plain');
+                  // const draggedWord = e.dataTransfer.getData('text/plain');
                   const source = e.dataTransfer.getData('source');
                   const blankId = e.dataTransfer.getData('blankId');
 
@@ -1042,28 +1085,29 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
               <AudioPlayer
                 src={question.content.audioUrl || ''}
                 title='Listen and fill in the blanks'
+                autoPlay={true}
+                autoPlayDelay={1000}
+                key={`audio-${question.id}`} // Reset on question change
               />
             </div>
             <div className='bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-600'>
               <h4 className='font-medium text-gray-900 dark:text-white mb-4'>
-                Listen carefully and select the missing words from the
-                dropdowns:
+                Listen carefully and type the missing words in the blanks:
               </h4>
               <div className='text-base leading-relaxed text-gray-900 dark:text-white'>
                 {question.content.text
                   ?.split('_____')
                   .map((part, index, array) => {
-                    const blankOptions =
-                      question.content.blanks?.[index]?.options || [];
-                    const selectedValue =
+                    const userInput =
                       response.blanks?.[`blank${index + 1}`] || '';
                     return (
                       <span key={index}>
                         {part}
                         {index < array.length - 1 && (
                           <span className='inline-block relative'>
-                            <select
-                              value={selectedValue}
+                            <input
+                              type='text'
+                              value={userInput}
                               onChange={(e) =>
                                 setResponse({
                                   ...response,
@@ -1074,67 +1118,26 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                                 })
                               }
                               disabled={isCompleted}
+                              placeholder='___'
                               className={`
                                 inline-block mx-1 px-2 py-1 text-sm font-medium rounded-md border-2
-                                transition-all duration-200 cursor-pointer min-w-[100px] max-w-[140px]
+                                transition-all duration-200 min-w-[80px] max-w-[120px] text-center
                                 ${
-                                  selectedValue
-                                    ? 'bg-purple-50 dark:bg-purple-900/30 border-purple-400 dark:border-purple-500 text-purple-800 dark:text-purple-200'
+                                  userInput.trim()
+                                    ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-400 dark:border-blue-500 text-blue-800 dark:text-blue-200'
                                     : 'bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400'
                                 }
-                                hover:border-purple-400 dark:hover:border-purple-500
-                                focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500
+                                hover:border-blue-400 dark:hover:border-blue-500
+                                focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500
                                 disabled:opacity-50 disabled:cursor-not-allowed
+                                placeholder:text-gray-400 dark:placeholder:text-gray-500
                               `}
-                            >
-                              <option
-                                value=''
-                                className='text-gray-500 dark:text-gray-400'
-                              >
-                                {selectedValue ? selectedValue : '___'}
-                              </option>
-                              {blankOptions.length > 0 ? (
-                                blankOptions.map((option: string) => (
-                                  <option
-                                    key={option}
-                                    value={option}
-                                    className='text-gray-900 dark:text-white bg-white dark:bg-gray-800'
-                                  >
-                                    {option}
-                                  </option>
-                                ))
-                              ) : (
-                                <option
-                                  value=''
-                                  disabled
-                                  className='text-gray-400'
-                                >
-                                  No options
-                                </option>
-                              )}
-                            </select>
+                            />
                           </span>
                         )}
                       </span>
                     );
                   })}
-              </div>
-
-              {/* Audio replay button */}
-              <div className='mt-4 text-center'>
-                <button
-                  onClick={() => {
-                    const audio = document.querySelector('audio');
-                    if (audio) {
-                      audio.currentTime = 0;
-                      audio.play();
-                    }
-                  }}
-                  disabled={isCompleted}
-                  className='px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors duration-200 disabled:opacity-50'
-                >
-                  🔄 Replay Audio
-                </button>
               </div>
             </div>
 
@@ -1162,6 +1165,9 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
               <AudioPlayer
                 src={question.content.audioUrl || ''}
                 title='Listen to the recording'
+                autoPlay={true}
+                autoPlayDelay={1000}
+                key={`audio-${question.id}`} // Reset on question change
               />
             </div>
             <div className='space-y-3'>
@@ -1209,6 +1215,9 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
               <AudioPlayer
                 src={question.content.audioUrl || ''}
                 title='Listen and select the missing word'
+                autoPlay={true}
+                autoPlayDelay={1000}
+                key={`audio-${question.id}`} // Reset on question change
               />
             </div>
             <div className='space-y-4'>
@@ -1245,45 +1254,71 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
               <AudioPlayer
                 src={question.content.audioUrl || ''}
                 title='Listen and highlight incorrect words'
+                autoPlay={true}
+                autoPlayDelay={1000}
+                key={`audio-${question.id}`} // Reset on question change
               />
             </div>
             <div className='bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-600'>
               <h4 className='font-medium text-gray-900 dark:text-white mb-4'>
                 Click on words that are different from what you heard:
               </h4>
-              <div className='text-lg leading-relaxed'>
+              <div className='text-lg'>
                 {question.content.text
                   ?.split(' ')
-                  .map((word, index) => (
-                    <span
-                      key={index}
-                      onClick={() => {
-                        if (isCompleted) return;
-                        const highlightedWords =
-                          response.highlightedWords || [];
-                        if (highlightedWords.includes(word)) {
-                          setResponse({
-                            ...response,
-                            highlightedWords: highlightedWords.filter(
-                              (w: string) => w !== word
-                            ),
-                          });
-                        } else {
-                          setResponse({
-                            ...response,
-                            highlightedWords: [...highlightedWords, word],
-                          });
-                        }
-                      }}
-                      className={`cursor-pointer px-2 py-1 mx-1 rounded-md transition-all duration-200 ${
-                        response.highlightedWords?.includes(word)
-                          ? 'bg-red-200 dark:bg-red-900/50 text-red-800 dark:text-red-300 shadow-sm'
-                          : 'text-gray-900 dark:text-white hover:bg-yellow-100 dark:hover:bg-yellow-900/30'
-                      } ${isCompleted ? 'pointer-events-none' : ''}`}
-                    >
-                      {word}
-                    </span>
-                  ))
+                  .map((word, index) => {
+                    const wordId = `word-${index}`;
+                    const highlightedWordIds =
+                      response.highlightedWordIds || [];
+                    const isHighlighted = highlightedWordIds.includes(wordId);
+
+                    return (
+                      <span
+                        key={index}
+                        onClick={() => {
+                          if (isCompleted) return;
+
+                          if (isHighlighted) {
+                            // Remove this specific word instance
+                            const wordIdIndex =
+                              highlightedWordIds.indexOf(wordId);
+                            const newHighlightedWordIds =
+                              highlightedWordIds.filter(
+                                (id: string) => id !== wordId
+                              );
+                            const newHighlightedWords = (
+                              response.highlightedWords || []
+                            ).filter((_: any, i: number) => i !== wordIdIndex);
+                            setResponse({
+                              ...response,
+                              highlightedWordIds: newHighlightedWordIds,
+                              highlightedWords: newHighlightedWords,
+                            });
+                          } else {
+                            // Add this specific word instance
+                            setResponse({
+                              ...response,
+                              highlightedWordIds: [
+                                ...highlightedWordIds,
+                                wordId,
+                              ],
+                              highlightedWords: [
+                                ...(response.highlightedWords || []),
+                                word,
+                              ],
+                            });
+                          }
+                        }}
+                        className={`cursor-pointer py-1 mx-1 rounded-md transition-all duration-200 ${
+                          isHighlighted
+                            ? 'bg-red-200 dark:bg-red-900/50 text-red-800 dark:text-red-300 shadow-sm'
+                            : 'text-gray-900 dark:text-white hover:bg-yellow-100 dark:hover:bg-yellow-900/30'
+                        } ${isCompleted ? 'pointer-events-none' : ''}`}
+                      >
+                        {word}
+                      </span>
+                    );
+                  })
                   .reduce((prev, curr, index) => (
                     <React.Fragment key={index}>
                       {prev} {curr}
@@ -1304,6 +1339,9 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
               <AudioPlayer
                 src={question.content.audioUrl || ''}
                 title='Listen and type the sentence'
+                autoPlay={true}
+                autoPlayDelay={1000}
+                key={`audio-${question.id}`} // Reset on question change
               />
             </div>
             <div className='bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-600'>
@@ -1360,36 +1398,41 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
           </p>
         </div>
         <div className='flex items-center space-x-4'>
-          {isPreparationPhase ? (
-            <div className='flex items-center space-x-2 bg-orange-50 dark:bg-orange-900/20 px-3 py-2 rounded-lg border border-orange-200 dark:border-orange-800'>
-              <Clock className='h-4 w-4 text-orange-600 dark:text-orange-400' />
-              <div>
-                <div className='text-xs font-medium text-orange-600 dark:text-orange-400 uppercase tracking-wide'>
-                  Preparation
+          {/* Only show timer for specific question types */}
+          {shouldShowTimer && (
+            <>
+              {isPreparationPhase ? (
+                <div className='flex items-center space-x-2 bg-orange-50 dark:bg-orange-900/20 px-3 py-2 rounded-lg border border-orange-200 dark:border-orange-800'>
+                  <Clock className='h-4 w-4 text-orange-600 dark:text-orange-400' />
+                  <div>
+                    <div className='text-xs font-medium text-orange-600 dark:text-orange-400 uppercase tracking-wide'>
+                      Preparation
+                    </div>
+                    <div className='font-mono text-sm font-bold text-orange-700 dark:text-orange-300'>
+                      {formatTime(preparationTime)}
+                    </div>
+                  </div>
                 </div>
-                <div className='font-mono text-sm font-bold text-orange-700 dark:text-orange-300'>
-                  {formatTime(preparationTime)}
+              ) : (
+                <div className='flex items-center space-x-2 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-lg border border-blue-200 dark:border-blue-800'>
+                  <Clock className='h-4 w-4 text-blue-600 dark:text-blue-400' />
+                  <div>
+                    <div className='text-xs font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wide'>
+                      Time Left
+                    </div>
+                    <div
+                      className={`font-mono text-sm font-bold ${
+                        timeLeft < 60
+                          ? 'text-red-600 dark:text-red-400'
+                          : 'text-blue-700 dark:text-blue-300'
+                      }`}
+                    >
+                      {formatTime(timeLeft)}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          ) : (
-            <div className='flex items-center space-x-2 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-lg border border-blue-200 dark:border-blue-800'>
-              <Clock className='h-4 w-4 text-blue-600 dark:text-blue-400' />
-              <div>
-                <div className='text-xs font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wide'>
-                  Time Left
-                </div>
-                <div
-                  className={`font-mono text-sm font-bold ${
-                    timeLeft < 60
-                      ? 'text-red-600 dark:text-red-400'
-                      : 'text-blue-700 dark:text-blue-300'
-                  }`}
-                >
-                  {formatTime(timeLeft)}
-                </div>
-              </div>
-            </div>
+              )}
+            </>
           )}
           {isCompleted && (
             <div className='flex items-center space-x-2 bg-green-50 dark:bg-green-900/20 px-3 py-2 rounded-lg border border-green-200 dark:border-green-800'>
