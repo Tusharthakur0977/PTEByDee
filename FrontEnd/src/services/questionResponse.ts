@@ -27,6 +27,51 @@ export interface QuestionEvaluation {
   suggestions: string[];
 }
 
+export interface PreviousResponse {
+  id: string;
+  textResponse?: string;
+  audioResponseUrl?: string;
+  selectedOptions: string[];
+  orderedItems: string[];
+  highlightedWords: string[];
+  questionScore?: number;
+  isCorrect?: boolean;
+  aiFeedback?: string;
+  detailedAnalysis?: any;
+  timeTakenSeconds?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface QuestionResponseStats {
+  totalAttempts: number;
+  correctAttempts: number;
+  accuracy: number;
+  averageScore: number;
+  bestScore: number;
+  averageTimeSeconds: number;
+  firstAttemptDate?: string;
+  lastAttemptDate?: string;
+}
+
+export interface PreviousResponsesResponse {
+  question: {
+    id: string;
+    questionCode: string;
+    questionType: string;
+    sectionName: string;
+  };
+  responses: PreviousResponse[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalResponses: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+    limit: number;
+  };
+}
+
 export interface QuestionResponseResult {
   responseId: string;
   evaluation: QuestionEvaluation;
@@ -72,6 +117,42 @@ export const submitQuestionResponse = async (
       );
     }
   }
+};
+
+/**
+ * Get previous responses for a specific question
+ */
+export const getQuestionPreviousResponses = async (
+  questionId: string,
+  options?: {
+    page?: number;
+    limit?: number;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  }
+): Promise<PreviousResponsesResponse> => {
+  const params = new URLSearchParams();
+  if (options?.page) params.append('page', options.page.toString());
+  if (options?.limit) params.append('limit', options.limit.toString());
+  if (options?.sortBy) params.append('sortBy', options.sortBy);
+  if (options?.sortOrder) params.append('sortOrder', options.sortOrder);
+
+  const response = await api.get(
+    `/user/questions/${questionId}/previous-responses?${params.toString()}`
+  );
+  return response.data.data;
+};
+
+/**
+ * Get response statistics for a specific question
+ */
+export const getQuestionResponseStats = async (
+  questionId: string
+): Promise<QuestionResponseStats> => {
+  const response = await api.get(
+    `/user/questions/${questionId}/response-stats`
+  );
+  return response.data.data;
 };
 
 /**

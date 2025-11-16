@@ -42,7 +42,7 @@ const getInstructionsForQuestionType = (questionType: string): string => {
 
 const getPreparationTimeForQuestionType = (questionType: string): number => {
   const preparationTimes: { [key: string]: number } = {
-    READ_ALOUD: 40,
+    READ_ALOUD: 35,
     REPEAT_SENTENCE: 0,
     DESCRIBE_IMAGE: 25,
     RE_TELL_LECTURE: 10,
@@ -53,13 +53,13 @@ const getPreparationTimeForQuestionType = (questionType: string): number => {
 
 const getRecordingTimeForQuestionType = (questionType: string): number => {
   const recordingTimes: { [key: string]: number } = {
-    READ_ALOUD: 30,
+    READ_ALOUD: 40,
     REPEAT_SENTENCE: 15,
-    DESCRIBE_IMAGE: 25,
+    DESCRIBE_IMAGE: 40,
     RE_TELL_LECTURE: 40,
-    ANSWER_SHORT_QUESTION: 25,
+    ANSWER_SHORT_QUESTION: 10,
   };
-  return recordingTimes[questionType] || 30;
+  return recordingTimes[questionType] || 40;
 };
 
 const Portal: React.FC = () => {
@@ -188,6 +188,12 @@ const Portal: React.FC = () => {
     }
   };
 
+  const handlePreviousQuestion = () => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex(currentQuestionIndex - 1);
+    }
+  };
+
   const loadQuestionForPractice = async (questionId: string) => {
     try {
       setIsLoadingSelectedQuestion(true);
@@ -226,8 +232,11 @@ const Portal: React.FC = () => {
           blanks: questionData.content?.blanks,
           timeLimit:
             questionData.content?.timeLimit ||
-            (questionType === 'SUMMARIZE_SPOKEN_TEXT'
-              ? 600 // 10 minutes for summarize spoken text
+            (questionType === 'SUMMARIZE_SPOKEN_TEXT' ||
+            questionType === 'SUMMARIZE_WRITTEN_TEXT'
+              ? 600 // 10 minutes for summarize spoken text and summarize written text
+              : questionType === 'WRITE_ESSAY'
+              ? 1200 // 20 minutes for write essay
               : Math.floor(
                   (questionData.durationMillis ||
                     questionData.rawQuestion?.durationMillis ||
@@ -509,6 +518,12 @@ const Portal: React.FC = () => {
               onComplete={handleQuestionComplete}
               onNext={
                 isShowingSelectedQuestion ? undefined : handleNextQuestion
+              }
+              onPrevious={
+                isShowingSelectedQuestion ? undefined : handlePreviousQuestion
+              }
+              hasPrevious={
+                !isShowingSelectedQuestion && currentQuestionIndex > 0
               }
             />
           </div>

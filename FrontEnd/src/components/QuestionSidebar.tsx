@@ -114,7 +114,7 @@ const QuestionSidebar: React.FC<QuestionSidebarProps> = ({
 
       {/* Sidebar */}
       <div
-        className={`fixed right-0 top-0 h-full w-80 bg-white dark:bg-gray-800 shadow-xl z-50 transform transition-transform duration-300 ease-in-out ${
+        className={`fixed right-0 top-0 h-full w-80 bg-white dark:bg-gray-800 shadow-xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col  ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         } ${className}`}
       >
@@ -217,7 +217,7 @@ const QuestionSidebar: React.FC<QuestionSidebarProps> = ({
         </div>
 
         {/* Questions List */}
-        <div className='flex-1 overflow-y-auto'>
+        <div className='flex-1 overflow-y-auto '>
           {isLoading ? (
             <div className='p-4 text-center'>
               <div className='animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2'></div>
@@ -313,15 +313,6 @@ const QuestionSidebar: React.FC<QuestionSidebarProps> = ({
                       <Play className='h-3 w-3' />
                       <span>Practice</span>
                     </button>
-                    {question.hasUserResponses && (
-                      <button
-                        onClick={() => onQuestionSelect(question.id, 'history')}
-                        className='flex-1 flex items-center justify-center space-x-1 px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white text-xs font-medium rounded-md transition-colors duration-200'
-                      >
-                        <History className='h-3 w-3' />
-                        <span>History</span>
-                      </button>
-                    )}
                   </div>
                 </div>
               ))}

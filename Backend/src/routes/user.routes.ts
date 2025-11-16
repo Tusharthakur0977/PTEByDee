@@ -17,6 +17,10 @@ import { getQuestionTypes } from '../controllers/User/getQuestionTypes.controlle
 import { getPracticeQuestions } from '../controllers/User/getPracticeQuestions.controller';
 import { getQuestionList } from '../controllers/User/getQuestionList.controller';
 import { getQuestionWithResponses } from '../controllers/User/getQuestionWithResponse.controller';
+import {
+  getQuestionPreviousResponses,
+  getQuestionResponseStats,
+} from '../controllers/User/getQuestionPreviousResponses.controller';
 import { submitPracticeResponse } from '../controllers/User/submitPracticeResponse.controller';
 import { getPracticeHistory } from '../controllers/User/getPracticeHistory.controller';
 import { getPracticeStats } from '../controllers/User/getPracticeStats.controller';
@@ -40,8 +44,16 @@ router.get('/question-types', getQuestionTypes);
 router.get('/practice-questions/:questionType', getPracticeQuestions);
 router.get('/question-list/:questionType', getQuestionList);
 router.get('/questions/:questionId/responses', getQuestionWithResponses);
-router.get('/question-list/:questionType', getQuestionList);
-router.get('/questions/:questionId/responses', getQuestionWithResponses);
+router.get(
+  '/questions/:questionId/previous-responses',
+  protect,
+  getQuestionPreviousResponses
+);
+router.get(
+  '/questions/:questionId/response-stats',
+  protect,
+  getQuestionResponseStats
+);
 
 // Protected routes (User Profile Management)
 router

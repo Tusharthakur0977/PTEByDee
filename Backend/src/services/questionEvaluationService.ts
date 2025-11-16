@@ -1,12 +1,228 @@
 import { PteQuestionTypeName } from '@prisma/client';
 import openai from '../config/openAi';
+import {
+  StandardizedEvaluationResponse,
+  AudioQuestionEvaluation,
+  WritingQuestionEvaluation,
+  ReadingQuestionEvaluation,
+  ListeningQuestionEvaluation,
+  createStandardizedResponse,
+  createComponentScore,
+  createItemAnalysis,
+} from '../types/evaluationResponse';
 
 interface QuestionEvaluationResult {
   score: number; // 0-100
   isCorrect: boolean;
   feedback: string;
+  detailedAnalysis: any; // Keep as any for now, will be converted to StandardizedEvaluationResponse
+  suggestions: string[];
+}
+
+// Legacy interface for backward compatibility
+interface LegacyQuestionEvaluationResult {
+  score: number;
+  isCorrect: boolean;
+  feedback: string;
   detailedAnalysis: any;
   suggestions: string[];
+}
+
+/**
+ * Converts legacy evaluation results to standardized format
+ */
+function convertToStandardizedFormat(
+  legacyResult: LegacyQuestionEvaluationResult,
+  questionType: PteQuestionTypeName,
+  timeTaken: number = 0
+): StandardizedEvaluationResponse {
+  const { score, isCorrect, feedback, detailedAnalysis, suggestions } =
+    legacyResult;
+
+  // Create base scoring structure (will be updated based on components)
+  let scoring: StandardizedEvaluationResponse['scoring'] = {
+    overall: {
+      score,
+      maxScore: 100,
+      percentage: score,
+      passingThreshold: 65,
+    },
+  };
+
+  // Create base analysis structure
+  const analysis: StandardizedEvaluationResponse['analysis'] = {
+    questionType: questionType.toString(),
+    timeTaken,
+  };
+
+  // Add question-type specific data based on legacy structure
+  if (detailedAnalysis) {
+    // Handle audio questions (Read Aloud, Repeat Sentence, etc.)
+    if (
+      detailedAnalysis.contentScore !== undefined ||
+      detailedAnalysis.pronunciationScore !== undefined
+    ) {
+      const components: any = {};
+      let totalMaxScore = 0;
+
+      if (detailedAnalysis.contentScore !== undefined) {
+        const contentMaxScore = detailedAnalysis.contentMaxScore || 5;
+        components.content = createComponentScore(
+          detailedAnalysis.contentScore,
+          contentMaxScore,
+          0.4,
+          'Content accuracy and completeness'
+        );
+        totalMaxScore += contentMaxScore;
+      }
+
+      if (detailedAnalysis.pronunciationScore !== undefined) {
+        const pronunciationMaxScore =
+          detailedAnalysis.pronunciationMaxScore || 5;
+        components.pronunciation = createComponentScore(
+          detailedAnalysis.pronunciationScore,
+          pronunciationMaxScore,
+          0.4,
+          'Pronunciation clarity and accuracy'
+        );
+        totalMaxScore += pronunciationMaxScore;
+      }
+
+      if (detailedAnalysis.fluencyScore !== undefined) {
+        const fluencyMaxScore = detailedAnalysis.fluencyMaxScore || 5;
+        components.fluency = createComponentScore(
+          detailedAnalysis.fluencyScore,
+          fluencyMaxScore,
+          0.2,
+          'Speech fluency and rhythm'
+        );
+        totalMaxScore += fluencyMaxScore;
+      }
+
+      scoring.components = components;
+
+      // Update overall scoring with correct max score and percentage
+      const percentageScore =
+        totalMaxScore > 0 ? Math.round((score / totalMaxScore) * 100) : 0;
+      scoring.overall = {
+        score,
+        maxScore: totalMaxScore,
+        percentage: percentageScore,
+        passingThreshold: 65,
+      };
+
+      analysis.audioAnalysis = {
+        recognizedText:
+          detailedAnalysis.recognizedText || detailedAnalysis.userText || '',
+        pronunciationScore: detailedAnalysis.pronunciationScore || 0,
+        fluencyScore: detailedAnalysis.fluencyScore || 0,
+        contentAccuracy: detailedAnalysis.contentScore || 0,
+        wordByWordAnalysis: detailedAnalysis.wordByWordAnalysis || [],
+      };
+    }
+
+    // Handle writing questions
+    else if (
+      detailedAnalysis.scores &&
+      typeof detailedAnalysis.scores === 'object'
+    ) {
+      const components: any = {};
+      let totalMaxScore = 0;
+
+      Object.entries(detailedAnalysis.scores).forEach(
+        ([key, scoreData]: [string, any]) => {
+          if (
+            scoreData &&
+            typeof scoreData === 'object' &&
+            scoreData.score !== undefined
+          ) {
+            const maxScore = scoreData.max || 1;
+            components[key] = createComponentScore(
+              scoreData.score,
+              maxScore,
+              1 / Object.keys(detailedAnalysis.scores).length,
+              `${key.charAt(0).toUpperCase() + key.slice(1)} evaluation`
+            );
+            totalMaxScore += maxScore;
+          }
+        }
+      );
+
+      scoring.components = components;
+
+      // Update overall scoring with correct max score and percentage
+      const percentageScore =
+        totalMaxScore > 0 ? Math.round((score / totalMaxScore) * 100) : 0;
+      scoring.overall = {
+        score,
+        maxScore: totalMaxScore,
+        percentage: percentageScore,
+        passingThreshold: 65,
+      };
+
+      analysis.textAnalysis = {
+        originalText: detailedAnalysis.userText || '',
+        grammarScore: detailedAnalysis.scores.grammar?.score || 0,
+        vocabularyScore: detailedAnalysis.scores.vocabulary?.score || 0,
+        spellingScore: detailedAnalysis.scores.spelling?.score || 0,
+        coherenceScore: detailedAnalysis.scores.content?.score || 0,
+        errorAnalysis: detailedAnalysis.errorAnalysis || {
+          grammarErrors: [],
+          spellingErrors: [],
+          vocabularyIssues: [],
+        },
+      };
+
+      if (detailedAnalysis.actualWordCount) {
+        analysis.wordCount = detailedAnalysis.actualWordCount;
+      }
+    }
+
+    // Handle choice-based questions (MCQ, etc.)
+    else if (
+      detailedAnalysis.selectedOption !== undefined ||
+      detailedAnalysis.selectedOptions !== undefined
+    ) {
+      analysis.choiceAnalysis = {
+        selectedOptions: detailedAnalysis.selectedOptions || [
+          detailedAnalysis.selectedOption,
+        ],
+        correctOptions: detailedAnalysis.correctAnswers || [],
+        incorrectSelections: [],
+        missedCorrectOptions: [],
+        explanations: {},
+      };
+    }
+
+    // Handle fill-in-the-blanks and similar item-based questions
+    else if (
+      detailedAnalysis.correctCount !== undefined &&
+      detailedAnalysis.totalBlanks !== undefined
+    ) {
+      scoring.itemAnalysis = createItemAnalysis(
+        detailedAnalysis.totalBlanks,
+        detailedAnalysis.correctCount,
+        detailedAnalysis.blankResults
+      );
+    }
+  }
+
+  return createStandardizedResponse(
+    {
+      score,
+      isCorrect,
+      feedback,
+      questionType: questionType.toString(),
+      timeTaken,
+    },
+    scoring,
+    analysis,
+    suggestions,
+    {
+      evaluationMethod: detailedAnalysis?.evaluationMethod || 'legacy',
+      confidence: detailedAnalysis?.confidence,
+    }
+  );
 }
 
 interface Question {
@@ -40,104 +256,190 @@ export async function evaluateQuestionResponse(
 ): Promise<QuestionEvaluationResult> {
   const questionType = question.questionType.name;
 
+  // Get legacy evaluation result
+  let legacyResult: LegacyQuestionEvaluationResult;
+
   switch (questionType) {
     case PteQuestionTypeName.READ_ALOUD:
-      return evaluateReadAloud(question, userResponse, timeTakenSeconds);
-
-    case PteQuestionTypeName.REPEAT_SENTENCE:
-      return evaluateRepeatSentence(question, userResponse, timeTakenSeconds);
-
-    case PteQuestionTypeName.DESCRIBE_IMAGE:
-      return evaluateDescribeImage(question, userResponse, timeTakenSeconds);
-
-    case PteQuestionTypeName.RE_TELL_LECTURE:
-      return evaluateRetellLecture(question, userResponse, timeTakenSeconds);
-
-    case PteQuestionTypeName.ANSWER_SHORT_QUESTION:
-      return evaluateAnswerShortQuestion(question, userResponse);
-
-    case PteQuestionTypeName.SUMMARIZE_WRITTEN_TEXT:
-      return evaluateSummarizeWrittenText(
+      legacyResult = await evaluateReadAloud(
         question,
         userResponse,
         timeTakenSeconds
       );
+      break;
+
+    case PteQuestionTypeName.REPEAT_SENTENCE:
+      legacyResult = await evaluateRepeatSentence(
+        question,
+        userResponse,
+        timeTakenSeconds
+      );
+      break;
+
+    case PteQuestionTypeName.DESCRIBE_IMAGE:
+      legacyResult = await evaluateDescribeImage(
+        question,
+        userResponse,
+        timeTakenSeconds
+      );
+      break;
+
+    case PteQuestionTypeName.RE_TELL_LECTURE:
+      legacyResult = await evaluateRetellLecture(
+        question,
+        userResponse,
+        timeTakenSeconds
+      );
+      break;
+
+    case PteQuestionTypeName.ANSWER_SHORT_QUESTION:
+      legacyResult = await evaluateAnswerShortQuestion(question, userResponse);
+      break;
+
+    case PteQuestionTypeName.SUMMARIZE_WRITTEN_TEXT:
+      legacyResult = await evaluateSummarizeWrittenText(
+        question,
+        userResponse,
+        timeTakenSeconds
+      );
+      break;
 
     case PteQuestionTypeName.WRITE_ESSAY:
-      return evaluateWriteEssay(question, userResponse, timeTakenSeconds);
+      legacyResult = await evaluateWriteEssay(
+        question,
+        userResponse,
+        timeTakenSeconds
+      );
+      break;
 
     case PteQuestionTypeName.MULTIPLE_CHOICE_SINGLE_ANSWER_READING:
     case PteQuestionTypeName.MULTIPLE_CHOICE_SINGLE_ANSWER_LISTENING:
-      return evaluateMultipleChoiceSingle(
+      legacyResult = await evaluateMultipleChoiceSingle(
         question,
         userResponse,
         timeTakenSeconds
       );
+      break;
 
     case PteQuestionTypeName.MULTIPLE_CHOICE_MULTIPLE_ANSWERS_READING:
     case PteQuestionTypeName.MULTIPLE_CHOICE_MULTIPLE_ANSWERS_LISTENING:
-      return evaluateMultipleChoiceMultiple(
+      legacyResult = await evaluateMultipleChoiceMultiple(
         question,
         userResponse,
         timeTakenSeconds
       );
+      break;
 
     case PteQuestionTypeName.RE_ORDER_PARAGRAPHS:
-      return evaluateReorderParagraphs(
+      legacyResult = await evaluateReorderParagraphs(
         question,
         userResponse,
         timeTakenSeconds
       );
+      break;
 
     case PteQuestionTypeName.READING_FILL_IN_THE_BLANKS:
     case PteQuestionTypeName.FILL_IN_THE_BLANKS_DRAG_AND_DROP:
-      return evaluateFillInTheBlanks(question, userResponse, timeTakenSeconds);
+      legacyResult = await evaluateFillInTheBlanks(
+        question,
+        userResponse,
+        timeTakenSeconds
+      );
+      break;
 
     case PteQuestionTypeName.LISTENING_FILL_IN_THE_BLANKS:
-      return evaluateListeningFillInTheBlanks(
+      legacyResult = await evaluateListeningFillInTheBlanks(
         question,
         userResponse,
         timeTakenSeconds
       );
+      break;
 
     case PteQuestionTypeName.SUMMARIZE_SPOKEN_TEXT:
-      return evaluateSummarizeSpokenText(
+      legacyResult = await evaluateSummarizeSpokenText(
         question,
         userResponse,
         timeTakenSeconds
       );
+      break;
 
     case PteQuestionTypeName.HIGHLIGHT_CORRECT_SUMMARY:
-      return evaluateHighlightCorrectSummary(
+      legacyResult = await evaluateHighlightCorrectSummary(
         question,
         userResponse,
         timeTakenSeconds
       );
+      break;
 
     case PteQuestionTypeName.SELECT_MISSING_WORD:
-      return evaluateSelectMissingWord(
+      legacyResult = await evaluateSelectMissingWord(
         question,
         userResponse,
         timeTakenSeconds
       );
+      break;
 
     case PteQuestionTypeName.HIGHLIGHT_INCORRECT_WORDS:
-      return evaluateHighlightIncorrectWords(
+      legacyResult = await evaluateHighlightIncorrectWords(
         question,
         userResponse,
         timeTakenSeconds
       );
+      break;
 
     case PteQuestionTypeName.WRITE_FROM_DICTATION:
-      return evaluateWriteFromDictation(
+      legacyResult = await evaluateWriteFromDictation(
         question,
         userResponse,
         timeTakenSeconds
       );
+      break;
 
     default:
       throw new Error(`Unsupported question type: ${questionType}`);
   }
+
+  // For Describe Image, Re-tell Lecture, Repeat Sentence, Read Aloud, Answer Short Question, Summarize Spoken Text, Summarize Written Text, Write Essay, Write from Dictation, and Reading questions, keep the original detailedAnalysis structure
+  // For other question types, convert to standardized format
+  let detailedAnalysisToReturn = legacyResult.detailedAnalysis;
+
+  if (
+    questionType !== PteQuestionTypeName.DESCRIBE_IMAGE &&
+    questionType !== PteQuestionTypeName.RE_TELL_LECTURE &&
+    questionType !== PteQuestionTypeName.REPEAT_SENTENCE &&
+    questionType !== PteQuestionTypeName.READ_ALOUD &&
+    questionType !== PteQuestionTypeName.ANSWER_SHORT_QUESTION &&
+    questionType !== PteQuestionTypeName.SUMMARIZE_SPOKEN_TEXT &&
+    questionType !== PteQuestionTypeName.SUMMARIZE_WRITTEN_TEXT &&
+    questionType !== PteQuestionTypeName.WRITE_ESSAY &&
+    questionType !== PteQuestionTypeName.WRITE_FROM_DICTATION &&
+    questionType !==
+      PteQuestionTypeName.MULTIPLE_CHOICE_SINGLE_ANSWER_READING &&
+    questionType !==
+      PteQuestionTypeName.MULTIPLE_CHOICE_MULTIPLE_ANSWERS_READING &&
+    questionType !== PteQuestionTypeName.RE_ORDER_PARAGRAPHS &&
+    questionType !== PteQuestionTypeName.READING_FILL_IN_THE_BLANKS &&
+    questionType !== PteQuestionTypeName.FILL_IN_THE_BLANKS_DRAG_AND_DROP &&
+    questionType !== PteQuestionTypeName.HIGHLIGHT_CORRECT_SUMMARY &&
+    questionType !== PteQuestionTypeName.HIGHLIGHT_INCORRECT_WORDS
+  ) {
+    // Convert legacy result to standardized format for non-detailed question types
+    const standardizedAnalysis = convertToStandardizedFormat(
+      legacyResult,
+      questionType,
+      timeTakenSeconds || 0
+    );
+    detailedAnalysisToReturn = standardizedAnalysis;
+  }
+
+  // Return result with appropriate detailed analysis
+  return {
+    score: legacyResult.score,
+    isCorrect: legacyResult.isCorrect,
+    feedback: legacyResult.feedback,
+    detailedAnalysis: detailedAnalysisToReturn,
+    suggestions: legacyResult.suggestions,
+  };
 }
 
 // SPEAKING QUESTION EVALUATION
@@ -298,13 +600,21 @@ async function evaluateReadAloud(
     const fluencyPercentage =
       fluencyMaxScore > 0 ? (fluencyScore / fluencyMaxScore) * 100 : 0;
 
+    // Calculate overall score as sum of component scores (points)
     const overallScore = Math.round(
       contentScore + pronunciationScore + fluencyScore
     );
 
+    // Calculate max possible score
+    const maxPossibleScore =
+      maxContentScore + pronunciationMaxScore + fluencyMaxScore;
+
+    // Calculate percentage for isCorrect check (65% threshold)
+    const percentageScore = Math.round((overallScore / maxPossibleScore) * 100);
+
     return {
       score: overallScore,
-      isCorrect: overallScore >= 65,
+      isCorrect: percentageScore >= 65,
       feedback:
         evaluation.feedback?.content ||
         evaluation.feedback?.summary ||
@@ -510,13 +820,20 @@ async function evaluateRepeatSentence(
     const pronunciationPercentage = (pronunciationScore / 5) * 100;
     const fluencyPercentage = (fluencyScore / 5) * 100;
 
+    // Calculate overall score as sum of component scores (points)
     const overallScore = Math.round(
       contentScore + pronunciationScore + fluencyScore
     );
 
+    // Calculate max possible score
+    const maxPossibleScore = maxContentScore + 5 + 5;
+
+    // Calculate percentage for isCorrect check (65% threshold)
+    const percentageScore = Math.round((overallScore / maxPossibleScore) * 100);
+
     return {
       score: overallScore,
-      isCorrect: overallScore >= 65,
+      isCorrect: percentageScore >= 65,
       feedback:
         evaluation.feedback?.content ||
         evaluation.feedback?.summary ||
@@ -617,27 +934,51 @@ async function evaluateDescribeImage(
 
     **Scoring Rubrics:**
     **1. Content (Score from 0 to 6):**
-      * **6 pts:** The response describes the image fully and accurately and expands on the relationships between features to provide a nuanced interpretation. A variety of expressions and vocabulary are used with ease and precision. A listener could build a **complete** mental picture.
-      * **5 pts:** The response describes the main features accurately and identifies some relationships without expanding in detail. A variety of expressions and vocabulary are used appropriately. A listener could build an **accurate** mental picture, with minor details missing.
-      * **4 pts:** The response includes some accurate simple descriptions and basic relationships but may not cover all main features. The vocabulary is sufficient for basic descriptions with some repetition. A listener could build a **basic** mental picture.
-      * **3 pts:** The response includes mainly superficial descriptions with minor inaccuracies. The vocabulary is narrow and expressions are used repeatedly. A listener could visualize **elements** of the image, but not a cohesive whole.
-      * **2 pts:** The response includes minimal, superficial descriptions with some inaccuracies. Limited vocabulary and simple expressions dominate. A listener could visualize some elements **with effort**.
-      * **1 pt:** The response is composed of disconnected elements or a list of points without description. Vocabulary is highly restricted. A listener would **struggle** to visualize the image.
-      * **0 pts:** The response is relevant but too limited to assign a higher score.
+      * **6 pts:** The response includes mainly superficial descriptions with minor inaccuracies. The vocabulary is narrow and expressions are used repeatedly. A listener could visualize **elements** of the image, but not a cohesive whole.
+      * **5 pts:** The response includes minimal, superficial descriptions with some inaccuracies. Limited vocabulary and simple expressions dominate. A listener could visualize some elements **with effort**.
+      * **4 pts:** The response is composed of disconnected elements or a list of points without description. Vocabulary is highly restricted. A listener would **struggle** to visualize the image.
+      * **3 pts:** The response is relevant but too limited to assign a higher score.
+      * **2 pts:** The response is highly minimal (e.g., one or two relevant words) but is not a coherent description.
+      * **1 pt:** The response is relevant but almost meaningless (e.g., one relevant word).
+      * **0 pts:** The response is irrelevant, non-English, or no meaningful response is provided.
 
     **2. Pronunciation (Score from 0 to 5):**
-      * **5:** Native-like; all words are clear and correct.
-      * **4:** Very clear; maybe one or two minor inaccuracies.
-      * **3:** Mostly understandable but with several errors.
-      * **2:** Difficult to follow due to many errors.
-      * **1:** Mostly incorrect transcription.
+      * **5 pts:** All vowels and consonants are pronounced in a way that is easily understood by native speakers. Stress is placed correctly on all words. Intonation is appropriate. Any mispronunciations are rare and do not affect intelligibility.
+      * **4 pts:** Most vowels and consonants are pronounced correctly. Some consistent errors might make a few words unclear. A few consonants in certain contexts may be regularly distorted, omitted or mispronounced. Stress- dependent vowel reduction may occur on a few words.
+      * **3 pts:** Some consonants and vowels are consistently mispronounced. At least 2/3 of speech is intelligible, but listeners might need to adjust to the accent. Some consonants are regularly omitted, and consonant sequences may be simplified. Stress may be placed incorrectly on some words or be unclear.
+      * **2 pts:** Many consonants and vowels are mispronounced, resulting in a strong intrusive foreign accent. Listeners may have difficulty understanding about 1/3 of the words. Many consonants may be distorted or omitted. Consonant sequences may be non-English. Stress is placed in a non-English manner; unstressed words may be reduced or omitted, and a few syllables added or missed.
+      * **1 pt:** Pronunciation seems completely characteristic of another language. Many consonants and vowels are mispronounced, mis-ordered or omitted. Listeners may find more than 1/2 of the speech unintelligible. Stressed and unstressed syllables are realized in a non-English manner. Several words may have the wrong number of syllables
+      * **0 pts:** Very few words are intelligible, OR Irrelevant, non-English, or no meaningful speech.
 
     **3. Oral Fluency (Score from 0 to 5):**
-      * **5:** Smooth, natural flow with no fillers or hesitations.
-      * **4:** Mostly smooth with one or two minor hesitations.
-      * **3:** Noticeable hesitations that disrupt the flow.
-      * **2:** Uneven, slow, or fragmented speech.
-      * **1:** Very halting speech.
+      * **5 pts:** Speech is smooth, effortless, and at a consistent native-like speed. Rhythm, phrasing, and word emphasis are natural. There are no hesitations, repetitions, or false starts.
+      * **4 pts:** Speech has an acceptable rhythm with appropriate phrasing and word emphasis. There is no more than one hesitation, one repetition or a false start. There are no significant phonological simplifications.
+      * **3 pts:** Speech is at an acceptable speed but may be uneven. There may be more than one hesitation, but most words are spoken in continuous phrases. There are few repetitions or false starts. There are no long pauses and speech does not sound staccato.
+      * **2 pts:** Speech may be uneven or staccato. Speech (if >= 6 words) has at least one smooth three-word run, and no more than two or three hesitations, repetitions or false starts. There may be one long pause, but not two or more.
+      * **1 pt:** Speech has irregular phrasing or sentence rhythm. Poor phrasing, staccato or syllabic timing, and/or multiple hesitations, repetitions, and/or false starts make spoken performance notably uneven or discontinuous. Long utterances may have one or two long pauses and inappropriate sentence-level word emphasis.
+      * **0 pts:** Speech is slow and labored with little discernable phrase grouping, multiple hesitations, pauses, false starts, OR Irrelevant, non-English, or no meaningful speech.
+
+    **Error Analysis Instructions:**
+    MANDATORY: You MUST analyze the user's transcribed text and identify ALL errors. Do not return empty error arrays.
+
+    Analyze for these error types:
+    1. **Pronunciation Errors**: Words that sound mispronounced (e.g., "wuz" instead of "was")
+    2. **Fluency Errors**: Filler words (um, uh, like, you know), hesitations, repetitions, false starts, or unnatural pauses
+    3. **Grammar Errors**: ALL grammatical mistakes including:
+        - Subject-verb agreement (e.g., "he go" → "he goes")
+        - Tense errors (e.g., "I go yesterday" → "I went yesterday")
+        - Article errors (e.g., "I see dog" → "I see a dog")
+        - Preposition errors (e.g., "between X and with Y" → "between X and Y")
+        - Word order errors (e.g., "quite decreasing" → "decreasing quite drastically")
+        - Awkward phrasing or unnatural expressions
+        - Incomplete phrases or missing words
+    4. **Content Errors**: Inaccurate descriptions that don't match the image
+
+    CRITICAL REQUIREMENTS:
+    - Identify EVERY grammar error, no matter how small
+    - Do NOT return empty arrays if errors exist
+    - For each error, provide: exact text, type, correction, and explanation
+    - Be strict and thorough in error detection
 
     **Required Output Format:**
     Respond with a single, minified JSON object in this exact format. Use camelCase for keys.
@@ -673,6 +1014,15 @@ async function evaluateDescribeImage(
             "explanation": "filler word that disrupts fluency"
           }
         ],
+        "grammarErrors": [
+          {
+            "text": "incorrect grammar phrase",
+            "type": "grammar",
+            "position": { "start": 0, "end": 1 },
+            "correction": "correct grammar phrase",
+            "explanation": "explanation of grammar error (e.g., subject-verb agreement, tense, article usage, preposition, word order)"
+          }
+        ],
         "contentErrors": [
           {
             "text": "incorrect description",
@@ -683,6 +1033,9 @@ async function evaluateDescribeImage(
           }
         ]
       }
+    }
+
+    CRITICAL: Return ALL errors found, including grammar errors. Do not return empty arrays if errors exist.
     }
   `;
 
@@ -718,15 +1071,24 @@ async function evaluateDescribeImage(
     const pronunciationPercentage =
       (pronunciationScore / pronunciationMaxScore) * 100;
 
-    // Calculate weighted overall score (Content 50%, Oral Fluency 30%, Pronunciation 20%)
+    // Calculate overall score as sum of component scores (points)
     const overallScore = contentScore + oralFluencyScore + pronunciationScore;
 
-    // Ensure feedback is always a string
-    let feedbackText = 'Image description response evaluated.';
+    // Calculate max possible score
+    const maxPossibleScore =
+      contentMaxScore + oralFluencyMaxScore + pronunciationMaxScore;
+
+    // Calculate percentage for isCorrect check (65% threshold)
+    const percentageScore = Math.round((overallScore / maxPossibleScore) * 100);
+
+    // Get feedback from OpenAI response
+    const feedbackData = evaluation.feedback || {};
+    let feedbackText =
+      feedbackData.summary || 'Image description response evaluated.';
 
     return {
       score: overallScore,
-      isCorrect: overallScore >= 65,
+      isCorrect: percentageScore >= 65,
       feedback: feedbackText,
       detailedAnalysis: {
         scores: {
@@ -737,6 +1099,7 @@ async function evaluateDescribeImage(
             max: pronunciationMaxScore,
           },
         },
+        feedback: feedbackData,
         contentScore,
         contentMaxScore,
         contentPercentage: Math.round(contentPercentage),
@@ -750,12 +1113,13 @@ async function evaluateDescribeImage(
         timeTaken: timeTakenSeconds || 0,
         imageAnalysis: imageAnalysis,
         keyElementsCovered: keyElements,
-        contentFeedback: evaluation.Feedback?.Content || '',
-        oralFluencyFeedback: evaluation.Feedback?.['Oral Fluency'] || '',
-        pronunciationFeedback: evaluation.Feedback?.Pronunciation || '',
+        contentFeedback: feedbackData.content || '',
+        oralFluencyFeedback: feedbackData.oralFluency || '',
+        pronunciationFeedback: feedbackData.pronunciation || '',
         errorAnalysis: evaluation.errorAnalysis || {
           pronunciationErrors: [],
           fluencyErrors: [],
+          grammarErrors: [],
           contentErrors: [],
         },
         userText: transcribedText, // Include transcribed text for highlighting
@@ -776,7 +1140,7 @@ async function evaluateDescribeImage(
       feedback: 'Error occurred during evaluation.',
       detailedAnalysis: {
         contentScore: 0,
-        contentMaxScore: 5,
+        contentMaxScore: 6,
         contentPercentage: 0,
         oralFluencyScore: 0,
         oralFluencyMaxScore: 5,
@@ -787,6 +1151,12 @@ async function evaluateDescribeImage(
         recognizedText: transcribedText,
         timeTaken: timeTakenSeconds || 0,
         error: error instanceof Error ? error.message : 'Unknown error',
+        errorAnalysis: {
+          pronunciationErrors: [],
+          fluencyErrors: [],
+          grammarErrors: [],
+          contentErrors: [],
+        },
       },
       suggestions: [
         'Please try again.',
@@ -818,27 +1188,29 @@ async function evaluateRetellLecture(
 
     **1. Content Analysis (0-5 scale):**
     Evaluate how well the user summarized the main ideas and important points of the lecture.
-      * **6 pts:** Clear, accurate, and full comprehension. Paraphrases main ideas and expands on key points seamlessly and logically. Uses varied and precise vocabulary. Well-organized and easy to follow.
-      * **5 pts:** Clear and accurate, capturing main ideas and some important details. Ideas are formulated well in the user's own words. Mostly smooth and easy to follow.
-      * **4 pts:** Captures some main ideas and details but may have minor inaccuracies or focus on less important points. Attempts to paraphrase with some success. Listeners may need some effort to follow.
-      * **3 pts:** Captures some ideas but may be inaccurate or not differentiate between main points and details. May contain irrelevant information or repetition. Vocabulary is narrow. Requires significant effort to follow.
-      * **2 pts:** Mostly inaccurate or incomplete, missing main ideas. Relies heavily on repeating language from the lecture. Limited comprehension and vocabulary. Lacks coherence.
-      * **1 pt:** Repeats isolated words/phrases without meaningful context. Does not communicate effectively.
-      * **0 pts:** Response is related to the lecture but is too limited to be scored higher.
+      * **6 pts:** Captures some main ideas and details but may have minor inaccuracies or focus on less important points. Attempts to paraphrase with some success. Listeners may need some effort to follow.
+      * **5 pts:** Captures some ideas but may be inaccurate or not differentiate between main points and details. May contain irrelevant information or repetition. Vocabulary is narrow. Requires significant effort to follow.
+      * **4 pts:** Mostly inaccurate or incomplete, missing main ideas. Relies heavily on repeating language from the lecture. Limited comprehension and vocabulary. Lacks coherence.
+      * **3 pts:** Repeats isolated words/phrases without meaningful context. Does not communicate effectively.
+      * **2 pts:** Response is related to the lecture but is too limited to be scored higher.
+      * **1 pt:** Response is highly minimal (e.g., one or two relevant words) but not coherent.
+      * **0 pts:** Response is irrelevant, non-English, or no meaningful response is provided.
 
-    * **Pronunciation:** Score based on the accuracy of the transcribed words.
-        * 5: Perfect transcription with all words correct.
-        * 4: One or two minor errors in transcription.
-        * 3: Several errors that suggest pronunciation issues but text is mostly understandable.
-        * 2: Many errors, making the text difficult to follow.
-        * 1: The transcription is mostly incorrect, indicating very poor pronunciation.
+    * **Pronunciation (0-5 scale):** Score based on the accuracy of the transcribed words.
+        * **5 pts:** Transcription is clear and accurate, with only very minor, isolated errors that do not impact understanding.
+        * **4 pts:** Several errors that suggest pronunciation issues but text is mostly understandable.
+        * **3 pts:** Many errors, making the text difficult to follow.
+        * **2 pts:** The transcription is mostly incorrect, indicating very poor pronunciation.
+        * **1 pt:** The transcription is almost entirely incorrect, with only a few recognizable words.
+        * **0 pts:** The transcription is completely incorrect, contains no recognizable English words, or no meaningful speech transcribed.
         
-    * **Oral Fluency:** Score based on filler words, hesitations, and natural flow.
-        * 5: Smooth, natural flow with no fillers or hesitations.
-        * 4: Mostly smooth with one minor hesitation.
-        * 3: Noticeable hesitations or filler words that disrupt the flow.
-        * 2: Uneven, slow, or fragmented speech.
-        * 1: Very halting speech with many pauses or fillers.
+    * **Oral Fluency (0-5 scale):** Score based on filler words, hesitations, and natural flow.
+        * **5 pts:** Smooth and flowing speech with almost no hesitations or filler words. Delivered in natural phrases.
+        * **4 pts:** Noticeable hesitations or filler words that disrupt the flow.
+        * **3 pts:** Uneven, slow, or fragmented speech.
+        * **2 pts:** Very halting speech with many pauses or fillers.
+        * **1 pt:** Extremely halting, with long pauses and many fillers.
+        * **0 pts:** Mostly isolated words, not delivered in phrases, or no meaningful speech.
 
     **Important Guidelines:**
     * Focus on content accuracy and relevance to the original lecture
@@ -950,12 +1322,19 @@ async function evaluateRetellLecture(
     const pronunciationPercentage =
       (pronunciationScore / pronunciationMaxScore) * 100;
 
-    // Weight the scores: Content 40%, Oral Fluency 35%, Pronunciation 25%
+    // Calculate overall score as sum of component scores (points)
     const overallScore = contentScore + oralFluencyScore + pronunciationScore;
+
+    // Calculate max possible score
+    const maxPossibleScore =
+      contentMaxScore + oralFluencyMaxScore + pronunciationMaxScore;
+
+    // Calculate percentage for isCorrect check (65% threshold)
+    const percentageScore = Math.round((overallScore / maxPossibleScore) * 100);
 
     return {
       score: overallScore,
-      isCorrect: overallScore >= 65,
+      isCorrect: percentageScore >= 65,
       feedback:
         evaluation.feedback?.content ||
         evaluation.feedback?.summary ||
@@ -968,6 +1347,17 @@ async function evaluateRetellLecture(
             score: pronunciationScore,
             max: pronunciationMaxScore,
           },
+        },
+        feedback: {
+          content:
+            evaluation.feedback?.content ||
+            'Focus on main ideas and key points',
+          oralFluency:
+            evaluation.feedback?.oralFluency ||
+            'Practice smooth, natural speech rhythm',
+          pronunciation:
+            evaluation.feedback?.pronunciation ||
+            'Work on clear articulation and stress patterns',
         },
         contentScore,
         contentMaxScore: contentMaxScore,
@@ -990,7 +1380,7 @@ async function evaluateRetellLecture(
       },
       suggestions: evaluation.feedback?.suggestions || [
         'Focus on main ideas and key points',
-        'Organize your response logica`lly',
+        'Organize your response logically',
         'Use clear pronunciation and natural pace',
       ],
     };
@@ -1081,7 +1471,6 @@ function evaluateAnswerShortQuestion(question: Question, userResponse: any) {
           evaluationMethod: 'Partial Match',
           transcribedText,
           correctAnswers,
-          // Add structured scores for consistent frontend display
           scores: {
             vocabulary: { score: 1, max: 1 },
           },
@@ -1202,6 +1591,12 @@ async function evaluateSummarizeWrittenText(
     - Only include errors that actually exist
     - For "text" field, provide ONLY the incorrect word/phrase, nothing else
     - Be very specific with the exact word that's wrong
+    - When checking for grammatical mistakes, make sure that if a synonym is used but the grammar is correct, it should **not** be marked as an error.
+    - **Do not** mark the correct use of conjunctions or connectors (e.g., 'and', 'but', 'whereas', 'as') as grammatical errors. These are essential for linking ideas into the required single-sentence format.
+    - **Error Prioritization:** A single error MUST be categorized only ONCE. Use this strict priority:
+      1. **Spelling:** If a word is misspelled (e.g., "goverment"), it MUST go into "spellingErrors" ONLY. Do not list it in grammar or vocabulary.
+      2. **Grammar:** If spelling is correct, but the word or phrase breaks a sentence rule (e.g., "he go" instead of "he goes"), it MUST go into "grammarErrors" ONLY.
+      3. **Vocabulary:** Only if spelling and grammar are correct, but the word choice is poor or inappropriate (e.g., using "big" instead of "significant"), it MUST go into "vocabularyIssues".
 
     ---
     ### **Required Output Format**
@@ -1248,8 +1643,7 @@ async function evaluateSummarizeWrittenText(
             "explanation": "more appropriate vocabulary"
           }
         ]
-      },
-      "suggestions": ["Actionable tip 1.", "Actionable tip 2."]
+      }
     }
   `;
 
@@ -1330,11 +1724,7 @@ async function evaluateSummarizeWrittenText(
         },
         userText: userText, // Include original text for highlighting
       },
-      suggestions: evaluation.suggestions || [
-        'Ensure your summary includes all the main points of the original text.',
-        'Write your summary as a single, grammatically correct sentence.',
-        'Stay within the word limit of 5 to 75 words.',
-      ],
+      suggestions: [], // SWT has no single correct answer, so no suggestions provided
     };
   } catch (error) {
     console.error('OpenAI evaluation error for Summarize Written Text:', error);
@@ -1384,12 +1774,12 @@ async function evaluateWriteEssay(
     ### **Scoring Rubrics**
 
     **1. Content (Score from 0 to 6):**
-    * **6:** Fully addresses the prompt in depth; convincing argument with specific examples.
-    * **5:** Adequately addresses the prompt; persuasive argument with relevant ideas and support.
-    * **4:** Adequately addresses the main point; argument is convincing but lacks depth; support is inconsistent.
-    * **3:** Relevant to the prompt but doesn't address main points adequately; support is often missing.
-    * **2:** Superficial attempt to address the prompt; little relevant information; generic statements.
-    * **1:** Incomplete understanding of the prompt; generic/repetitive phrasing.
+    * **6:** Adequately addresses the main point; argument is convincing but lacks depth; support is inconsistent.
+    * **5:** Relevant to the prompt but doesn't address main points adequately; support is often missing.
+    * **4:** Superficial attempt to address the prompt; little relevant information; generic statements.
+    * **3:** Incomplete understanding of the prompt; generic/repetitive phrasing.
+    * **2:** Barely addresses the prompt; mostly generic/repetitive phrasing.
+    * **1:** Almost no relevant information; very incomplete understanding.
     * **0:** Does not properly deal with the prompt.
 
     **2. Form (Score from 0 to 2):**
@@ -1398,12 +1788,12 @@ async function evaluateWriteEssay(
     * **0:** Length is less than 120 or more than 380 words; or the essay is written in all capital letters.
 
     **3. Development, Structure & Coherence (Score from 0 to 6):**
-    * **6:** Effective logical structure, flows smoothly, clear and cohesive argument, well-developed intro/conclusion, effective paragraphs and connectors.
-    * **5:** Conventional structure, clear argument, has intro/conclusion/paragraphs, uses connectors well with minor gaps.
-    * **4:** Conventional structure mostly present but requires some effort to follow; argument lacks some development; paragraphing is not always effective.
-    * **3:** Traces of structure but composed of simple/disconnected ideas; a position is present but not a logical argument.
-    * **2:** Little recognizable structure; disorganized and difficult to follow; lacks coherence.
-    * **1:** Disconnected ideas; no hierarchy or coherence; no clear position.
+    * **6:** Conventional structure mostly present but requires some effort to follow; argument lacks some development; paragraphing is not always effective.
+    * **5:** Traces of structure but composed of simple/disconnected ideas; a position is present but not a logical argument.
+    * **4:** Little recognizable structure; disorganized and difficult to follow; lacks coherence.
+    * **3:** Disconnected ideas; no hierarchy or coherence; no clear position.
+    * **2:** Very disorganized; ideas are mostly disconnected.
+    * **1:** Almost no coherence or structure.
     * **0:** No recognizable structure.
 
     **4. Grammar (Score from 0 to 2):**
@@ -1412,18 +1802,18 @@ async function evaluateWriteEssay(
     * **0:** Mainly simple structures and/or several basic mistakes that could hinder communication.
 
     **5. General Linguistic Range (Score from 0 to 6):**
-    * **6:** Variety of expressions and vocabulary used with ease and precision; no limitations.
-    * **5:** Ideas expressed clearly without much restriction; occasional minor errors but meaning is clear.
-    * **4:** Sufficient range for basic ideas, but limitations are evident with complex ideas; occasional lapses in clarity.
-    * **3:** Narrow range, simple expressions used repeatedly; communication restricted to simple ideas.
-    * **2:** Limited vocabulary and simple expressions dominate; communication is compromised.
-    * **1:** Highly restricted vocabulary; significant limitations in communication.
+    * **6:** Sufficient range for basic ideas, but limitations are evident with complex ideas; occasional lapses in clarity.
+    * **5:** Narrow range, simple expressions used repeatedly; communication restricted to simple ideas.
+    * **4:** Limited vocabulary and simple expressions dominate; communication is compromised.
+    * **3:** Highly restricted vocabulary; significant limitations in communication.
+    * **2:** Extremely restricted vocabulary; communication is very difficult.
+    * **1:** Only isolated words or basic phrases.
     * **0:** Meaning is not accessible.
 
     **6. Vocabulary Range (Score from 0 to 2):**
-    * **2:** Good command of a broad lexical repertoire, idiomatic expressions, and colloquialisms.
-    * **1:** Good range for general academic topics, but lexical shortcomings lead to imprecision.
-    * **0:** Mainly basic vocabulary, insufficient for the topic.
+    * **2:** Good range for general academic topics, but lexical shortcomings lead to imprecision.
+    * **1:** Mainly basic vocabulary, insufficient for the topic.
+    * **0:** Very limited basic vocabulary; meaning is often obscured.
 
     **7. Spelling (Score from 0 to 2):**
     * **2:** Correct spelling.
@@ -1450,8 +1840,11 @@ async function evaluateWriteEssay(
     - Only include errors that actually exist
     - For "text" field, provide ONLY the incorrect word/phrase, nothing else
     - Be very specific with the exact word that's wrong
-
-    ---
+    - **Error Prioritization:** A single error MUST be categorized only ONCE. Use this strict priority:
+      1. **Spelling:** If a word is misspelled (e.g., "goverment"), it MUST go into "spellingErrors" ONLY. Do not list it in grammar or vocabulary.
+      2. **Grammar:** If spelling is correct, but the word or phrase breaks a sentence rule (e.g., "he go" instead of "he goes"), it MUST go into "grammarErrors" ONLY.
+      3. **Vocabulary:** Only if spelling and grammar are correct, but the word choice is poor or inappropriate (e.g., using "big" instead of "significant"), it MUST go into "vocabularyIssues".
+    
     ### **Required Output Format**
     Your final output **must** be a single, minified JSON object with NO markdown. Adhere strictly to this schema:
     {
@@ -1648,6 +2041,25 @@ async function evaluateMultipleChoiceSingle(
   const skillType = isReadingQuestion ? 'reading' : 'listening';
   const actualScore = isCorrect ? 1 : 0;
 
+  // Generate detailed explanation for reading questions using AI
+  let explanation = '';
+  if (!isCorrect && isReadingQuestion) {
+    try {
+      explanation = await generateDynamicExplanation({
+        questionType: question.questionType.name,
+        textContent: question.textContent,
+        questionStatement: question.questionStatement,
+        selectedAnswer: selectedOptionText,
+        correctAnswer: correctOptionText,
+        allOptions: question.options,
+      });
+    } catch (error) {
+      console.error('Error generating explanation:', error);
+      // Fallback to static explanation
+      explanation = `The correct answer is "${correctOptionText}". Your selected answer "${selectedOptionText}" was incorrect. Review the passage carefully to find evidence supporting the correct answer.`;
+    }
+  }
+
   return {
     score: actualScore,
     isCorrect,
@@ -1660,6 +2072,7 @@ async function evaluateMultipleChoiceSingle(
       correctAnswers,
       selectedOptionText,
       correctOptionText,
+      explanation: explanation || undefined,
       timeTaken: timeTakenSeconds || 0,
       // Add structured scores for consistent frontend display
       scores: {
@@ -1668,6 +2081,14 @@ async function evaluateMultipleChoiceSingle(
     },
     suggestions: isCorrect
       ? ['Great job! Continue practicing similar questions.']
+      : isReadingQuestion
+      ? [
+          'Re-read the passage carefully and identify key information',
+          'Look for specific evidence that directly supports the correct answer',
+          'Eliminate options that are only partially correct or off-topic',
+          'Pay attention to qualifying words like "always", "never", "some", "most"',
+          'Consider the main idea vs. specific details when answering',
+        ]
       : [
           'Review the passage/audio more carefully',
           'Look for key information that supports the correct answer',
@@ -1710,6 +2131,64 @@ async function evaluateMultipleChoiceMultiple(
   const isReadingQuestion = question.questionType.name.includes('READING');
   const skillType = isReadingQuestion ? 'reading' : 'listening';
 
+  // Get option texts for detailed feedback
+  const options = question.options || [];
+  const selectedOptionTexts = selectedOptions.map(
+    (optId: string) =>
+      options.find((opt: any) => opt.id === optId)?.text || 'Unknown option'
+  );
+  const correctOptionTexts = correctAnswers.map(
+    (optId: string) =>
+      options.find((opt: any) => opt.id === optId)?.text || 'Unknown option'
+  );
+  const incorrectlySelectedTexts = selectedOptions
+    .filter((optId: string) => !correctAnswers.includes(optId))
+    .map(
+      (optId: string) =>
+        options.find((opt: any) => opt.id === optId)?.text || 'Unknown option'
+    );
+  const missedCorrectTexts = correctAnswers
+    .filter((optId: string) => !selectedOptions.includes(optId))
+    .map(
+      (optId: string) =>
+        options.find((opt: any) => opt.id === optId)?.text || 'Unknown option'
+    );
+
+  // Generate detailed explanation for reading questions using AI
+  let explanation = '';
+  if (!isCorrect && isReadingQuestion) {
+    try {
+      explanation = await generateDynamicExplanationMultiple({
+        questionType: question.questionType.name,
+        textContent: question.textContent,
+        questionStatement: question.questionStatement,
+        selectedAnswers: selectedOptionTexts,
+        correctAnswers: correctOptionTexts,
+        incorrectlySelected: incorrectlySelectedTexts,
+        missedCorrect: missedCorrectTexts,
+        allOptions: question.options,
+      });
+    } catch (error) {
+      console.error('Error generating explanation:', error);
+      // Fallback to static explanation
+      explanation = `The correct answers are: ${correctOptionTexts
+        .map((text: string) => `"${text}"`)
+        .join(', ')}. `;
+
+      if (incorrectlySelectedTexts.length > 0) {
+        explanation += `You incorrectly selected: ${incorrectlySelectedTexts
+          .map((text: string) => `"${text}"`)
+          .join(', ')}. `;
+      }
+
+      if (missedCorrectTexts.length > 0) {
+        explanation += `You missed: ${missedCorrectTexts
+          .map((text: string) => `"${text}"`)
+          .join(', ')}. `;
+      }
+    }
+  }
+
   return {
     score,
     isCorrect,
@@ -1723,16 +2202,31 @@ async function evaluateMultipleChoiceMultiple(
       totalCorrect: correctAnswers.length,
       totalOptions: correctAnswers.length, // For consistent display
       partialScore: score,
+      selectedOptionTexts,
+      correctOptionTexts,
+      incorrectlySelectedTexts,
+      missedCorrectTexts,
+      explanation: explanation || undefined,
       // Add structured scores for consistent frontend display
       scores: {
         [skillType]: { score: correctSelected, max: totalCorrectAnswers },
       },
     },
-    suggestions: [
-      'Read all options carefully before selecting',
-      'Look for multiple pieces of evidence in the text/audio',
-      'Avoid selecting options that are only partially correct',
-    ],
+    suggestions: isCorrect
+      ? ['Excellent! You identified all correct answers.']
+      : isReadingQuestion
+      ? [
+          'Read the passage thoroughly to identify all relevant information',
+          'Look for multiple pieces of evidence that support different correct answers',
+          'Be careful not to select options that are only partially supported',
+          'Check that each selected option is directly supported by the text',
+          'Consider whether you might have missed any correct options',
+        ]
+      : [
+          'Read all options carefully before selecting',
+          'Look for multiple pieces of evidence in the text/audio',
+          'Avoid selecting options that are only partially correct',
+        ],
   };
 }
 
@@ -1766,6 +2260,52 @@ async function evaluateReorderParagraphs(
   const score = correctPairs; // Show actual correct pairs count
   const isCorrect = correctPairs === maxPairs;
 
+  // Get paragraph texts for detailed feedback
+  // const paragraphs = question.content?.paragraphs || [];
+  // const userOrderTexts = userOrder.map((id: string) => {
+  //   const paragraph = paragraphs.find((p: any) => p.id === id);
+  //   return paragraph
+  //     ? paragraph.text.substring(0, 50) + '...'
+  //     : 'Unknown paragraph';
+  // });
+  // const correctOrderTexts = correctOrder.map((id: string) => {
+  //   const paragraph = paragraphs.find((p: any) => p.id === id);
+  //   return paragraph
+  //     ? paragraph.text.substring(0, 50) + '...'
+  //     : 'Unknown paragraph';
+  // });
+
+  // Generate detailed explanation using AI
+  let explanation = '';
+  if (!isCorrect) {
+    try {
+      explanation = await generateDynamicExplanationReorder({
+        questionType: question.questionType.name,
+        textContent: question.textContent,
+        userOrder,
+        correctOrder,
+        correctPairs,
+        maxPairs,
+        paragraphs: question.options, // Paragraphs are stored in options
+      });
+    } catch (error) {
+      console.error('Error generating explanation:', error);
+      // Fallback to static explanation
+      explanation = `You got ${correctPairs} out of ${maxPairs} adjacent pairs correct. Look for logical flow, chronological order, and connecting words between paragraphs.`;
+    }
+  }
+
+  const correctOrderText = question.correctAnswers.correctOrder.map(
+    (id: string) => {
+      const item = question.options.find((opt: any) => opt.id === id);
+      return item ? item.text : null;
+    }
+  );
+  const userOrderText = userResponse.orderedParagraphs.map((id: string) => {
+    const item = question.options.find((opt: any) => opt.id === id);
+    return item ? item.text : null;
+  });
+
   return {
     score,
     isCorrect,
@@ -1777,16 +2317,24 @@ async function evaluateReorderParagraphs(
       correctPairs,
       maxPairs,
       totalPairs: maxPairs, // For consistent display
+      explanation: explanation || undefined,
       // Add structured scores for consistent frontend display
+      userOrderText,
+      correctOrderText,
       scores: {
         reading: { score: correctPairs, max: maxPairs },
       },
     },
-    suggestions: [
-      'Look for logical connectors between paragraphs',
-      'Identify the introduction and conclusion paragraphs first',
-      'Follow the chronological or logical flow of ideas',
-    ],
+    suggestions: isCorrect
+      ? ['Excellent! You identified the correct logical flow.']
+      : [
+          'Look for logical connectors (however, therefore, meanwhile, etc.)',
+          'Identify the introduction paragraph (usually sets up the topic)',
+          'Find the conclusion paragraph (usually summarizes or concludes)',
+          'Follow chronological order when dealing with events or processes',
+          'Look for pronouns and references that connect to previous paragraphs',
+          'Consider cause-and-effect relationships between ideas',
+        ],
   };
 }
 
@@ -1848,6 +2396,37 @@ async function evaluateFillInTheBlanks(
   const isReadingQuestion = question.questionType.name.includes('READING');
   const skillType = isReadingQuestion ? 'reading' : 'reading'; // Both are reading-based
 
+  // Generate detailed explanation for reading questions using AI
+  let explanation = '';
+  if (!isCorrect && isReadingQuestion) {
+    try {
+      explanation = await generateDynamicExplanationFillBlanks({
+        questionType: question.questionType.name,
+        textContent: question.textContent,
+        blankResults,
+        correctCount,
+        totalBlanks,
+      });
+    } catch (error) {
+      console.error('Error generating explanation:', error);
+      // Fallback to static explanation
+      const incorrectBlanks = Object.entries(blankResults)
+        .filter(([_, result]: [string, any]) => !result.isCorrect)
+        .map(([blankKey, result]: [string, any]) => {
+          const blankNumber = blankKey.replace('blank', '');
+          return `Blank ${blankNumber}: You wrote "${
+            result.userAnswer || '(empty)'
+          }", correct answer is "${result.correctAnswer}"`;
+        });
+
+      if (incorrectBlanks.length > 0) {
+        explanation = `Incorrect answers: ${incorrectBlanks.join('; ')}. `;
+      }
+
+      explanation += `Consider the context around each blank for grammatical and meaning clues.`;
+    }
+  }
+
   return {
     score,
     isCorrect,
@@ -1857,6 +2436,7 @@ async function evaluateFillInTheBlanks(
       blankResults,
       correctCount,
       totalBlanks,
+      explanation: explanation || undefined,
       timeTaken: timeTakenSeconds || 0,
       // Add structured scores for consistent frontend display
       scores: {
@@ -1864,7 +2444,17 @@ async function evaluateFillInTheBlanks(
       },
       ...aiFeedback.detailedAnalysis,
     },
-    suggestions: aiFeedback.suggestions,
+    suggestions: isCorrect
+      ? ['Great work! You understood the context well.']
+      : isReadingQuestion
+      ? [
+          'Read the entire passage first to understand the overall meaning',
+          'Look for grammatical clues around each blank (verb forms, articles, etc.)',
+          'Consider the logical flow and meaning of the sentence',
+          'Pay attention to collocations (words that commonly go together)',
+          'Check if your answer fits grammatically and semantically',
+        ]
+      : aiFeedback.suggestions,
   };
 }
 
@@ -2072,6 +2662,10 @@ async function evaluateSummarizeSpokenText(
     - Only include errors that actually exist
     - For "text" field, provide ONLY the incorrect word/phrase, nothing else
     - Be very specific with the exact word that's wrong
+    - **Error Prioritization:** A single error MUST be categorized only ONCE. Use this strict priority:
+      1. **Spelling:** If a word is misspelled (e.g., "goverment"), it MUST go into "spellingErrors" ONLY. Do not list it in grammar or vocabulary.
+      2. **Grammar:** If spelling is correct, but the word or phrase breaks a sentence rule (e.g., "he go" instead of "he goes"), it MUST go into "grammarErrors" ONLY.
+      3. **Vocabulary:** Only if spelling and grammar are correct, but the word choice is poor or inappropriate (e.g., using "big" instead of "significant"), it MUST go into "vocabularyIssues".
 
     ---
     ### **Required Output Format**
@@ -2308,13 +2902,14 @@ async function evaluateWriteFromDictation(
   timeTakenSeconds?: number
 ): Promise<QuestionEvaluationResult> {
   const userText = userResponse.text?.toLowerCase().trim() || '';
-  const correctText = question.textContent?.toLowerCase().trim() || '';
+  const correctTextLower = question.textContent?.toLowerCase().trim() || '';
+  const correctTextOriginal = question.textContent?.trim() || ''; // Keep original for display
   ``;
   // Calculate word-level accuracy
   const userWords = userText
     .split(/\s+/)
     .filter((word: string | any[]) => word.length > 0);
-  const correctWords = correctText
+  const correctWords = correctTextLower
     .split(/\s+/)
     .filter((word: string | any[]) => word.length > 0);
 
@@ -2387,7 +2982,7 @@ async function evaluateWriteFromDictation(
     detailedAnalysis: {
       overallScore: score,
       userText: userResponse.text || '', // Include original text for highlighting
-      correctText,
+      correctText: correctTextOriginal, // Use original text for display (not lowercase)
       userWords,
       correctWords,
       correctWordCount,
@@ -2396,7 +2991,7 @@ async function evaluateWriteFromDictation(
       // Add structured scores for consistent frontend display
       scores: {
         listening: { score: correctWordCount, max: correctWords.length },
-        writing: { score: correctWordCount, max: correctWords.length }, // Also tests writing
+        // writing: { score: correctWordCount, max: correctWords.length }, // Also tests writing
       },
       errorAnalysis,
     },
@@ -2426,6 +3021,22 @@ async function evaluateHighlightCorrectSummary(
   // Use 1/0 format for single answer questions
   const score = isCorrect ? 1 : 0;
 
+  // const correctOrderText = question.correctAnswers.correctOrder.map(
+  //   (id: string) => {
+  //     const item = question.options.find((opt: any) => opt.id === id);
+  //     return item ? item.text : null;
+  //   }
+  // );
+  // const userOrderText = userResponse.orderedParagraphs.map((id: string) => {
+  //   const item = question.options.find((opt: any) => opt.id === id);
+  //   return item ? item.text : null;
+  // });
+  const userSelectedText = question.options.filter(
+    (option: any) => option.id === selectedSummary
+  )[0].text;
+
+  const correctOptionText = correctAnswers[0].text;
+
   return {
     score,
     isCorrect,
@@ -2437,10 +3048,11 @@ async function evaluateHighlightCorrectSummary(
       selectedSummary,
       correctAnswerIds,
       timeTaken: timeTakenSeconds || 0,
-      // Add structured scores for consistent frontend display
       scores: {
         listening: { score: score, max: 1 },
       },
+      selectedOptionText: userSelectedText,
+      correctOptionText: correctOptionText,
     },
     suggestions: isCorrect
       ? ['Excellent listening comprehension!']
@@ -2505,110 +3117,118 @@ async function evaluateListeningFillInTheBlanks(
 ): Promise<QuestionEvaluationResult> {
   const userBlanks = userResponse.blanks || {};
 
-  // Extract correct answers from the options array
-  const correctBlanks: { [key: string]: string } = {};
+console.log(question);
 
-  // The question.options contains the blanks with their correct answers
-  if (question.options && Array.isArray(question.options)) {
-    question.options.forEach((blank: any, index: number) => {
-      const blankKey = `blank${index + 1}`;
-      correctBlanks[blankKey] = blank.correctAnswer;
-    });
+// Extract correct answers from the options array
+const correctBlanks: { [key: string]: string } = {};
+
+// The question.options contains the blanks with their correct answers
+if (question.options && Array.isArray(question.options)) {
+  question.options.forEach((blank: any, index: number) => {
+    const blankKey = `blank${index + 1}`;
+    correctBlanks[blankKey] = blank.correctAnswer;
+  });
+}
+
+console.log(correctBlanks);
+
+let correctCount = 0;
+let totalBlanks = 0;
+const blankResults: any = {};
+
+Object.keys(correctBlanks).forEach((blankKey) => {
+  totalBlanks++;
+  const userAnswer = userBlanks[blankKey]?.toLowerCase().trim();
+  const correctAnswer = correctBlanks[blankKey]?.toLowerCase().trim();
+
+  // More flexible matching for listening questions
+  const isBlankCorrect = isListeningAnswerCorrect(userAnswer, correctAnswer);
+
+  if (isBlankCorrect) {
+    correctCount++;
   }
 
-  let correctCount = 0;
-  let totalBlanks = 0;
-  const blankResults: any = {};
-
-  Object.keys(correctBlanks).forEach((blankKey) => {
-    totalBlanks++;
-    const userAnswer = userBlanks[blankKey]?.toLowerCase().trim();
-    const correctAnswer = correctBlanks[blankKey]?.toLowerCase().trim();
-
-    // More flexible matching for listening questions
-    const isBlankCorrect = isListeningAnswerCorrect(userAnswer, correctAnswer);
-
-    if (isBlankCorrect) {
-      correctCount++;
-    }
-
-    blankResults[blankKey] = {
-      userAnswer: userBlanks[blankKey],
-      correctAnswer: correctBlanks[blankKey],
-      isCorrect: isBlankCorrect,
-    };
-  });
-
-  // Use actual correct/total format instead of percentage
-  const score = correctCount; // Show actual correct count
-  const isCorrect = correctCount >= Math.ceil(totalBlanks * 0.6); // 60% threshold for listening
-
-  // Generate AI feedback for listening
-  const aiFeedback = await generateListeningFillInTheBlanksAIFeedback(
-    question,
-    userResponse,
-    blankResults,
-    score
-  );
-
-  // Generate error analysis for incorrect blanks
-  const errorAnalysis = {
-    spellingErrors: [] as any[],
-    grammarErrors: [] as any[],
-    vocabularyIssues: [] as any[],
+  blankResults[blankKey] = {
+    userAnswer: userBlanks[blankKey],
+    correctAnswer: correctBlanks[blankKey],
+    isCorrect: isBlankCorrect,
   };
+});
 
-  // Create a text representation for error highlighting
-  let userText = '';
-  let correctText = '';
+// Use actual correct/total format instead of percentage
+const score = correctCount; // Show actual correct count
+const isCorrect = correctCount >= Math.ceil(totalBlanks * 0.6); // 60% threshold for listening
 
-  Object.keys(correctBlanks).forEach((blankKey, index) => {
-    const userAnswer = userBlanks[blankKey] || '(blank)';
-    const correctAnswer = correctBlanks[blankKey];
-    const isBlankCorrect = blankResults[blankKey].isCorrect;
+// Generate AI feedback for listening
+const aiFeedback = await generateListeningFillInTheBlanksAIFeedback(
+  question,
+  userResponse,
+  blankResults,
+  score
+);
 
-    if (index > 0) {
-      userText += ' ';
-      correctText += ' ';
-    }
+console.log(aiFeedback, 'AIIII FEEDBACK');
 
-    userText += userAnswer;
-    correctText += correctAnswer;
+// Generate error analysis for incorrect blanks
+const errorAnalysis = {
+  spellingErrors: [] as any[],
+  grammarErrors: [] as any[],
+  vocabularyIssues: [] as any[],
+};
 
-    // Add error if blank is incorrect
-    if (!isBlankCorrect && userAnswer !== '(blank)') {
-      errorAnalysis.spellingErrors.push({
-        text: userAnswer,
-        type: 'spelling',
-        position: { start: 0, end: 1 },
-        correction: correctAnswer,
-        explanation: `Incorrect word for blank ${
-          index + 1
-        }. Expected: "${correctAnswer}"`,
-      });
-    }
-  });
+// Create a text representation for error highlighting
+let userText = '';
+let correctText = '';
 
-  return {
-    isCorrect,
-    score,
-    feedback: aiFeedback.feedback,
-    suggestions: aiFeedback.suggestions,
-    detailedAnalysis: {
-      overallScore: score,
-      detailedResults: blankResults,
-      correctCount,
-      totalBlanks,
-      timeTakenSeconds,
-      // Add structured scores for consistent frontend display
-      scores: {
-        listening: { score: correctCount, max: totalBlanks },
-        writing: { score: correctCount, max: totalBlanks }, // Listening fill in blanks also tests writing
-      },
-      errorAnalysis,
-      userText, // Include text representation for highlighting
+Object.keys(correctBlanks).forEach((blankKey, index) => {
+  const userAnswer = userBlanks[blankKey] || '(blank)';
+  const correctAnswer = correctBlanks[blankKey];
+  const isBlankCorrect = blankResults[blankKey].isCorrect;
+
+  if (index > 0) {
+    userText += ' ';
+    correctText += ' ';
+  }
+
+  userText += userAnswer;
+  correctText += correctAnswer;
+
+  // Add error if blank is incorrect
+  if (!isBlankCorrect && userAnswer !== '(blank)') {
+    errorAnalysis.spellingErrors.push({
+      text: userAnswer,
+      type: 'spelling',
+      position: { start: 0, end: 1 },
+      correction: correctAnswer,
+      explanation: `Incorrect word for blank ${
+        index + 1
+      }. Expected: "${correctAnswer}"`,
+    });
+  }
+});
+
+console.log(errorAnalysis, 'ERROR');
+
+return {
+  isCorrect,
+  score,
+  feedback: aiFeedback.feedback,
+  suggestions: aiFeedback.suggestions,
+  detailedAnalysis: {
+    overallScore: score,
+    detailedResults: blankResults,
+    correctCount,
+    totalBlanks,
+    timeTakenSeconds,
+    // Add structured scores for consistent frontend display
+    scores: {
+      listening: { score: correctCount, max: totalBlanks },
+      // writing: { score: correctCount, max: totalBlanks }, // Listening fill in blanks also tests writing
     },
-  };
+    errorAnalysis,
+    userText, // Include text representation for highlighting
+  },
+};
 }
 
 /**
@@ -2745,4 +3365,349 @@ async function generateListeningFillInTheBlanksAIFeedback(
   }
 
   return { feedback, suggestions };
+}
+
+/**
+ * Generate dynamic explanation using AI for reading questions
+ */
+async function generateDynamicExplanation(params: {
+  questionType: string;
+  textContent?: string | null;
+  questionStatement?: string | null;
+  selectedAnswer: string;
+  correctAnswer: string;
+  allOptions?: any;
+}): Promise<string> {
+  const {
+    questionType,
+    textContent,
+    questionStatement,
+    selectedAnswer,
+    correctAnswer,
+    allOptions,
+  } = params;
+
+  try {
+    const prompt = `
+You are an expert PTE Academic tutor providing detailed explanations for reading questions.
+
+**Question Type:** ${questionType}
+
+**Passage/Text:**
+${textContent || 'No passage provided'}
+
+**Question Statement:**
+${questionStatement || 'No specific question statement'}
+
+**All Answer Options:**
+${
+  allOptions
+    ? allOptions
+        .map((opt: any, index: number) => `${index + 1}. ${opt.text}`)
+        .join('\n')
+    : 'Options not available'
+}
+
+**Student's Answer:** ${selectedAnswer}
+**Correct Answer:** ${correctAnswer}
+
+Please provide a detailed, educational explanation that:
+1. Clearly states why the correct answer is right
+2. Explains why the student's answer was wrong
+3. Points to specific evidence in the passage (if available)
+4. Helps the student understand the reasoning process
+5. Identifies any common misconceptions or traps
+
+Keep the explanation concise but informative (2-3 sentences maximum).
+Focus on teaching the student how to approach similar questions in the future.
+
+**Response format:** Provide only the explanation text, no additional formatting.
+`;
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are an expert PTE Academic tutor specializing in reading comprehension questions.',
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      max_tokens: 200,
+      temperature: 0.3,
+    });
+
+    return (
+      response.choices[0]?.message?.content?.trim() ||
+      'Unable to generate explanation.'
+    );
+  } catch (error) {
+    console.error('Error generating dynamic explanation:', error);
+    throw error;
+  }
+}
+
+/**
+ * Generate dynamic explanation using AI for multiple choice multiple answers questions
+ */
+async function generateDynamicExplanationMultiple(params: {
+  questionType: string;
+  textContent?: string | null;
+  questionStatement?: string | null;
+  selectedAnswers: string[];
+  correctAnswers: string[];
+  incorrectlySelected: string[];
+  missedCorrect: string[];
+  allOptions?: any;
+}): Promise<string> {
+  const {
+    questionType,
+    textContent,
+    questionStatement,
+    selectedAnswers,
+    correctAnswers,
+    incorrectlySelected,
+    missedCorrect,
+    allOptions,
+  } = params;
+
+  try {
+    const prompt = `
+You are an expert PTE Academic tutor providing detailed explanations for multiple choice multiple answers reading questions.
+
+**Question Type:** ${questionType}
+
+**Passage/Text:**
+${textContent || 'No passage provided'}
+
+**Question Statement:**
+${questionStatement || 'No specific question statement'}
+
+**All Answer Options:**
+${
+  allOptions
+    ? allOptions
+        .map((opt: any, index: number) => `${index + 1}. ${opt.text}`)
+        .join('\n')
+    : 'Options not available'
+}
+
+**Student's Selected Answers:** ${selectedAnswers.join(', ')}
+**Correct Answers:** ${correctAnswers.join(', ')}
+**Incorrectly Selected:** ${
+      incorrectlySelected.length > 0 ? incorrectlySelected.join(', ') : 'None'
+    }
+**Missed Correct Answers:** ${
+      missedCorrect.length > 0 ? missedCorrect.join(', ') : 'None'
+    }
+
+Please provide a detailed, educational explanation that:
+1. Explains why each correct answer is right with specific evidence from the passage
+2. Explains why the incorrectly selected options were wrong
+3. Helps the student understand what they missed and why
+4. Provides guidance on how to identify all correct answers in similar questions
+
+Keep the explanation concise but informative (3-4 sentences maximum).
+Focus on teaching the student the systematic approach to multiple answer questions.
+
+**Response format:** Provide only the explanation text, no additional formatting.
+`;
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are an expert PTE Academic tutor specializing in multiple choice multiple answers reading questions.',
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      max_tokens: 250,
+      temperature: 0.3,
+    });
+
+    return (
+      response.choices[0]?.message?.content?.trim() ||
+      'Unable to generate explanation.'
+    );
+  } catch (error) {
+    console.error(
+      'Error generating dynamic explanation for multiple choice:',
+      error
+    );
+    throw error;
+  }
+}
+
+/**
+ * Generate dynamic explanation using AI for reorder paragraphs questions
+ */
+async function generateDynamicExplanationReorder(params: {
+  questionType: string;
+  textContent?: string | null;
+  userOrder: string[];
+  correctOrder: string[];
+  correctPairs: number;
+  maxPairs: number;
+  paragraphs?: any;
+}): Promise<string> {
+  const {
+    questionType,
+    textContent,
+    userOrder,
+    correctOrder,
+    correctPairs,
+    maxPairs,
+    paragraphs,
+  } = params;
+
+  try {
+    // Get paragraph texts for context
+    const paragraphTexts =
+      paragraphs?.map((p: any) => `${p.id}: ${p.text.substring(0, 100)}...`) ||
+      [];
+
+    const prompt = `
+You are an expert PTE Academic tutor providing detailed explanations for reorder paragraphs reading questions.
+
+**Question Type:** ${questionType}
+
+**Paragraphs:**
+${paragraphTexts.join('\n')}
+
+**Student's Order:** ${userOrder.join(' → ')}
+**Correct Order:** ${correctOrder.join(' → ')}
+**Score:** ${correctPairs} out of ${maxPairs} adjacent pairs correct
+
+Please provide a detailed, educational explanation that:
+1. Explains the logical flow of the correct order
+2. Identifies where the student went wrong in their ordering
+3. Points out key connecting words, chronological markers, or logical relationships
+4. Helps the student understand how to identify the correct sequence
+
+Keep the explanation concise but informative (3-4 sentences maximum).
+Focus on teaching the student how to identify logical connections between paragraphs.
+
+**Response format:** Provide only the explanation text, no additional formatting.
+`;
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are an expert PTE Academic tutor specializing in reorder paragraphs reading questions.',
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      max_tokens: 250,
+      temperature: 0.3,
+    });
+
+    return (
+      response.choices[0]?.message?.content?.trim() ||
+      'Unable to generate explanation.'
+    );
+  } catch (error) {
+    console.error(
+      'Error generating dynamic explanation for reorder paragraphs:',
+      error
+    );
+    throw error;
+  }
+}
+
+/**
+ * Generate dynamic explanation using AI for fill in the blanks questions
+ */
+async function generateDynamicExplanationFillBlanks(params: {
+  questionType: string;
+  textContent?: string | null;
+  blankResults: any;
+  correctCount: number;
+  totalBlanks: number;
+}): Promise<string> {
+  const { questionType, textContent, blankResults, correctCount, totalBlanks } =
+    params;
+
+  try {
+    // Get incorrect blanks for detailed analysis
+    const incorrectBlanks = Object.entries(blankResults)
+      .filter(([_, result]: [string, any]) => !result.isCorrect)
+      .map(([blankKey, result]: [string, any]) => {
+        const blankNumber = blankKey.replace('blank', '');
+        return `Blank ${blankNumber}: Student wrote "${
+          result.userAnswer || '(empty)'
+        }", correct answer is "${result.correctAnswer}"`;
+      });
+
+    const prompt = `
+You are an expert PTE Academic tutor providing detailed explanations for fill in the blanks reading questions.
+
+**Question Type:** ${questionType}
+
+**Passage with Blanks:**
+${textContent || 'No passage provided'}
+
+**Performance:** ${correctCount} out of ${totalBlanks} blanks correct
+
+**Incorrect Answers:**
+${
+  incorrectBlanks.length > 0
+    ? incorrectBlanks.join('\n')
+    : 'All answers were correct'
+}
+
+Please provide a detailed, educational explanation that:
+1. Explains why the correct answers fit grammatically and contextually
+2. Identifies the specific grammatical or contextual clues that should guide the student
+3. Explains common mistakes and how to avoid them
+4. Provides strategies for approaching similar questions
+
+Keep the explanation concise but informative (3-4 sentences maximum).
+Focus on teaching the student how to use context and grammar clues effectively.
+
+**Response format:** Provide only the explanation text, no additional formatting.
+`;
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are an expert PTE Academic tutor specializing in fill in the blanks reading questions.',
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      max_tokens: 250,
+      temperature: 0.3,
+    });
+
+    return (
+      response.choices[0]?.message?.content?.trim() ||
+      'Unable to generate explanation.'
+    );
+  } catch (error) {
+    console.error(
+      'Error generating dynamic explanation for fill in the blanks:',
+      error
+    );
+    throw error;
+  }
 }

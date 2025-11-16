@@ -2,7 +2,6 @@ import { useCallback, useRef, useState } from 'react';
 
 interface UseAudioRecorderReturn {
   isRecording: boolean;
-  isPaused: boolean;
   recordingTime: number;
   audioURL: string | null;
   audioBlob: Blob | null;
@@ -12,8 +11,6 @@ interface UseAudioRecorderReturn {
   uploadSuccess: boolean;
   startRecording: () => Promise<void>;
   stopRecording: () => void;
-  pauseRecording: () => void;
-  resumeRecording: () => void;
   clearRecording: () => void;
   uploadAudio: () => Promise<string | null>;
   isSupported: boolean;
@@ -22,7 +19,6 @@ interface UseAudioRecorderReturn {
 
 export const useAudioRecorder = (): UseAudioRecorderReturn => {
   const [isRecording, setIsRecording] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioURL, setAudioURL] = useState<string | null>(null);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -109,7 +105,6 @@ export const useAudioRecorder = (): UseAudioRecorderReturn => {
 
       mediaRecorder.start(100); // Collect data every 100ms
       setIsRecording(true);
-      setIsPaused(false);
       setRecordingTime(0);
       startTimer();
     } catch (error) {
@@ -122,26 +117,9 @@ export const useAudioRecorder = (): UseAudioRecorderReturn => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
-      setIsPaused(false);
       stopTimer();
     }
   }, [isRecording, stopTimer]);
-
-  const pauseRecording = useCallback(() => {
-    if (mediaRecorderRef.current && isRecording && !isPaused) {
-      mediaRecorderRef.current.pause();
-      setIsPaused(true);
-      stopTimer();
-    }
-  }, [isRecording, isPaused, stopTimer]);
-
-  const resumeRecording = useCallback(() => {
-    if (mediaRecorderRef.current && isRecording && isPaused) {
-      mediaRecorderRef.current.resume();
-      setIsPaused(false);
-      startTimer();
-    }
-  }, [isRecording, isPaused, startTimer]);
 
   const clearRecording = useCallback(() => {
     if (audioURL) {
@@ -234,7 +212,6 @@ export const useAudioRecorder = (): UseAudioRecorderReturn => {
 
   return {
     isRecording,
-    isPaused,
     recordingTime,
     audioURL,
     audioBlob,
@@ -244,8 +221,6 @@ export const useAudioRecorder = (): UseAudioRecorderReturn => {
     uploadSuccess,
     startRecording,
     stopRecording,
-    pauseRecording,
-    resumeRecording,
     clearRecording,
     uploadAudio,
     isSupported,

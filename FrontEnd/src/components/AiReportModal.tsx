@@ -24,6 +24,10 @@ const AIReportModal: React.FC<AIReportModalProps> = ({
   question,
   onClose,
 }) => {
+
+  console.log(response, 'SSSS');
+  
+
   const getScoreColor = (score: number) => {
     if (score >= 85) return 'text-green-600 dark:text-green-400';
     if (score >= 65) return 'text-yellow-600 dark:text-yellow-400';

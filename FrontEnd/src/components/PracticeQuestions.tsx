@@ -5,19 +5,52 @@ import {
   Loader,
   RotateCcw,
   X,
+  History,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { PracticeQuestion as PracticeQuestionType } from '../services/portal';
-import { submitQuestionResponse } from '../services/questionResponse';
+import {
+  submitQuestionResponse,
+  PreviousResponse,
+} from '../services/questionResponse';
 import { PteQuestionTypeName } from '../types/pte';
 import AudioPlayer from './AudioPlayer';
 import AudioRecorder from './AudioRecorder';
 import QuestionResponseEvaluator from './QuestionResponseEvaluator';
+import PreviousResponses from './PreviousResponses';
+import ResponseDetailModal from './ResponseDetailModal';
+
+// Utility function to play a beep sound
+const playBeep = () => {
+  const audioContext = new (window.AudioContext ||
+    (window as any).webkitAudioContext)();
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
+
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+
+  oscillator.frequency.value = 1000; // 1000 Hz beep
+  oscillator.type = 'sine';
+
+  gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(
+    0.01,
+    audioContext.currentTime + 0.5
+  );
+
+  oscillator.start(audioContext.currentTime);
+  oscillator.stop(audioContext.currentTime + 0.5);
+};
 
 interface PracticeQuestionProps {
   question: PracticeQuestionType;
   onComplete?: (response: any) => void;
   onNext?: () => void;
+  onPrevious?: () => void;
+  hasPrevious?: boolean;
   className?: string;
 }
 
@@ -25,6 +58,8 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
   question,
   onComplete,
   onNext,
+  onPrevious,
+  hasPrevious = false,
   className = '',
 }) => {
   const [timeLeft, setTimeLeft] = useState(question.content.timeLimit || 300);
@@ -36,12 +71,22 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
   const [isPreparationPhase, setIsPreparationPhase] = useState(
     !!question.content.preparationTime
   );
+  const [recordingTimeLeft, setRecordingTimeLeft] = useState(0);
+  const [hasAutoStartedRecording, setHasAutoStartedRecording] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isProcessingAudio, setIsProcessingAudio] = useState(false);
   const [isAudioReady, setIsAudioReady] = useState(false);
   const [evaluationResult, setEvaluationResult] = useState<any>(null);
   const [isAudioFinished, setIsAudioFinished] = useState(false);
   const [resetKey, setResetKey] = useState(0);
+  const [hasStartedPreparation, setHasStartedPreparation] = useState(false); // Track if preparation has been triggered
+  const audioRecorderRef = useRef<any>(null);
+
+  // Previous responses state
+  const [showPreviousResponses, setShowPreviousResponses] = useState(false);
+  const [selectedResponse, setSelectedResponse] =
+    useState<PreviousResponse | null>(null);
+  const [showResponseModal, setShowResponseModal] = useState(false);
 
   // Check if current question is audio-based
   const isAudioBasedQuestion = [
@@ -57,17 +102,33 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
     setIsCompleted(false);
     setResponse({});
     setEvaluationResult(null);
-    setTimeLeft(question.content.timeLimit || 300);
-    setPreparationTime(question.content.preparationTime || 0);
-    setIsPreparationPhase(!!question.content.preparationTime);
+    // For RE_TELL_LECTURE, don't set timeLeft initially - only show timer after audio ends
+    if (question.type === PteQuestionTypeName.RE_TELL_LECTURE) {
+      setTimeLeft(0);
+      setPreparationTime(0);
+      setIsPreparationPhase(false);
+      setHasStartedPreparation(false); // Reset preparation flag
+    } else {
+      setTimeLeft(question.content.timeLimit || 300);
+      setPreparationTime(question.content.preparationTime || 0);
+      setIsPreparationPhase(!!question.content.preparationTime);
+    }
     setIsAudioReady(false);
     setIsProcessingAudio(false);
     setIsAudioFinished(false); // Reset audio finished state for new question
+    setHasAutoStartedRecording(false); // Reset auto-start flag
+
+    // Reset previous responses state
+    setShowPreviousResponses(false);
+    setSelectedResponse(null);
+    setShowResponseModal(false);
+
     // Don't reset AudioRecorder on question change - let it handle its own cleanup
   }, [
     question.id,
     question.content.timeLimit,
     question.content.preparationTime,
+    question.type,
   ]);
 
   const handleSubmit = useCallback(async () => {
@@ -134,11 +195,21 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
     isAudioBasedQuestion,
   ]);
 
+  // Reset state when question changes
+  useEffect(() => {
+    setIsAudioFinished(false);
+    setHasAutoStartedRecording(false);
+    setRecordingTimeLeft(0);
+  }, [question.id]);
+
   // Check if this question type should have a timer
   const shouldShowTimer =
     question.type === PteQuestionTypeName.SUMMARIZE_WRITTEN_TEXT ||
     question.type === PteQuestionTypeName.WRITE_ESSAY ||
-    question.type === PteQuestionTypeName.SUMMARIZE_SPOKEN_TEXT;
+    question.type === PteQuestionTypeName.SUMMARIZE_SPOKEN_TEXT ||
+    question.type === PteQuestionTypeName.DESCRIBE_IMAGE ||
+    question.type === PteQuestionTypeName.READ_ALOUD ||
+    question.type === PteQuestionTypeName.RE_TELL_LECTURE;
 
   // Timer effect - only run for questions that should have timers
   useEffect(() => {
@@ -151,10 +222,22 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
       );
       return () => clearTimeout(timer);
     } else if (isPreparationPhase && preparationTime === 0) {
+      // Preparation time ended
       setIsPreparationPhase(false);
       setTimeLeft(
         question.content.recordingTime || question.content.timeLimit || 300
       );
+
+      // For Describe Image, play beep and auto-start recording
+      if (question.type === PteQuestionTypeName.DESCRIBE_IMAGE) {
+        playBeep();
+        // Auto-start recording after a short delay to ensure UI is updated
+        setTimeout(() => {
+          if (audioRecorderRef.current?.startRecording) {
+            audioRecorderRef.current.startRecording();
+          }
+        }, 500);
+      }
     } else if (!isPreparationPhase && timeLeft > 0 && !isCompleted) {
       const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
       return () => clearTimeout(timer);
@@ -171,10 +254,113 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
     isPreparationPhase,
     isCompleted,
     question.content,
+    question.type,
     isAudioBasedQuestion,
     handleSubmit,
     shouldShowTimer,
   ]);
+
+  // For Re-tell Lecture, start preparation phase when audio finishes
+  useEffect(() => {
+    if (
+      question.type === PteQuestionTypeName.RE_TELL_LECTURE &&
+      isAudioFinished &&
+      !isCompleted &&
+      !hasStartedPreparation // Only trigger once
+    ) {
+      // Start preparation phase with 10 seconds (hardcoded for RE_TELL_LECTURE)
+      setIsPreparationPhase(true);
+      setPreparationTime(10); // Always 10 seconds for RE_TELL_LECTURE
+      setHasStartedPreparation(true); // Mark that preparation has been triggered
+    }
+  }, [question.type, isAudioFinished, isCompleted, hasStartedPreparation]);
+
+  // Auto-start recording for Repeat Sentence and Answer Short Question when audio finishes
+  // For Read Aloud, auto-start after preparation time ends
+  useEffect(() => {
+    if (
+      (question.type === PteQuestionTypeName.REPEAT_SENTENCE ||
+        question.type === PteQuestionTypeName.ANSWER_SHORT_QUESTION) &&
+      isAudioFinished &&
+      !isCompleted &&
+      !hasAutoStartedRecording
+    ) {
+      // Play beep and auto-start recording
+      playBeep();
+      // 15 seconds for Repeat Sentence, 10 seconds for Answer Short Question
+      let recordingDuration = 10;
+      if (question.type === PteQuestionTypeName.REPEAT_SENTENCE) {
+        recordingDuration = 15;
+      }
+      setRecordingTimeLeft(recordingDuration);
+      setHasAutoStartedRecording(true);
+
+      // Auto-start recording after a short delay to ensure UI is updated
+      setTimeout(() => {
+        if (audioRecorderRef.current?.startRecording) {
+          audioRecorderRef.current.startRecording();
+        }
+      }, 500);
+    }
+  }, [isAudioFinished, isCompleted, question.type, hasAutoStartedRecording]);
+
+  // For Read Aloud, auto-start recording after preparation phase ends
+  useEffect(() => {
+    if (
+      question.type === PteQuestionTypeName.READ_ALOUD &&
+      !isPreparationPhase &&
+      !isCompleted &&
+      !hasAutoStartedRecording &&
+      (question.content.preparationTime || 0) > 0 &&
+      preparationTime === 0
+    ) {
+      // Play beep and auto-start recording
+      playBeep();
+      setRecordingTimeLeft(40); // 40 seconds for Read Aloud
+      setHasAutoStartedRecording(true);
+
+      // Auto-start recording after a short delay to ensure UI is updated
+      setTimeout(() => {
+        if (audioRecorderRef.current?.startRecording) {
+          audioRecorderRef.current.startRecording();
+        }
+      }, 500);
+    }
+  }, [
+    isPreparationPhase,
+    isCompleted,
+    question.type,
+    hasAutoStartedRecording,
+    question.content.preparationTime,
+    preparationTime,
+  ]);
+
+  // Recording timer for Re-tell Lecture, Repeat Sentence, Answer Short Question, and Read Aloud
+  useEffect(() => {
+    const isAutoStartQuestion =
+      question.type === PteQuestionTypeName.RE_TELL_LECTURE ||
+      question.type === PteQuestionTypeName.REPEAT_SENTENCE ||
+      question.type === PteQuestionTypeName.ANSWER_SHORT_QUESTION ||
+      question.type === PteQuestionTypeName.READ_ALOUD;
+
+    if (isAutoStartQuestion && recordingTimeLeft > 0 && !isCompleted) {
+      const timer = setTimeout(
+        () => setRecordingTimeLeft(recordingTimeLeft - 1),
+        1000
+      );
+      return () => clearTimeout(timer);
+    } else if (
+      isAutoStartQuestion &&
+      recordingTimeLeft === 0 &&
+      hasAutoStartedRecording &&
+      !isCompleted
+    ) {
+      // Stop recording when time runs out
+      if (audioRecorderRef.current?.stopRecording) {
+        audioRecorderRef.current.stopRecording();
+      }
+    }
+  }, [recordingTimeLeft, isCompleted, question.type, hasAutoStartedRecording]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -207,12 +393,26 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
     setIsCompleted(false);
     setResponse({});
     setEvaluationResult(null);
-    setTimeLeft(question.content.timeLimit || 300);
-    setPreparationTime(question.content.preparationTime || 0);
-    setIsPreparationPhase(!!question.content.preparationTime);
+    // For RE_TELL_LECTURE, don't set timeLeft initially - only show timer after audio ends
+    if (question.type === PteQuestionTypeName.RE_TELL_LECTURE) {
+      setTimeLeft(0);
+      setPreparationTime(0);
+      setIsPreparationPhase(false);
+      setHasStartedPreparation(false); // Reset preparation flag
+    } else {
+      setTimeLeft(question.content.timeLimit || 300);
+      setPreparationTime(question.content.preparationTime || 0);
+      setIsPreparationPhase(!!question.content.preparationTime);
+    }
     setIsAudioReady(false);
     setIsProcessingAudio(false);
     setIsAudioFinished(false);
+    setHasAutoStartedRecording(false); // Reset auto-start flag
+
+    // Reset previous responses state
+    setShowPreviousResponses(false);
+    setSelectedResponse(null);
+    setShowResponseModal(false);
 
     // Force AudioRecorder to re-render and reset
     setResetKey((prev) => prev + 1);
@@ -225,24 +425,44 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
     });
   };
 
+  // Previous responses handlers
+  const handleViewResponse = (response: PreviousResponse) => {
+    setSelectedResponse(response);
+    setShowResponseModal(true);
+  };
+
+  const handleCloseResponseModal = () => {
+    setShowResponseModal(false);
+    setSelectedResponse(null);
+  };
+
+  const togglePreviousResponses = () => {
+    setShowPreviousResponses(!showPreviousResponses);
+  };
+
   const renderQuestionContent = () => {
     switch (question.type) {
       case PteQuestionTypeName.READ_ALOUD:
         return (
           <div className='space-y-6'>
+            {/* Text to Read */}
             <div className='bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-600'>
               <p className='text-lg leading-relaxed text-gray-900 dark:text-white'>
                 {question.content.text}
               </p>
             </div>
-            {/* Always show recorder for READ_ALOUD since there's no preparation time */}
-            <AudioRecorder
-              onRecordingComplete={handleAudioRecordingComplete}
-              maxDuration={question.content.recordingTime}
-              autoUpload={true}
-              disabled={isCompleted}
-              key={`recorder-${question.id}-${resetKey}`} // Reset on question change or manual reset
-            />
+
+            {/* Audio Recorder - Show after preparation phase */}
+            {!isPreparationPhase && (
+              <AudioRecorder
+                ref={audioRecorderRef}
+                onRecordingComplete={handleAudioRecordingComplete}
+                maxDuration={40}
+                autoUpload={true}
+                disabled={isCompleted}
+                key={`recorder-${question.id}-${resetKey}`}
+              />
+            )}
           </div>
         );
 
@@ -254,26 +474,26 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 src={question.content.audioUrl || ''}
                 title='Listen to the sentence'
                 autoPlay={true}
-                autoPlayDelay={isPreparationPhase ? 2000 : 1000} // Delay based on preparation phase
+                autoPlayDelay={1000}
                 onEnded={() => setIsAudioFinished(true)}
-                key={`audio-${question.id}`} // Reset on question change
+                key={`audio-${question.id}`}
               />
             </div>
-            {!isPreparationPhase && (
-              <AudioRecorder
-                onRecordingComplete={handleAudioRecordingComplete}
-                maxDuration={question.content.recordingTime}
-                autoUpload={true}
-                disabled={isCompleted || !isAudioFinished}
-                key={`recorder-${question.id}-${resetKey}`} // Reset on question change or manual reset
-              />
-            )}
+            <AudioRecorder
+              ref={audioRecorderRef}
+              onRecordingComplete={handleAudioRecordingComplete}
+              maxDuration={15}
+              autoUpload={true}
+              disabled={isCompleted || !isAudioFinished}
+              key={`recorder-${question.id}-${resetKey}`}
+            />
           </div>
         );
 
       case PteQuestionTypeName.DESCRIBE_IMAGE:
         return (
           <div className='space-y-6'>
+            {/* Image Display */}
             <div className='flex justify-center'>
               <img
                 src={question.content.imageUrl}
@@ -281,7 +501,10 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 className='max-w-full h-auto rounded-lg shadow-lg max-h-96'
               />
             </div>
+
+            {/* Audio Recorder - Show during both preparation and recording phases */}
             <AudioRecorder
+              ref={audioRecorderRef}
               onRecordingComplete={handleAudioRecordingComplete}
               maxDuration={question.content.recordingTime}
               autoUpload={true}
@@ -304,13 +527,16 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 key={`audio-${question.id}`} // Reset on question change
               />
             </div>
-            <AudioRecorder
-              onRecordingComplete={handleAudioRecordingComplete}
-              maxDuration={question.content.recordingTime}
-              autoUpload={true}
-              disabled={isCompleted || !isAudioFinished}
-              key={`recorder-${question.id}-${resetKey}`} // Reset on question change or manual reset
-            />
+            {isAudioFinished && (
+              <AudioRecorder
+                ref={audioRecorderRef}
+                onRecordingComplete={handleAudioRecordingComplete}
+                maxDuration={question.content.recordingTime}
+                autoUpload={true}
+                disabled={isCompleted}
+                key={`recorder-${question.id}-${resetKey}`} // Reset on question change or manual reset
+              />
+            )}
           </div>
         );
 
@@ -322,20 +548,19 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 src={question.content.audioUrl || ''}
                 title='Listen to the question'
                 autoPlay={true}
-                autoPlayDelay={isPreparationPhase ? 2000 : 1000} // Delay based on preparation phase
+                autoPlayDelay={1000}
                 onEnded={() => setIsAudioFinished(true)}
                 key={`audio-${question.id}`} // Reset on question change
               />
             </div>
-            {!isPreparationPhase && (
-              <AudioRecorder
-                onRecordingComplete={handleAudioRecordingComplete}
-                maxDuration={question.content.recordingTime}
-                autoUpload={true}
-                disabled={isCompleted || !isAudioFinished}
-                key={`recorder-${question.id}-${resetKey}`} // Reset on question change or manual reset
-              />
-            )}
+            <AudioRecorder
+              ref={audioRecorderRef}
+              onRecordingComplete={handleAudioRecordingComplete}
+              maxDuration={10} // 10 seconds recording time for Answer Short Question
+              autoUpload={true}
+              disabled={isCompleted || !isAudioFinished}
+              key={`recorder-${question.id}-${resetKey}`} // Reset on question change or manual reset
+            />
           </div>
         );
 
@@ -1413,7 +1638,7 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                     </div>
                   </div>
                 </div>
-              ) : (
+              ) : timeLeft > 0 ? (
                 <div className='flex items-center space-x-2 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-lg border border-blue-200 dark:border-blue-800'>
                   <Clock className='h-4 w-4 text-blue-600 dark:text-blue-400' />
                   <div>
@@ -1431,7 +1656,7 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                     </div>
                   </div>
                 </div>
-              )}
+              ) : null}
             </>
           )}
           {isCompleted && (
@@ -1520,55 +1745,70 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
             <span className='font-medium'>Reset</span>
           </button>
 
-          <div className='flex space-x-3'>
-            {!isCompleted && (
-              <>
-                {/* For audio-based questions, only show submit button when audio is ready */}
-                {isAudioBasedQuestion ? (
-                  isAudioReady && (
+          <div className='flex space-x-3 justify-between'>
+            {/* Previous Button - Show when available */}
+            {(isCompleted || !isAudioBasedQuestion || isAudioReady) &&
+              onPrevious &&
+              hasPrevious && (
+                <button
+                  onClick={onPrevious}
+                  className='bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl'
+                >
+                  ← Previous
+                </button>
+              )}
+
+            <div className='flex space-x-3'>
+              {!isCompleted && (
+                <>
+                  {/* For audio-based questions, only show submit button when audio is ready */}
+                  {isAudioBasedQuestion ? (
+                    isAudioReady && (
+                      <button
+                        onClick={handleManualSubmit}
+                        disabled={isSubmitting || isProcessingAudio}
+                        className='bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed'
+                      >
+                        {isSubmitting ? (
+                          <div className='flex items-center space-x-2'>
+                            <Loader className='h-4 w-4 animate-spin' />
+                            <span>Evaluating...</span>
+                          </div>
+                        ) : (
+                          'Submit for Evaluation'
+                        )}
+                      </button>
+                    )
+                  ) : (
+                    /* For non-audio questions, show regular submit button */
                     <button
-                      onClick={handleManualSubmit}
-                      disabled={isSubmitting || isProcessingAudio}
-                      className='bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed'
+                      onClick={handleSubmit}
+                      disabled={isSubmitting}
+                      className='bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed'
                     >
                       {isSubmitting ? (
                         <div className='flex items-center space-x-2'>
                           <Loader className='h-4 w-4 animate-spin' />
-                          <span>Evaluating...</span>
+                          <span>Processing & Evaluating...</span>
                         </div>
                       ) : (
-                        'Submit for Evaluation'
+                        'Submit'
                       )}
                     </button>
-                  )
-                ) : (
-                  /* For non-audio questions, show regular submit button */
-                  <button
-                    onClick={handleSubmit}
-                    disabled={isSubmitting}
-                    className='bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed'
-                  >
-                    {isSubmitting ? (
-                      <div className='flex items-center space-x-2'>
-                        <Loader className='h-4 w-4 animate-spin' />
-                        <span>Processing & Evaluating...</span>
-                      </div>
-                    ) : (
-                      'Submit'
-                    )}
-                  </button>
-                )}
-              </>
-            )}
+                  )}
+                </>
+              )}
 
-            {isCompleted && onNext && (
-              <button
-                onClick={onNext}
-                className='bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl'
-              >
-                Next Question
-              </button>
-            )}
+              {/* Next Button - Show when completed or always available */}
+              {onNext && (
+                <button
+                  onClick={onNext}
+                  className='bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl'
+                >
+                  Next →
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1581,10 +1821,65 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
               transcribedText={
                 response.transcribedText || response.evaluation?.transcribedText
               }
+              question={question}
             />
+
+            {/* Navigation Buttons - Show after evaluation */}
+            <div className='mt-6 flex justify-between'>
+              {onPrevious && hasPrevious && (
+                <button
+                  onClick={onPrevious}
+                  className='bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl'
+                >
+                  ← Previous
+                </button>
+              )}
+              {onNext && (
+                <button
+                  onClick={onNext}
+                  className='bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl'
+                >
+                  Next →
+                </button>
+              )}
+            </div>
           </div>
         )}
+
+        {/* Previous Responses Section */}
+        <div className='border-t border-gray-200 dark:border-gray-700 pt-4 my-5'>
+          <button
+            onClick={togglePreviousResponses}
+            className='flex items-center space-x-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors mb-4'
+          >
+            <History className='h-5 w-5' />
+            <span className='font-medium'>Previous Attempts</span>
+            {showPreviousResponses ? (
+              <ChevronUp className='h-4 w-4' />
+            ) : (
+              <ChevronDown className='h-4 w-4' />
+            )}
+          </button>
+
+          {showPreviousResponses && (
+            <div className='mb-4'>
+              <PreviousResponses
+                questionId={question.id}
+                onViewResponse={handleViewResponse}
+                className='border border-gray-200 dark:border-gray-600'
+              />
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Response Detail Modal */}
+      <ResponseDetailModal
+        response={selectedResponse}
+        isOpen={showResponseModal}
+        onClose={handleCloseResponseModal}
+        questionType={question.type}
+      />
     </div>
   );
 };

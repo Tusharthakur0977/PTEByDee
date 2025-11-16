@@ -382,9 +382,10 @@ function getInstructionsForQuestionType(questionType: string): string {
 
 function getPreparationTime(questionType: string): number | undefined {
   const preparationTimes: { [key: string]: number } = {
-    READ_ALOUD: 3,
+    READ_ALOUD: 35,
     DESCRIBE_IMAGE: 25,
-    RE_TELL_LECTURE: 10,
+    // RE_TELL_LECTURE: Don't send preparation time from backend
+    // It will be triggered after audio ends on the frontend
   };
 
   return preparationTimes[questionType];
