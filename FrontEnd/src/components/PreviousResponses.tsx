@@ -1,24 +1,18 @@
-import React, { useState, useEffect } from 'react';
 import {
-  Clock,
+  AlertCircle,
+  BarChart3,
   Calendar,
-  CheckCircle,
-  XCircle,
-  Eye,
   ChevronLeft,
   ChevronRight,
   Loader,
-  AlertCircle,
-  BarChart3,
   Volume2,
-  Play,
 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 import {
   getQuestionPreviousResponses,
   getQuestionResponseStats,
   PreviousResponse,
   QuestionResponseStats,
-  PreviousResponsesResponse,
 } from '../services/questionResponse';
 
 interface PreviousResponsesProps {
@@ -95,12 +89,6 @@ const PreviousResponses: React.FC<PreviousResponsesProps> = ({
     });
   };
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
   const isAudioQuestion = (): boolean => {
     const audioQuestionTypes = [
       'READ_ALOUD',
@@ -138,8 +126,10 @@ const PreviousResponses: React.FC<PreviousResponsesProps> = ({
 
     // Audio questions (Read Aloud, Repeat Sentence, Describe Image, Re-tell Lecture, Answer Short Question, Summarize Spoken Text)
     if (
-      analysis.contentScore !== undefined ||
-      analysis.pronunciationScore !== undefined
+      (analysis.contentScore !== undefined ||
+        analysis.pronunciationScore !== undefined) &&
+      questionType !== 'SUMMARIZE_WRITTEN_TEXT' &&
+      questionType !== 'WRITE_ESSAY'
     ) {
       const contentScore = analysis.contentScore || 0;
       const pronunciationScore = analysis.pronunciationScore || 0;
@@ -216,19 +206,6 @@ const PreviousResponses: React.FC<PreviousResponsesProps> = ({
       return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400';
     }
     return 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400';
-  };
-
-  const getScoreColor = (response: PreviousResponse): string => {
-    if (response.isCorrect === true)
-      return 'text-green-600 dark:text-green-400';
-    if (response.isCorrect === false) return 'text-red-600 dark:text-red-400';
-
-    // Calculate percentage for color coding
-    const percentage = calculateScorePercentage(response);
-
-    if (percentage >= 80) return 'text-green-600 dark:text-green-400';
-    if (percentage >= 60) return 'text-yellow-600 dark:text-yellow-400';
-    return 'text-red-600 dark:text-red-400';
   };
 
   const getResponsePreview = (response: PreviousResponse): string => {
@@ -325,7 +302,6 @@ const PreviousResponses: React.FC<PreviousResponsesProps> = ({
         {responses.map((response, index) => {
           const attemptNumber = (currentPage - 1) * 5 + index + 1;
           const scoreDisplay = getScoreDisplay(response);
-          const scoreColor = getScoreColor(response);
 
           return (
             <div

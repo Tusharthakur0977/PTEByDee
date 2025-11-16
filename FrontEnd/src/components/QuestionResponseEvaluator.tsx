@@ -121,7 +121,7 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
       // Listening Questions
       MULTIPLE_CHOICE_SINGLE_ANSWER_LISTENING: ['Listening'],
       MULTIPLE_CHOICE_MULTIPLE_ANSWERS_LISTENING: ['Listening'],
-      LISTENING_FILL_IN_THE_BLANKS: ['Listening', 'Writing'],
+      LISTENING_FILL_IN_THE_BLANKS: ['Listening'],
       HIGHLIGHT_CORRECT_SUMMARY: ['Listening'],
       SELECT_MISSING_WORD: ['Listening'],
       HIGHLIGHT_INCORRECT_WORDS: ['Listening'],
@@ -182,7 +182,6 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
       );
     }
 
-    // For DESCRIBE_IMAGE, RE_TELL_LECTURE, REPEAT_SENTENCE, READ_ALOUD, SUMMARIZE_SPOKEN_TEXT, SUMMARIZE_WRITTEN_TEXT, WRITE_ESSAY, Reading questions, and Listening questions - show detailed scoring with rubrics (but not WRITE_FROM_DICTATION which has its own handler)
     if (
       (questionType === 'DESCRIBE_IMAGE' ||
         questionType === 'RE_TELL_LECTURE' ||
@@ -193,10 +192,13 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
         questionType === 'WRITE_ESSAY' ||
         questionType === 'MULTIPLE_CHOICE_SINGLE_ANSWER_READING' ||
         questionType === 'MULTIPLE_CHOICE_MULTIPLE_ANSWERS_READING' ||
+        questionType === 'MULTIPLE_CHOICE_MULTIPLE_ANSWERS_LISTENING' ||
+        questionType === 'MULTIPLE_CHOICE_SINGLE_ANSWER_LISTENING' ||
         questionType === 'RE_ORDER_PARAGRAPHS' ||
         questionType === 'READING_FILL_IN_THE_BLANKS' ||
         questionType === 'FILL_IN_THE_BLANKS_DRAG_AND_DROP' ||
         questionType === 'HIGHLIGHT_CORRECT_SUMMARY' ||
+        questionType === 'SELECT_MISSING_WORD' ||
         questionType === 'HIGHLIGHT_INCORRECT_WORDS') &&
       detailedAnalysis?.scores
     ) {
@@ -933,7 +935,8 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
   ) => {
     if (
       qType === 'MULTIPLE_CHOICE_SINGLE_ANSWER_READING' ||
-      qType === 'MULTIPLE_CHOICE_SINGLE_ANSWER_LISTENING'
+      qType === 'MULTIPLE_CHOICE_SINGLE_ANSWER_LISTENING' ||
+      qType === 'SELECT_MISSING_WORD'
     ) {
       return (
         <div className='bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6'>
@@ -980,7 +983,10 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
       );
     }
 
-    if (qType === 'MULTIPLE_CHOICE_MULTIPLE_ANSWERS_READING') {
+    if (
+      qType === 'MULTIPLE_CHOICE_MULTIPLE_ANSWERS_READING' ||
+      qType === 'MULTIPLE_CHOICE_MULTIPLE_ANSWERS_LISTENING'
+    ) {
       return (
         <div className='bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6'>
           <h4 className='font-semibold text-gray-900 dark:text-white mb-4'>

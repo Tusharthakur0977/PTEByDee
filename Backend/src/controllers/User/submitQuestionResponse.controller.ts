@@ -137,7 +137,6 @@ export const submitQuestionResponse = asyncHandler(
         }
       }
 
-      console.log('Starting response evaluation...');
       // Evaluate the response using OpenAI
       const evaluation = await evaluateQuestionResponse(
         question,
@@ -205,7 +204,7 @@ export const submitQuestionResponse = asyncHandler(
               userResponse: userResponse,
               timeTakenSeconds: timeTakenSeconds || 0,
               isCorrect: evaluation.isCorrect,
-              score: evaluation.score / 100, // Convert to 0-1 scale
+              score: evaluation.score,
             },
           });
         }
@@ -226,8 +225,6 @@ export const submitQuestionResponse = asyncHandler(
 
         return userResponseRecord;
       });
-
-      console.log('Response stored successfully:', responseRecord.id);
 
       return sendResponse(
         res,

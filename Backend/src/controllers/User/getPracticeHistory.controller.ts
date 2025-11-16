@@ -97,6 +97,9 @@ export const getPracticeHistory = asyncHandler(
       const hasNextPage = pageNumber < totalPages;
       const hasPrevPage = pageNumber > 1;
 
+console.log(practiceResponses, 'XXXXX');
+
+
       // Transform responses for frontend
       const transformedResponses = practiceResponses.map((response) => ({
         id: response.id,

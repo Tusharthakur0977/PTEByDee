@@ -2,13 +2,9 @@ import { PteQuestionTypeName } from '@prisma/client';
 import openai from '../config/openAi';
 import {
   StandardizedEvaluationResponse,
-  AudioQuestionEvaluation,
-  WritingQuestionEvaluation,
-  ReadingQuestionEvaluation,
-  ListeningQuestionEvaluation,
-  createStandardizedResponse,
   createComponentScore,
   createItemAnalysis,
+  createStandardizedResponse,
 } from '../types/evaluationResponse';
 
 interface QuestionEvaluationResult {
@@ -421,7 +417,13 @@ export async function evaluateQuestionResponse(
     questionType !== PteQuestionTypeName.READING_FILL_IN_THE_BLANKS &&
     questionType !== PteQuestionTypeName.FILL_IN_THE_BLANKS_DRAG_AND_DROP &&
     questionType !== PteQuestionTypeName.HIGHLIGHT_CORRECT_SUMMARY &&
-    questionType !== PteQuestionTypeName.HIGHLIGHT_INCORRECT_WORDS
+    questionType !== PteQuestionTypeName.HIGHLIGHT_INCORRECT_WORDS &&
+    questionType !== PteQuestionTypeName.LISTENING_FILL_IN_THE_BLANKS &&
+    questionType !==
+      PteQuestionTypeName.MULTIPLE_CHOICE_MULTIPLE_ANSWERS_LISTENING &&
+    questionType !==
+      PteQuestionTypeName.MULTIPLE_CHOICE_SINGLE_ANSWER_LISTENING &&
+    questionType !== PteQuestionTypeName.SELECT_MISSING_WORD
   ) {
     // Convert legacy result to standardized format for non-detailed question types
     const standardizedAnalysis = convertToStandardizedFormat(
@@ -3081,6 +3083,15 @@ async function evaluateSelectMissingWord(
   // Use 1/0 format for single answer questions
   const score = isCorrect ? 1 : 0;
 
+  console.log(question);
+
+  const selectedOptionText = question.options.filter(
+    (opt: any) => opt.id === selectedWord
+  )[0].text;
+  const correctOptionText = correctAnswers[0].text;
+
+  console.log(correctOptionText, 'MMMM');
+
   return {
     score,
     isCorrect,
@@ -3096,6 +3107,8 @@ async function evaluateSelectMissingWord(
       scores: {
         listening: { score: score, max: 1 },
       },
+      selectedOptionText,
+      correctOptionText,
     },
     suggestions: isCorrect
       ? ['Great listening skills!']
@@ -3117,122 +3130,114 @@ async function evaluateListeningFillInTheBlanks(
 ): Promise<QuestionEvaluationResult> {
   const userBlanks = userResponse.blanks || {};
 
-console.log(question);
+  // Extract correct answers from the options array
+  const correctBlanks: { [key: string]: string } = {};
 
-// Extract correct answers from the options array
-const correctBlanks: { [key: string]: string } = {};
-
-// The question.options contains the blanks with their correct answers
-if (question.options && Array.isArray(question.options)) {
-  question.options.forEach((blank: any, index: number) => {
-    const blankKey = `blank${index + 1}`;
-    correctBlanks[blankKey] = blank.correctAnswer;
-  });
-}
-
-console.log(correctBlanks);
-
-let correctCount = 0;
-let totalBlanks = 0;
-const blankResults: any = {};
-
-Object.keys(correctBlanks).forEach((blankKey) => {
-  totalBlanks++;
-  const userAnswer = userBlanks[blankKey]?.toLowerCase().trim();
-  const correctAnswer = correctBlanks[blankKey]?.toLowerCase().trim();
-
-  // More flexible matching for listening questions
-  const isBlankCorrect = isListeningAnswerCorrect(userAnswer, correctAnswer);
-
-  if (isBlankCorrect) {
-    correctCount++;
-  }
-
-  blankResults[blankKey] = {
-    userAnswer: userBlanks[blankKey],
-    correctAnswer: correctBlanks[blankKey],
-    isCorrect: isBlankCorrect,
-  };
-});
-
-// Use actual correct/total format instead of percentage
-const score = correctCount; // Show actual correct count
-const isCorrect = correctCount >= Math.ceil(totalBlanks * 0.6); // 60% threshold for listening
-
-// Generate AI feedback for listening
-const aiFeedback = await generateListeningFillInTheBlanksAIFeedback(
-  question,
-  userResponse,
-  blankResults,
-  score
-);
-
-console.log(aiFeedback, 'AIIII FEEDBACK');
-
-// Generate error analysis for incorrect blanks
-const errorAnalysis = {
-  spellingErrors: [] as any[],
-  grammarErrors: [] as any[],
-  vocabularyIssues: [] as any[],
-};
-
-// Create a text representation for error highlighting
-let userText = '';
-let correctText = '';
-
-Object.keys(correctBlanks).forEach((blankKey, index) => {
-  const userAnswer = userBlanks[blankKey] || '(blank)';
-  const correctAnswer = correctBlanks[blankKey];
-  const isBlankCorrect = blankResults[blankKey].isCorrect;
-
-  if (index > 0) {
-    userText += ' ';
-    correctText += ' ';
-  }
-
-  userText += userAnswer;
-  correctText += correctAnswer;
-
-  // Add error if blank is incorrect
-  if (!isBlankCorrect && userAnswer !== '(blank)') {
-    errorAnalysis.spellingErrors.push({
-      text: userAnswer,
-      type: 'spelling',
-      position: { start: 0, end: 1 },
-      correction: correctAnswer,
-      explanation: `Incorrect word for blank ${
-        index + 1
-      }. Expected: "${correctAnswer}"`,
+  // The question.options contains the blanks with their correct answers
+  if (question.options && Array.isArray(question.options)) {
+    question.options.forEach((blank: any, index: number) => {
+      const blankKey = `blank${index + 1}`;
+      correctBlanks[blankKey] = blank.correctAnswer;
     });
   }
-});
 
-console.log(errorAnalysis, 'ERROR');
+  let correctCount = 0;
+  let totalBlanks = 0;
+  const blankResults: any = {};
 
-return {
-  isCorrect,
-  score,
-  feedback: aiFeedback.feedback,
-  suggestions: aiFeedback.suggestions,
-  detailedAnalysis: {
-    overallScore: score,
-    detailedResults: blankResults,
-    correctCount,
-    totalBlanks,
-    timeTakenSeconds,
-    // Add structured scores for consistent frontend display
-    scores: {
-      listening: { score: correctCount, max: totalBlanks },
-      // writing: { score: correctCount, max: totalBlanks }, // Listening fill in blanks also tests writing
+  Object.keys(correctBlanks).forEach((blankKey) => {
+    totalBlanks++;
+    const userAnswer = userBlanks[blankKey]?.toLowerCase().trim();
+    const correctAnswer = correctBlanks[blankKey]?.toLowerCase().trim();
+
+    // More flexible matching for listening questions
+    const isBlankCorrect = isListeningAnswerCorrect(userAnswer, correctAnswer);
+
+    if (isBlankCorrect) {
+      correctCount++;
+    }
+
+    blankResults[blankKey] = {
+      userAnswer: userBlanks[blankKey],
+      correctAnswer: correctBlanks[blankKey],
+      isCorrect: isBlankCorrect,
+    };
+  });
+
+  // Use actual correct/total format instead of percentage
+  const score = correctCount; // Show actual correct count
+  const isCorrect = correctCount >= Math.ceil(totalBlanks * 0.6); // 60% threshold for listening
+
+  // Generate AI feedback for listening
+  const aiFeedback = await generateListeningFillInTheBlanksAIFeedback(
+    question,
+    userResponse,
+    blankResults,
+    score
+  );
+
+  // Generate error analysis for incorrect blanks
+  const errorAnalysis = {
+    spellingErrors: [] as any[],
+    grammarErrors: [] as any[],
+    vocabularyIssues: [] as any[],
+  };
+
+  // Create a text representation for error highlighting
+  let userText = '';
+  let correctText = '';
+
+  Object.keys(correctBlanks).forEach((blankKey, index) => {
+    const userAnswer = userBlanks[blankKey] || '(blank)';
+    const correctAnswer = correctBlanks[blankKey];
+    const isBlankCorrect = blankResults[blankKey].isCorrect;
+
+    if (index > 0) {
+      userText += ' ';
+      correctText += ' ';
+    }
+
+    userText += userAnswer;
+    correctText += correctAnswer;
+
+    // Add error if blank is incorrect
+    if (!isBlankCorrect && userAnswer !== '(blank)') {
+      errorAnalysis.spellingErrors.push({
+        text: userAnswer,
+        type: 'spelling',
+        position: { start: 0, end: 1 },
+        correction: correctAnswer,
+        explanation: `Incorrect word for blank ${
+          index + 1
+        }. Expected: "${correctAnswer}"`,
+      });
+    }
+  });
+
+  return {
+    isCorrect,
+    score,
+    feedback: aiFeedback.feedback,
+    suggestions: aiFeedback.suggestions,
+    detailedAnalysis: {
+      overallScore: score,
+      correctCount,
+      totalBlanks,
+      timeTakenSeconds,
+      // // Add structured scores for consistent frontend display
+      scores: {
+        listening: { score: correctCount, max: totalBlanks },
+      },
+      blankResults,
+      errorAnalysis,
+      userText, // Include text representation for highlighting
     },
-    errorAnalysis,
-    userText, // Include text representation for highlighting
-  },
-};
+  };
 }
 
 /**
- * Check if listening answer is correct with flexible matching
+ * Check if listening answer is correct.
+ * This now requires an exact match after cleaning.
  */
 function isListeningAnswerCorrect(
   userAnswer: string,
@@ -3243,11 +3248,11 @@ function isListeningAnswerCorrect(
   const user = userAnswer.toLowerCase().trim();
   const correct = correctAnswer.toLowerCase().trim();
 
-  // Exact match
+  // 1. Check for a direct exact match first
   if (user === correct) return true;
 
-  // Handle common variations and typos
-  // Remove punctuation and extra spaces
+  // 2. Check for a match after removing punctuation and extra spaces
+  // This allows for "end." to match "end"
   const cleanUser = user
     .replace(/[^\w\s]/g, '')
     .replace(/\s+/g, ' ')
@@ -3257,62 +3262,10 @@ function isListeningAnswerCorrect(
     .replace(/\s+/g, ' ')
     .trim();
 
-  if (cleanUser === cleanCorrect) return true;
-
-  // Check for common spelling variations
-  if (areWordsPhoneticallySimilar(cleanUser, cleanCorrect)) return true;
-
-  // Check if user answer contains the correct word (for compound words)
-  if (
-    cleanCorrect.includes(' ') &&
-    cleanUser.includes(cleanCorrect.split(' ')[0])
-  ) {
-    return true;
-  }
-
-  return false;
-}
-
-/**
- * Check if two words are phonetically similar (basic implementation)
- */
-function areWordsPhoneticallySimilar(word1: string, word2: string): boolean {
-  if (Math.abs(word1.length - word2.length) > 2) return false;
-
-  // Simple Levenshtein distance check for typos
-  const distance = levenshteinDistance(word1, word2);
-  const maxLength = Math.max(word1.length, word2.length);
-
-  // Allow 1-2 character differences for words longer than 3 characters
-  if (maxLength > 3 && distance <= 2) return true;
-  if (maxLength <= 3 && distance <= 1) return true;
-
-  return false;
-}
-
-/**
- * Calculate Levenshtein distance between two strings
- */
-function levenshteinDistance(str1: string, str2: string): number {
-  const matrix = Array(str2.length + 1)
-    .fill(null)
-    .map(() => Array(str1.length + 1).fill(null));
-
-  for (let i = 0; i <= str1.length; i++) matrix[0][i] = i;
-  for (let j = 0; j <= str2.length; j++) matrix[j][0] = j;
-
-  for (let j = 1; j <= str2.length; j++) {
-    for (let i = 1; i <= str1.length; i++) {
-      const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
-      matrix[j][i] = Math.min(
-        matrix[j][i - 1] + 1, // deletion
-        matrix[j - 1][i] + 1, // insertion
-        matrix[j - 1][i - 1] + indicator // substitution
-      );
-    }
-  }
-
-  return matrix[str2.length][str1.length];
+  // Only return true if the cleaned versions match exactly.
+  // Misspellings like "discovry" vs "discovery" will now correctly
+  // return false.
+  return cleanUser === cleanCorrect;
 }
 
 /**

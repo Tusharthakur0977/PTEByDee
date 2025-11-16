@@ -249,12 +249,14 @@ const PracticeHistory: React.FC = () => {
                           )}
 
                           <div className='flex items-center space-x-3 text-xs text-gray-500 dark:text-gray-400'>
-                            <div className='flex items-center space-x-1'>
-                              <Clock className='h-3 w-3' />
-                              <span>
-                                {formatTime(response.timeTakenSeconds)}
-                              </span>
-                            </div>
+                            {response.timeTakenSeconds > 0 && (
+                              <div className='flex items-center space-x-1'>
+                                <Clock className='h-3 w-3' />
+                                <span>
+                                  {formatTime(response.timeTakenSeconds)}
+                                </span>
+                              </div>
+                            )}
                             <div className='flex items-center space-x-1'>
                               <Calendar className='h-3 w-3' />
                               <span>

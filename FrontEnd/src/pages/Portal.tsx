@@ -720,7 +720,7 @@ const Portal: React.FC = () => {
             <Zap className='h-4 w-4' />
             <span>Practice</span>
           </button>
-          <button
+          {/* <button
             onClick={() => setActiveTab('overview')}
             className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-md text-sm font-medium transition-colors duration-200 ${
               activeTab === 'overview'
@@ -730,7 +730,7 @@ const Portal: React.FC = () => {
           >
             <BarChart3 className='h-4 w-4' />
             <span>Overview</span>
-          </button>
+          </button> */}
           <button
             onClick={() => setActiveTab('history')}
             className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-md text-sm font-medium transition-colors duration-200 ${
@@ -742,7 +742,7 @@ const Portal: React.FC = () => {
             <Clock className='h-4 w-4' />
             <span>History</span>
           </button>
-          <button
+          {/* <button
             onClick={() => setActiveTab('tests')}
             className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-md text-sm font-medium transition-colors duration-200 ${
               activeTab === 'tests'
@@ -752,7 +752,7 @@ const Portal: React.FC = () => {
           >
             <BookOpen className='h-4 w-4' />
             <span>Mock Tests</span>
-          </button>
+          </button> */}
         </div>
 
         {/* Tab Content */}

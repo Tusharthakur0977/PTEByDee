@@ -2,7 +2,6 @@ import {
   Activity,
   AlertCircle,
   AlertTriangle,
-  BarChart3,
   BookOpen,
   CheckCheck,
   CheckCircle,
@@ -622,7 +621,10 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
       );
     }
 
-    if (questionType === 'MULTIPLE_CHOICE_MULTIPLE_ANSWERS_READING') {
+    if (
+      questionType === 'MULTIPLE_CHOICE_MULTIPLE_ANSWERS_READING' ||
+      questionType === 'MULTIPLE_CHOICE_MULTIPLE_ANSWERS_LISTENING'
+    ) {
       return (
         <div className='bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6'>
           <h4 className='font-semibold text-gray-900 dark:text-white mb-4'>
@@ -724,7 +726,8 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
     if (
       questionType === 'MULTIPLE_CHOICE_SINGLE_ANSWER_LISTENING' ||
       questionType === 'MULTIPLE_CHOICE_SINGLE_ANSWER_READING' ||
-      questionType === 'HIGHLIGHT_CORRECT_SUMMARY'
+      questionType === 'HIGHLIGHT_CORRECT_SUMMARY' ||
+      questionType === 'SELECT_MISSING_WORD'
     ) {
       return (
         <div className='bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6'>
@@ -1075,8 +1078,6 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
         );
       }
 
-      console.log(errorPositions, 'OPOPOPOP');
-
       // Add highlighted error
       const errorText = text.substring(ep.start, ep.end);
       const colorClass =
@@ -1393,13 +1394,15 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
       questionType === 'FILL_IN_THE_BLANKS_DRAG_AND_DROP' ||
       questionType === 'READING_FILL_IN_THE_BLANKS' ||
       questionType === 'MULTIPLE_CHOICE_MULTIPLE_ANSWERS_READING' ||
+      questionType === 'MULTIPLE_CHOICE_MULTIPLE_ANSWERS_LISTENING' ||
       questionType === 'MULTIPLE_CHOICE_SINGLE_ANSWER_READING' ||
       questionType === 'MULTIPLE_CHOICE_SINGLE_ANSWER_LISTENING' ||
       questionType === 'RE_ORDER_PARAGRAPHS' ||
       questionType === 'HIGHLIGHT_CORRECT_SUMMARY' ||
       questionType === 'HIGHLIGHT_INCORRECT_WORDS' ||
       questionType === 'SUMMARIZE_SPOKEN_TEXT' ||
-      questionType === 'WRITE_FROM_DICTATION'
+      questionType === 'WRITE_FROM_DICTATION' ||
+      questionType === 'SELECT_MISSING_WORD'
     ) {
       const data = Object.entries(response.detailedAnalysis.scores).map(
         ([name, values]: any) => ({
@@ -1488,153 +1491,6 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
       );
     }
   };
-
-  const renderDetailedAnalysis = () => {
-    if (!response.detailedAnalysis) return null;
-
-    try {
-      const analysis =
-        typeof response.detailedAnalysis === 'string'
-          ? JSON.parse(response.detailedAnalysis)
-          : response.detailedAnalysis;
-
-      // Check if this is Summarize Written Text (has scores.content structure)
-      if (analysis.scores?.content !== undefined) {
-        return renderSummarizeWrittenTextAnalysis(analysis);
-      }
-
-      // Check if this is the new standardized format
-      if (analysis.scoring && analysis.analysis) {
-        return renderStandardizedAnalysis(analysis);
-      }
-
-      // Fallback to legacy display for old format
-      return renderLegacyAnalysis(analysis);
-    } catch (error) {
-      console.error('Error parsing detailed analysis:', error);
-      return (
-        <div className='space-y-4'>
-          <div className='flex items-center space-x-2'>
-            <BarChart3 className='h-5 w-5 text-red-600 dark:text-red-400' />
-            <h4 className='font-semibold text-gray-900 dark:text-white'>
-              Analysis Error
-            </h4>
-          </div>
-          <div className='bg-red-50 dark:bg-red-900/20 rounded-lg p-4 border border-red-200 dark:border-red-800'>
-            <p className='text-sm text-red-900 dark:text-red-100'>
-              Unable to display detailed analysis
-            </p>
-          </div>
-        </div>
-      );
-    }
-  };
-
-  const renderStandardizedAnalysis = (analysis: any) => {
-    // Check if this is a Summarize Written Text question
-    if (
-      questionType?.includes('SUMMARIZE_WRITTEN_TEXT') ||
-      analysis.scores?.content !== undefined
-    ) {
-      return renderSummarizeWrittenTextAnalysis(analysis);
-    }
-
-    return (
-      <div className='space-y-6'>
-        <div className='flex items-center space-x-2'>
-          <BarChart3 className='h-5 w-5 text-gray-600 dark:text-gray-400' />
-          <h4 className='font-semibold text-gray-900 dark:text-white'>
-            Performance Analysis
-          </h4>
-        </div>
-
-        {/* Component Scores */}
-        {analysis.scoring?.components && (
-          <div className='bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600'>
-            <h5 className='text-sm font-medium text-gray-900 dark:text-white mb-3'>
-              Component Breakdown
-            </h5>
-            <div className='space-y-3'>
-              {Object.entries(analysis.scoring.components).map(
-                ([component, data]: [string, any]) => (
-                  <div
-                    key={component}
-                    className='flex items-center justify-between'
-                  >
-                    <span className='text-sm text-gray-700 dark:text-gray-300 capitalize'>
-                      {component.replace(/([A-Z])/g, ' $1').trim()}
-                    </span>
-                    <div className='flex items-center space-x-2'>
-                      <span className='text-sm font-medium text-gray-900 dark:text-white'>
-                        {data.score}/{data.maxScore}
-                      </span>
-                      <span className='text-xs text-gray-500 dark:text-gray-400'>
-                        ({data.percentage}%)
-                      </span>
-                    </div>
-                  </div>
-                )
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Item Analysis for Fill-in-the-blanks, MCQ, etc. */}
-        {analysis.scoring?.itemAnalysis && (
-          <div className='bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600'>
-            <h5 className='text-sm font-medium text-gray-900 dark:text-white mb-3'>
-              Item Analysis
-            </h5>
-            <div className='grid grid-cols-3 gap-4 text-center'>
-              <div>
-                <div className='text-lg font-semibold text-green-600 dark:text-green-400'>
-                  {analysis.scoring.itemAnalysis.correctItems}
-                </div>
-                <div className='text-xs text-gray-500 dark:text-gray-400'>
-                  Correct
-                </div>
-              </div>
-              <div>
-                <div className='text-lg font-semibold text-red-600 dark:text-red-400'>
-                  {analysis.scoring.itemAnalysis.incorrectItems}
-                </div>
-                <div className='text-xs text-gray-500 dark:text-gray-400'>
-                  Incorrect
-                </div>
-              </div>
-              <div>
-                <div className='text-lg font-semibold text-blue-600 dark:text-blue-400'>
-                  {analysis.scoring.itemAnalysis.accuracy}%
-                </div>
-                <div className='text-xs text-gray-500 dark:text-gray-400'>
-                  Accuracy
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const renderLegacyAnalysis = (analysis: any) => {
-    return (
-      <div className='space-y-4'>
-        <div className='flex items-center space-x-2'>
-          <BarChart3 className='h-5 w-5 text-gray-600 dark:text-gray-400' />
-          <h4 className='font-semibold text-gray-900 dark:text-white'>
-            Detailed Analysis
-          </h4>
-        </div>
-        <div className='bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600'>
-          <pre className='text-sm text-gray-900 dark:text-white whitespace-pre-wrap font-mono overflow-x-auto'>
-            {JSON.stringify(analysis, null, 2)}
-          </pre>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className='fixed inset-0 z-50 overflow-y-auto'>
       <div className='flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0'>
@@ -1647,7 +1503,7 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
         {/* Modal */}
         <div className='inline-block w-full max-w-5xl  p-0 my-8  overflow-hidden text-left align-middle transition-all transform bg-white dark:bg-gray-800 shadow-2xl rounded-lg border border-gray-200 dark:border-gray-700'>
           {/* Header */}
-          <div className='flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-800 dark:bg-gray-750'>
+          <div className='flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 dark:bg-gray-750'>
             <div>
               <h3 className='text-lg font-semibold text-gray-900 dark:text-white'>
                 Response Analysis
