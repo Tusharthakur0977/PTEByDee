@@ -185,6 +185,8 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
     if (
       (questionType === 'DESCRIBE_IMAGE' ||
         questionType === 'RE_TELL_LECTURE' ||
+        questionType === 'SUMMARIZE_GROUP_DISCUSSION' ||
+        questionType === 'RESPOND_TO_A_SITUATION' ||
         questionType === 'REPEAT_SENTENCE' ||
         questionType === 'READ_ALOUD' ||
         questionType === 'SUMMARIZE_SPOKEN_TEXT' ||
@@ -882,6 +884,8 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
     'DESCRIBE_IMAGE',
     'RE_TELL_LECTURE',
     'ANSWER_SHORT_QUESTION',
+    'SUMMARIZE_GROUP_DISCUSSION',
+    'RESPOND_TO_A_SITUATION',
   ].includes(questionType);
 
   const isFillInTheBlanksQuestion = questionType.includes('FILL_IN_THE_BLANKS');

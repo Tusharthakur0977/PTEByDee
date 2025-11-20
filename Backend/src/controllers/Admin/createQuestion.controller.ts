@@ -157,7 +157,9 @@ export const createQuestion = asyncHandler(
       // Transcribe audio for Speaking question types that need transcripts
       if (
         (questionType.name === 'REPEAT_SENTENCE' ||
-          questionType.name === 'RE_TELL_LECTURE') &&
+          questionType.name === 'RE_TELL_LECTURE' ||
+          questionType.name === 'SUMMARIZE_GROUP_DISCUSSION' ||
+          questionType.name === 'RESPOND_TO_A_SITUATION') &&
         audioKey
       ) {
         try {
@@ -513,6 +515,8 @@ function validateQuestionContent(
     case 'REPEAT_SENTENCE':
     case 'RE_TELL_LECTURE':
     case 'ANSWER_SHORT_QUESTION':
+    case 'SUMMARIZE_GROUP_DISCUSSION':
+    case 'RESPOND_TO_A_SITUATION':
       if (!audioKey) {
         return {
           isValid: false,

@@ -1,6 +1,5 @@
 import {
   AlertCircle,
-  CheckCircle,
   Mic,
   RotateCcw,
   Square,
@@ -12,6 +11,7 @@ import { useAudioRecorder } from '../hooks/useAudioRecorder';
 
 interface AudioRecorderProps {
   onRecordingComplete?: (audioKey: string) => void;
+  onRecordingStart?: () => void; // Callback when recording starts
   maxDuration?: number; // in seconds
   className?: string;
   autoUpload?: boolean; // Automatically upload after recording
@@ -24,6 +24,7 @@ const AudioRecorder = React.forwardRef<any, AudioRecorderProps>(
   (
     {
       onRecordingComplete,
+      onRecordingStart,
       maxDuration = 300, // 5 minutes default
       className = '',
       autoUpload = true,
@@ -94,6 +95,7 @@ const AudioRecorder = React.forwardRef<any, AudioRecorderProps>(
       try {
         setHasUploadedSuccessfully(false);
         await startRecording();
+        onRecordingStart?.(); // Call the callback when recording starts
       } catch (error) {
         console.error('Failed to start recording:', error);
         alert(

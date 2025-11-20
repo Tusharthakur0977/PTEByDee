@@ -85,6 +85,8 @@ export const submitQuestionResponse = asyncHandler(
         PteQuestionTypeName.DESCRIBE_IMAGE,
         PteQuestionTypeName.RE_TELL_LECTURE,
         PteQuestionTypeName.ANSWER_SHORT_QUESTION,
+        PteQuestionTypeName.SUMMARIZE_GROUP_DISCUSSION,
+        PteQuestionTypeName.RESPOND_TO_A_SITUATION,
       ];
 
       if (audioBasedQuestions.includes(question.questionType.name as any)) {
@@ -143,6 +145,8 @@ export const submitQuestionResponse = asyncHandler(
         processedUserResponse,
         timeTakenSeconds
       );
+
+      console.log(evaluation, 'MNMNMNMNM');
 
       // Store the response and evaluation
       const responseRecord = await prisma.$transaction(async (tx) => {

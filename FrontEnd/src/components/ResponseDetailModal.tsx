@@ -369,6 +369,28 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
                 </div>
               )}
 
+              {analysis.feedback.oralFluency && (
+                <div className='bg-white dark:bg-gray-700 rounded-lg p-4 border border-blue-200 dark:border-blue-800'>
+                  <h5 className='font-medium text-gray-900 dark:text-white mb-2'>
+                    Oral Fluency
+                  </h5>
+                  <p className='text-sm text-gray-700 dark:text-gray-300'>
+                    {analysis.feedback.oralFluency}
+                  </p>
+                </div>
+              )}
+
+              {analysis.feedback.pronunciation && (
+                <div className='bg-white dark:bg-gray-700 rounded-lg p-4 border border-blue-200 dark:border-blue-800'>
+                  <h5 className='font-medium text-gray-900 dark:text-white mb-2'>
+                    Pronunciation
+                  </h5>
+                  <p className='text-sm text-gray-700 dark:text-gray-300'>
+                    {analysis.feedback.pronunciation}
+                  </p>
+                </div>
+              )}
+
               {analysis.feedback.form && (
                 <div className='bg-white dark:bg-gray-700 rounded-lg p-4 border border-blue-200 dark:border-blue-800'>
                   <h5 className='font-medium text-gray-900 dark:text-white mb-2'>
@@ -1121,7 +1143,10 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
 
   const renderGeneralErrorAnalysis = () => {
     if (questionType === 'ANSWER_SHORT_QUESTION') return null;
-    if (!response.detailedAnalysis) return null;
+    if (!response.detailedAnalysis) {
+      console.log('No detailedAnalysis found in response');
+      return null;
+    }
 
     let analysis: any;
     try {
@@ -1130,18 +1155,42 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
           ? JSON.parse(response.detailedAnalysis)
           : response.detailedAnalysis;
     } catch (e) {
+      console.error('Error parsing detailedAnalysis:', e);
       return null;
     }
 
-    const errorAnalysis = analysis.errorAnalysis;
-    if (!errorAnalysis) return null;
+    console.log('Parsed analysis:', JSON.stringify(analysis, null, 2));
+
+    // Try to get errorAnalysis from multiple possible locations
+    let errorAnalysis = analysis.errorAnalysis;
+
+    // If not found, try to construct from individual error arrays
+    if (
+      !errorAnalysis &&
+      (analysis.pronunciationErrors ||
+        analysis.fluencyErrors ||
+        analysis.contentErrors)
+    ) {
+      errorAnalysis = {
+        pronunciationErrors: analysis.pronunciationErrors || [],
+        fluencyErrors: analysis.fluencyErrors || [],
+        contentErrors: analysis.contentErrors || [],
+        grammarErrors: analysis.grammarErrors || [],
+        spellingErrors: analysis.spellingErrors || [],
+      };
+    }
+
+    if (!errorAnalysis) {
+      console.log('No errorAnalysis found in analysis');
+      return null;
+    }
 
     const {
-      grammarErrors,
-      contentErrors,
-      pronunciationErrors,
-      fluencyErrors,
-      spellingErrors,
+      grammarErrors = [],
+      contentErrors = [],
+      pronunciationErrors = [],
+      fluencyErrors = [],
+      spellingErrors = [],
     } = errorAnalysis;
 
     const hasErrors =
@@ -1151,7 +1200,10 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
       (pronunciationErrors?.length || 0) > 0 ||
       (fluencyErrors?.length || 0) > 0;
 
-    if (!hasErrors) return null;
+    if (!hasErrors) {
+      console.log('No errors found in errorAnalysis');
+      return null;
+    }
 
     const totalErrors =
       (grammarErrors?.length || 0) +
@@ -1390,6 +1442,7 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
       questionType === 'RE_TELL_LECTURE' ||
       questionType === 'REPEAT_SENTENCE' ||
       questionType === 'SUMMARIZE_WRITTEN_TEXT' ||
+      questionType === 'SUMMARIZE_GROUP_DISCUSSION' ||
       questionType === 'WRITE_ESSAY' ||
       questionType === 'FILL_IN_THE_BLANKS_DRAG_AND_DROP' ||
       questionType === 'READING_FILL_IN_THE_BLANKS' ||

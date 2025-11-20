@@ -525,6 +525,10 @@ const Portal: React.FC = () => {
               hasPrevious={
                 !isShowingSelectedQuestion && currentQuestionIndex > 0
               }
+              hasNext={
+                !isShowingSelectedQuestion &&
+                currentQuestionIndex < practiceQuestions.length - 1
+              }
             />
           </div>
         );

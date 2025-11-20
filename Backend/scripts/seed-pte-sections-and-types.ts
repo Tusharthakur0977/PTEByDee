@@ -62,6 +62,12 @@ const questionTypesData = [
         description: 'Answer questions with short, accurate responses',
         expectedTimePerQuestion: 10, // seconds
       },
+      {
+        name: PteQuestionTypeName.SUMMARIZE_GROUP_DISCUSSION,
+        description:
+          'Listen to group discussions and summarize the main points and viewpoints',
+        expectedTimePerQuestion: 130, // 10 seconds prep + 120 seconds recording
+      },
     ],
   },
   // Writing Section

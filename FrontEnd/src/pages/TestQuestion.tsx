@@ -348,6 +348,68 @@ const TestQuestion: React.FC = () => {
           </div>
         );
 
+      case currentQuestion.questionCode.startsWith('RAS_'):
+        return (
+          <div className='space-y-6'>
+            <div className='bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg'>
+              <h3 className='font-semibold text-blue-800 dark:text-blue-300 mb-2'>
+                Instructions
+              </h3>
+              <p className='text-blue-700 dark:text-blue-400 text-sm'>
+                In this task, you will be presented with a situation. You will
+                have 40 seconds to respond to the situation. You should speak
+                clearly and naturally.
+              </p>
+            </div>
+            <div className='text-center'>
+              <button
+                onClick={toggleAudio}
+                className={`flex items-center space-x-2 px-6 py-3 rounded-lg font-medium transition-colors duration-200 ${
+                  isPlaying
+                    ? 'bg-green-600 hover:bg-green-700 text-white'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                }`}
+              >
+                {isPlaying ? (
+                  <Pause className='h-5 w-5' />
+                ) : (
+                  <Play className='h-5 w-5' />
+                )}
+                <span>{isPlaying ? 'Pause Audio' : 'Play Audio'}</span>
+              </button>
+            </div>
+            {currentQuestion.textContent && (
+              <div className='bg-white dark:bg-gray-800 p-6 rounded-lg border-2 border-gray-200 dark:border-gray-600'>
+                <h3 className='font-semibold text-gray-800 dark:text-gray-200 mb-3'>
+                  Situation
+                </h3>
+                <p className='text-lg leading-relaxed text-gray-900 dark:text-white'>
+                  {currentQuestion.textContent}
+                </p>
+              </div>
+            )}
+            <div className='flex items-center justify-center space-x-4'>
+              <button
+                onClick={toggleRecording}
+                className={`flex items-center space-x-2 px-6 py-3 rounded-lg font-medium transition-colors duration-200 ${
+                  isRecording
+                    ? 'bg-red-600 hover:bg-red-700 text-white'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                }`}
+              >
+                {isRecording ? (
+                  <Square className='h-5 w-5' />
+                ) : (
+                  <Mic className='h-5 w-5' />
+                )}
+                <span>
+                  {isRecording ? 'Stop Recording' : 'Start Recording'}
+                </span>
+              </button>
+            </div>
+          </div>
+        );
+
       default:
         return (
           <div className='text-center py-8'>

@@ -372,6 +372,10 @@ function getInstructionsForQuestionType(questionType: string): string {
       'You will hear a recording. Below is a transcription of the recording. Some words in the transcription differ from what the speaker said. Please click on the words that are different.',
     WRITE_FROM_DICTATION:
       'You will hear a sentence. Type the sentence in the box below exactly as you hear it. Write as much of the sentence as you can. You will hear the sentence only once.',
+    SUMMARIZE_GROUP_DISCUSSION:
+      'You will hear people having a discussion. When you hear the beep, summarize the whole discussion. You will have 10 seconds to prepare and 2 minutes to give your response.',
+    RESPOND_TO_A_SITUATION:
+      'Listen to and read a description of a situation. You will have 10 seconds to think about your answer. Then you will hear a beep. You will have 40 seconds to answer the question.',
   };
 
   return (
@@ -384,8 +388,12 @@ function getPreparationTime(questionType: string): number | undefined {
   const preparationTimes: { [key: string]: number } = {
     READ_ALOUD: 35,
     DESCRIBE_IMAGE: 25,
-    // RE_TELL_LECTURE: Don't send preparation time from backend
-    // It will be triggered after audio ends on the frontend
+    RE_TELL_LECTURE: 10,
+    SUMMARIZE_GROUP_DISCUSSION: 10,
+    RESPOND_TO_A_SITUATION: 10,
+    WRITE_ESSAY: 5,
+    SUMMARIZE_WRITTEN_TEXT: 5,
+    SUMMARIZE_SPOKEN_TEXT: 5,
   };
 
   return preparationTimes[questionType];
@@ -405,6 +413,7 @@ function getRecordingTime(
     DESCRIBE_IMAGE: 40,
     RE_TELL_LECTURE: 40,
     ANSWER_SHORT_QUESTION: 10,
+    RESPOND_TO_A_SITUATION: 40,
   };
 
   return recordingTimes[questionType];

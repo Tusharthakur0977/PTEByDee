@@ -15,6 +15,8 @@ export function getQuestionTypeAbbreviation(
     DESCRIBE_IMAGE: 'DI',
     RE_TELL_LECTURE: 'RTL',
     ANSWER_SHORT_QUESTION: 'ASQ',
+    SUMMARIZE_GROUP_DISCUSSION: 'SGD',
+    RESPOND_TO_A_SITUATION: 'RAS',
 
     // Writing Section
     SUMMARIZE_WRITTEN_TEXT: 'SWT',

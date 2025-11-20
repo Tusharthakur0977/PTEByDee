@@ -122,6 +122,7 @@ const PreviousResponses: React.FC<PreviousResponsesProps> = ({
       return { score: response.questionScore || 0, maxScore: 0 };
     }
 
+
     const analysis = response.detailedAnalysis;
 
     // Audio questions (Read Aloud, Repeat Sentence, Describe Image, Re-tell Lecture, Answer Short Question, Summarize Spoken Text)
@@ -133,12 +134,14 @@ const PreviousResponses: React.FC<PreviousResponsesProps> = ({
     ) {
       const contentScore = analysis.contentScore || 0;
       const pronunciationScore = analysis.pronunciationScore || 0;
-      const fluencyScore = analysis.fluencyScore || 0;
+      const fluencyScore =
+        analysis.fluencyScore || analysis.oralFluencyScore || 0;
       const totalScore = contentScore + pronunciationScore + fluencyScore;
 
       const contentMax = analysis.contentMaxScore || 5;
       const pronunciationMax = analysis.pronunciationMaxScore || 5;
-      const fluencyMax = analysis.fluencyMaxScore || 5;
+      const fluencyMax =
+        analysis.fluencyMaxScore || analysis.oralFluencyMaxScore || 5;
       const totalMax = contentMax + pronunciationMax + fluencyMax;
 
       return { score: totalScore, maxScore: totalMax };

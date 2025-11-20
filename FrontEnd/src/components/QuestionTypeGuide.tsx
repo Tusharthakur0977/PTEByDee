@@ -104,6 +104,34 @@ const QuestionTypeGuide: React.FC<QuestionTypeGuideProps> = ({
         icon: Edit3,
         color: 'red',
       },
+      summarize_group_discussion: {
+        title: 'Summarize Group Discussion',
+        description:
+          'Students listen to a group discussion and summarize the main viewpoints.',
+        requirements: ['Audio file', 'Group discussion transcript'],
+        tips: [
+          'Audio should be 60-90 seconds long',
+          'Include 3-4 speakers with distinct viewpoints',
+          'Ensure clear opposing or complementary perspectives',
+          'Use academic or professional discussion topics',
+        ],
+        icon: Volume2,
+        color: 'teal',
+      },
+      respond_to_a_situation: {
+        title: 'Respond to a Situation',
+        description:
+          'Students listen to a situation description and respond appropriately.',
+        requirements: ['Audio file', 'Situation description/transcript'],
+        tips: [
+          'Audio should be 20-40 seconds long',
+          'Describe clear situational context',
+          'Expect responses to be 30-40 seconds',
+          'Use everyday or professional scenarios',
+        ],
+        icon: Volume2,
+        color: 'cyan',
+      },
     };
 
     return guides[typeName.toLowerCase()] || null;
@@ -122,6 +150,8 @@ const QuestionTypeGuide: React.FC<QuestionTypeGuideProps> = ({
     pink: 'bg-pink-50 border-pink-200 text-pink-800',
     indigo: 'bg-indigo-50 border-indigo-200 text-indigo-800',
     red: 'bg-red-50 border-red-200 text-red-800',
+    teal: 'bg-teal-50 border-teal-200 text-teal-800',
+    cyan: 'bg-cyan-50 border-cyan-200 text-cyan-800',
   };
 
   return (

@@ -288,6 +288,22 @@ export async function evaluateQuestionResponse(
       );
       break;
 
+    case PteQuestionTypeName.SUMMARIZE_GROUP_DISCUSSION:
+      legacyResult = await evaluateSummarizeGroupDiscussion(
+        question,
+        userResponse,
+        timeTakenSeconds
+      );
+      break;
+
+    case PteQuestionTypeName.RESPOND_TO_A_SITUATION:
+      legacyResult = await evaluateRespondToASituation(
+        question,
+        userResponse,
+        timeTakenSeconds
+      );
+      break;
+
     case PteQuestionTypeName.ANSWER_SHORT_QUESTION:
       legacyResult = await evaluateAnswerShortQuestion(question, userResponse);
       break;
@@ -405,6 +421,8 @@ export async function evaluateQuestionResponse(
     questionType !== PteQuestionTypeName.REPEAT_SENTENCE &&
     questionType !== PteQuestionTypeName.READ_ALOUD &&
     questionType !== PteQuestionTypeName.ANSWER_SHORT_QUESTION &&
+    questionType !== PteQuestionTypeName.SUMMARIZE_GROUP_DISCUSSION &&
+    questionType !== PteQuestionTypeName.RESPOND_TO_A_SITUATION &&
     questionType !== PteQuestionTypeName.SUMMARIZE_SPOKEN_TEXT &&
     questionType !== PteQuestionTypeName.SUMMARIZE_WRITTEN_TEXT &&
     questionType !== PteQuestionTypeName.WRITE_ESSAY &&
@@ -501,11 +519,17 @@ async function evaluateReadAloud(
     - **Content**: Omitted words, inserted words, word substitutions
 
     **IMPORTANT:**
-    - Only include errors that actually exist in the transcription
-    - For "text" field, provide ONLY the incorrect word/phrase from transcription
-    - Be very specific with the exact word that's wrong
+      - Only include errors that actually exist
+      - For "text" field, provide ONLY the incorrect word/phrase, nothing else
+      - Be very specific with the exact word that's wrong
+      - When checking for grammatical mistakes, make sure that if a synonym is used but the grammar is correct, it should **not** be marked as an error.
+      - **Connector Immunity:** Do NOT mark the usage of the connecting words **"but", "whereas", "as", "and", "so"** as grammar errors (e.g., run-on sentences). These connectors are required for the PTE single-sentence format. Treat clauses linked by these words as grammatically valid.
+      - **Error Prioritization:** A single error MUST be categorized only ONCE. Use this strict priority:
+        1. **Spelling:** If a word is misspelled (e.g., "goverment"), it MUST go into "spellingErrors" ONLY. Do not list it in grammar or vocabulary.
+        2. **Grammar:** If spelling is correct, but the word or phrase breaks a sentence rule (e.g., "he go" instead of "he goes"), it MUST go into "grammarErrors" ONLY.
+        3. **Vocabulary:** Only if spelling and grammar are correct, but the word choice is poor or inappropriate (e.g., using "big" instead of "significant"), it MUST go into "vocabularyIssues".
+   
 
-    ---
     ### **Required Output Format**
     Your final output **must** be a single JSON object.
 
@@ -981,6 +1005,12 @@ async function evaluateDescribeImage(
     - Do NOT return empty arrays if errors exist
     - For each error, provide: exact text, type, correction, and explanation
     - Be strict and thorough in error detection
+    - When checking for grammatical mistakes, make sure that if a synonym is used but the grammar is correct, it should **not** be marked as an error.
+      - **Do not** mark the correct use of conjunctions or connectors (e.g., 'and', 'but', 'whereas', 'as') as grammatical errors. These are essential for linking ideas into the required single-sentence format.
+    - **Error Prioritization:** A single error MUST be categorized only ONCE. Use this strict priority:
+        1. **Spelling:** If a word is misspelled (e.g., "goverment"), it MUST go into "spellingErrors" ONLY. Do not list it in grammar or vocabulary.
+        2. **Grammar:** If spelling is correct, but the word or phrase breaks a sentence rule (e.g., "he go" instead of "he goes"), it MUST go into "grammarErrors" ONLY.
+        3. **Vocabulary:** Only if spelling and grammar are correct, but the word choice is poor or inappropriate (e.g., using "big" instead of "significant"), it MUST go into "vocabularyIssues".
 
     **Required Output Format:**
     Respond with a single, minified JSON object in this exact format. Use camelCase for keys.
@@ -1188,15 +1218,15 @@ async function evaluateRetellLecture(
     ---
     ### **Evaluation and Scoring Instructions**
 
-    **1. Content Analysis (0-5 scale):**
-    Evaluate how well the user summarized the main ideas and important points of the lecture.
-      * **6 pts:** Captures some main ideas and details but may have minor inaccuracies or focus on less important points. Attempts to paraphrase with some success. Listeners may need some effort to follow.
-      * **5 pts:** Captures some ideas but may be inaccurate or not differentiate between main points and details. May contain irrelevant information or repetition. Vocabulary is narrow. Requires significant effort to follow.
-      * **4 pts:** Mostly inaccurate or incomplete, missing main ideas. Relies heavily on repeating language from the lecture. Limited comprehension and vocabulary. Lacks coherence.
-      * **3 pts:** Repeats isolated words/phrases without meaningful context. Does not communicate effectively.
-      * **2 pts:** Response is related to the lecture but is too limited to be scored higher.
-      * **1 pt:** Response is highly minimal (e.g., one or two relevant words) but not coherent.
-      * **0 pts:** Response is irrelevant, non-English, or no meaningful response is provided.
+    **1. Content Analysis (0-6 scale):**
+      Evaluate how well the user summarized the main ideas and important points of the lecture.
+        * **6 pts:** Mentions the general topic/theme and at least one relevant point or detail. Omissions of other main ideas or minor inaccuracies are acceptable. The gist is conveyed.
+        * **5 pts:** Identifies the topic and mentions scattered details or keywords. The connection between ideas may be weak, and the summary may lack specific main points, but it is clearly related to the lecture.
+        * **4 pts:** Mentions several relevant keywords or phrases from the lecture. Understanding may be fragmented or superficial, but the response identifies the source material.
+        * **3 pts:** Captures a few isolated words or phrases. Lacks a coherent summary, but demonstrates recognition of some vocabulary from the lecture.
+        * **2 pts:** Response is very limited (e.g., a single sentence or phrase) but contains at least one or two words relevant to the lecture.
+        * **1 pt:** Response is highly minimal, non-English, or barely intelligible.
+        * **0 pts:** No meaningful response is provided.
 
     * **Pronunciation (0-5 scale):** Score based on the accuracy of the transcribed words.
         * **5 pts:** Transcription is clear and accurate, with only very minor, isolated errors that do not impact understanding.
@@ -1237,9 +1267,15 @@ async function evaluateRetellLecture(
     - **Content**: Omitted key points, incorrect information, word substitutions
 
     **IMPORTANT:**
-    - Only include errors that actually exist in the transcription
-    - For "text" field, provide ONLY the incorrect word/phrase from transcription
-    - Be very specific with the exact word that's wrong
+      - Only include errors that actually exist
+      - For "text" field, provide ONLY the incorrect word/phrase, nothing else
+      - Be very specific with the exact word that's wrong
+      - When checking for grammatical mistakes, make sure that if a synonym is used but the grammar is correct, it should **not** be marked as an error.
+      - **Connector Immunity:** Do NOT mark the usage of the connecting words **"but", "whereas", "as", "and", "so"** as grammar errors (e.g., run-on sentences). These connectors are required for the PTE single-sentence format. Treat clauses linked by these words as grammatically valid.
+      - **Error Prioritization:** A single error MUST be categorized only ONCE. Use this strict priority:
+        1. **Spelling:** If a word is misspelled (e.g., "goverment"), it MUST go into "spellingErrors" ONLY. Do not list it in grammar or vocabulary.
+        2. **Grammar:** If spelling is correct, but the word or phrase breaks a sentence rule (e.g., "he go" instead of "he goes"), it MUST go into "grammarErrors" ONLY.
+        3. **Vocabulary:** Only if spelling and grammar are correct, but the word choice is poor or inappropriate (e.g., using "big" instead of "significant"), it MUST go into "vocabularyIssues".
 
     ---
     ### **Required Output Format**
@@ -1307,6 +1343,12 @@ async function evaluateRetellLecture(
     });
 
     const evaluation = JSON.parse(response.choices[0].message.content || '{}');
+
+    // Log the AI response for debugging
+    console.log(
+      'RE_TELL_LECTURE AI Response:',
+      JSON.stringify(evaluation, null, 2)
+    );
 
     // Parse the OpenAI response format for Re-tell Lecture
     // Handle the actual response structure from OpenAI
@@ -1394,7 +1436,7 @@ async function evaluateRetellLecture(
       feedback: 'Error occurred during evaluation.',
       detailedAnalysis: {
         contentScore: 0,
-        contentMaxScore: 5,
+        contentMaxScore: 6,
         contentPercentage: 0,
         oralFluencyScore: 0,
         oralFluencyMaxScore: 5,
@@ -1405,11 +1447,571 @@ async function evaluateRetellLecture(
         recognizedText: transcribedText,
         timeTaken: timeTakenSeconds || 0,
         error: error instanceof Error ? error.message : 'Unknown error',
+        errorAnalysis: {
+          pronunciationErrors: [],
+          fluencyErrors: [],
+          contentErrors: [],
+        },
       },
       suggestions: [
         'Please try again.',
         'Focus on capturing key points from the lecture.',
         'Ensure clear pronunciation and logical organization.',
+      ],
+    };
+  }
+}
+
+/**
+ * Evaluate Summarize Group Discussion responses
+ * Similar to Re-tell Lecture but evaluates a summary of a discussion
+ */
+async function evaluateSummarizeGroupDiscussion(
+  question: Question,
+  userResponse: any,
+  timeTakenSeconds?: number
+): Promise<QuestionEvaluationResult> {
+  const transcribedText = userResponse.textResponse;
+  const discussionTranscript = question.textContent || '';
+
+  console.log(question, 'QUESTION');
+  console.log(userResponse, 'userRESPONSE');
+
+  const prompt = `
+    **Your Role:** You are an expert AI evaluator for the PTE Academic test. Your task is to analyze a user's "Summarize Group Discussion" speaking performance with extreme precision.
+
+    **Objective:** You will be given a transcript of a group discussion and a transcription of a user's spoken summary. Evaluate the response based on official PTE criteria for Content, Oral Fluency, and Pronunciation, and provide detailed, actionable feedback.
+
+    ---
+    ### **Evaluation and Scoring Instructions**
+
+    **1. Content Analysis (0-6 scale):**
+      Evaluate how well the user summarized the main ideas and viewpoints from the group discussion using the specific criteria below:
+
+        * **6 pts:** Response captures the **main ideas** of the discussion and **some details** of individual speakers' contributions, but may include a few inaccurate ideas, or focus on less important details, showing **sufficient comprehension**.
+          • Response focuses more on **individual perspectives** than relationships between perspectives and may include some basic attempts at comparison.
+          • The range of expression and vocabulary is **sufficient** to give basic descriptions but may rely on **repetition**.
+          • The ideas in the response are **not well connected**, requiring listeners some effort to follow.
+
+        * **5 pts:** Response captures **some ideas** from discussion but may not capture them fully accurately or be able to differentiate between important points and details, reflecting only **adequate comprehension**.
+          • Response includes some accurate information but **misses the substance** and general direction of the full conversation.
+          • The range of expression and vocabulary is **narrow** and simple expressions are used repeatedly.
+          • The response consists mainly of **unconnected ideas**, with little organizational structure evident, and requires effort to follow.
+
+        * **4 pts:** Response is **mostly inaccurate, incomplete**, or focuses on **non-essential information** from the discussion while missing main ideas.
+          • Response may rely heavily on **repeating language** without reformulation or context, indicating **limited comprehension**.
+          • Limited vocabulary and simple expressions dominate the response.
+          • The response **lacks coherence** and is difficult to follow.
+
+        * **3 pts:** The response **repeats isolated words and phrases** from the discussion but does not provide adequate context or meaning. The content appears on topic but does not communicate in any meaningful way.
+          • Vocabulary and expressions are **highly restricted**.
+          • There is **no hierarchy of ideas or coherence** among points.
+
+        * **2 pts:** Response is relevant to the prompt but is **too limited** (e.g., only a few scattered keywords) to assign a higher score.
+
+        * **1 pt:** Response is highly minimal (e.g., one or two relevant words) or completely fragmented.
+
+        * **0 pts:** No meaningful response is provided, or is entirely irrelevant/non-English.
+
+    * **Pronunciation (0-5 scale):** Score based on the accuracy of the transcribed words.
+        * **5 pts:** Transcription is clear and accurate, with only very minor, isolated errors that do not impact understanding.
+        * **4 pts:** Several errors that suggest pronunciation issues but text is mostly understandable.
+        * **3 pts:** Many errors, making the text difficult to follow.
+        * **2 pts:** The transcription is mostly incorrect, indicating very poor pronunciation.
+        * **1 pt:** The transcription is almost entirely incorrect, with only a few recognizable words.
+        * **0 pts:** The transcription is completely incorrect, contains no recognizable English words, or no meaningful speech transcribed.
+        
+    * **Oral Fluency (0-5 scale):** Score based on filler words, hesitations, and natural flow.
+        * **5 pts:** Smooth and flowing speech with almost no hesitations or filler words. Delivered in natural phrases.
+        * **4 pts:** Noticeable hesitations or filler words that disrupt the flow.
+        * **3 pts:** Uneven, slow, or fragmented speech.
+        * **2 pts:** Very halting speech with many pauses or fillers.
+        * **1 pt:** Extremely halting, with long pauses and many fillers.
+        * **0 pts:** Mostly isolated words, not delivered in phrases, or no meaningful speech.
+
+    **Important Guidelines:**
+    * Focus on content accuracy and relevance to the group discussion
+    * Consider how well the user captured multiple viewpoints
+    * Evaluate pronunciation based on transcription quality and clarity
+    * Assess fluency through speech patterns evident in the transcription
+
+    ---
+    ### **Error Analysis Instructions**
+
+    **CRITICAL:** You must provide detailed error analysis by identifying specific mistakes in the user's transcribed speech.
+
+    **For each error you find:**
+    1. Identify the EXACT word or phrase that contains the error (just the word, not surrounding text)
+    2. Provide the correct replacement from the original discussion
+    3. Give a clear explanation of the pronunciation, fluency, or content issue
+    4. Set position to {"start": 0, "end": 1} (we'll match by word content, not position)
+
+    **Error Types to Look For:**
+    - **Pronunciation**: Mispronounced words, incorrect stress, unclear articulation
+    - **Fluency**: Hesitations, filler words (um, uh, er), unnatural pauses
+    - **Content**: Omitted key viewpoints, incorrect information, word substitutions
+
+     CRITICAL REQUIREMENTS:
+    - Identify EVERY grammar error, no matter how small
+    - Do NOT return empty arrays if errors exist
+    - For each error, provide: exact text, type, correction, and explanation
+    - Be strict and thorough in error detection
+    - When checking for grammatical mistakes, make sure that if a synonym is used but the grammar is correct, it should **not** be marked as an error.
+      - **Do not** mark the correct use of conjunctions or connectors (e.g., 'and', 'but', 'whereas', 'as') as grammatical errors. These are essential for linking ideas into the required single-sentence format.
+    - **Error Prioritization:** A single error MUST be categorized only ONCE. Use this strict priority:
+        1. **Spelling:** If a word is misspelled (e.g., "goverment"), it MUST go into "spellingErrors" ONLY. Do not list it in grammar or vocabulary.
+        2. **Grammar:** If spelling is correct, but the word or phrase breaks a sentence rule (e.g., "he go" instead of "he goes"), it MUST go into "grammarErrors" ONLY.
+        3. **Vocabulary:** Only if spelling and grammar are correct, but the word choice is poor or inappropriate (e.g., using "big" instead of "significant"), it MUST go into "vocabularyIssues".
+
+    ---
+    ### **Required Output Format**
+    Your final output **must** be a single JSON object with the following structure:
+
+    **Group Discussion Transcript**: "${discussionTranscript}"
+    **User's Transcribed Summary**: "${transcribedText}"
+    **Time Taken**: ${timeTakenSeconds || 'Not specified'} seconds
+
+    {
+      "Content": <number_0_to_6>,
+      "Oral Fluency": <number_0_to_5>,
+      "Pronunciation": <number_0_to_5>,
+      "feedback": {
+        "content": "Specific feedback on content accuracy and comprehension of discussion viewpoints",
+        "oralFluency": "Specific feedback on speech flow and fluency",
+        "pronunciation": "Specific feedback on pronunciation clarity"
+      },
+      "suggestions": ["Actionable tip 1", "Actionable tip 2", "Actionable tip 3"],
+       "errorAnalysis": {
+        "pronunciationErrors": [
+          {
+            "text": "mispronounced word",
+            "type": "pronunciation",
+            "position": { "start": 0, "end": 1 },
+            "correction": "correct pronunciation",
+            "explanation": "explanation of pronunciation error"
+          }
+        ],
+        "fluencyErrors": [
+          {
+            "text": "um",
+            "type": "fluency",
+            "position": { "start": 0, "end": 1 },
+            "correction": "",
+            "explanation": "filler word that disrupts fluency"
+          }
+        ],
+        "contentErrors": [
+          {
+            "text": "incorrect information",
+            "type": "content",
+            "position": { "start": 0, "end": 1 },
+            "correction": "correct information from lecture",
+            "explanation": "content accuracy issue"
+          }
+        ]
+      }
+    }
+  `;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are a helpful assistant designed to output JSON for PTE Academic evaluation.',
+        },
+        { role: 'user', content: prompt },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.2,
+    });
+
+    const evaluation = JSON.parse(response.choices[0].message.content || '{}');
+
+    // Log the AI response for debugging
+    console.log(
+      'SUMMARIZE_GROUP_DISCUSSION AI Response:',
+      JSON.stringify(evaluation, null, 2)
+    );
+
+    const contentScore = evaluation.Content || 0;
+    const contentMaxScore = 6;
+    const oralFluencyScore = evaluation['Oral Fluency'] || 0;
+    const oralFluencyMaxScore = 5;
+    const pronunciationScore = evaluation.Pronunciation || 0;
+    const pronunciationMaxScore = 5;
+
+    const contentPercentage = (contentScore / contentMaxScore) * 100;
+    const oralFluencyPercentage =
+      (oralFluencyScore / oralFluencyMaxScore) * 100;
+    const pronunciationPercentage =
+      (pronunciationScore / pronunciationMaxScore) * 100;
+
+    const overallScore = contentScore + oralFluencyScore + pronunciationScore;
+    const maxPossibleScore =
+      contentMaxScore + oralFluencyMaxScore + pronunciationMaxScore;
+
+    const percentageScore = Math.round((overallScore / maxPossibleScore) * 100);
+
+    return {
+      score: overallScore,
+      isCorrect: percentageScore >= 65,
+      feedback:
+        evaluation.feedback?.content ||
+        evaluation.feedback?.summary ||
+        'Summarize Group Discussion response evaluated successfully.',
+      detailedAnalysis: {
+        scores: {
+          content: { score: contentScore, max: contentMaxScore },
+          oralFluency: { score: oralFluencyScore, max: oralFluencyMaxScore },
+          pronunciation: {
+            score: pronunciationScore,
+            max: pronunciationMaxScore,
+          },
+        },
+        feedback: {
+          content:
+            evaluation.feedback?.content ||
+            'Focus on main ideas and diverse viewpoints',
+          oralFluency:
+            evaluation.feedback?.oralFluency ||
+            'Practice smooth, natural speech rhythm',
+          pronunciation:
+            evaluation.feedback?.pronunciation ||
+            'Work on clear articulation and stress patterns',
+        },
+        contentScore,
+        contentMaxScore: contentMaxScore,
+        contentPercentage: Math.round(contentPercentage),
+        oralFluencyScore,
+        oralFluencyMaxScore: oralFluencyMaxScore,
+        oralFluencyPercentage: Math.round(oralFluencyPercentage),
+        pronunciationScore,
+        pronunciationMaxScore: pronunciationMaxScore,
+        pronunciationPercentage: Math.round(pronunciationPercentage),
+        recognizedText: evaluation.analysis?.recognizedText || transcribedText,
+        timeTaken: timeTakenSeconds || 0,
+        fullEvaluation: evaluation,
+        errorAnalysis: evaluation.errorAnalysis || {
+          pronunciationErrors: [],
+          fluencyErrors: [],
+          contentErrors: [],
+        },
+        userText: transcribedText,
+      },
+      suggestions: evaluation.feedback?.suggestions || [
+        'Focus on capturing all key viewpoints',
+        'Organize your summary logically',
+        'Use clear pronunciation and natural pace',
+      ],
+    };
+  } catch (error) {
+    console.error(
+      'OpenAI evaluation error for Summarize Group Discussion:',
+      error
+    );
+    return {
+      score: 0,
+      isCorrect: false,
+      feedback: 'Error occurred during evaluation.',
+      detailedAnalysis: {
+        contentScore: 0,
+        contentMaxScore: 6,
+        contentPercentage: 0,
+        oralFluencyScore: 0,
+        oralFluencyMaxScore: 5,
+        oralFluencyPercentage: 0,
+        pronunciationScore: 0,
+        pronunciationMaxScore: 5,
+        pronunciationPercentage: 0,
+        recognizedText: transcribedText,
+        timeTaken: timeTakenSeconds || 0,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        errorAnalysis: {
+          pronunciationErrors: [],
+          fluencyErrors: [],
+          contentErrors: [],
+        },
+      },
+      suggestions: [
+        'Please try again.',
+        'Focus on capturing diverse viewpoints from the discussion.',
+        'Ensure clear pronunciation and logical organization.',
+      ],
+    };
+  }
+}
+
+/**
+ * Evaluate Respond to a Situation responses
+ * Similar to SUMMARIZE_GROUP_DISCUSSION but for responding to a situational prompt
+ */
+async function evaluateRespondToASituation(
+  question: Question,
+  userResponse: any,
+  timeTakenSeconds?: number
+): Promise<QuestionEvaluationResult> {
+  const transcribedText = userResponse.textResponse;
+  const situationPrompt = question.textContent || '';
+
+  console.log(question, 'QUESTION');
+  console.log(userResponse, 'userRESPONSE');
+
+  const prompt = `
+    **Your Role:** You are an expert AI evaluator for the PTE Academic test. Your task is to analyze a user's "Respond to a Situation" speaking performance with extreme precision.
+
+    **Objective:** You will be given a situational prompt and a transcription of a user's spoken response. Evaluate the response based on official PTE criteria for Content, Oral Fluency, and Pronunciation, and provide detailed, actionable feedback.
+
+    ---
+    ### **Evaluation and Scoring Instructions**
+
+    **1. Content Analysis (0-6 scale):**
+      Evaluate how well the user responded to the situation using the specific criteria below:
+
+        * **6 pts:** Response deals with the situation effectively. Successfully accomplishes the primary communication goal with full consideration of the context given in the prompt. 
+          • Communicates with ease, flexibility, and precision throughout the response. Response is situationally appropriate and fully developed, expanding beyond the prompt language to provide a persuasive response.
+
+        * **5 pts:** Response deals with the situation adequately. Successfully accomplishes the primary communication goal with some consideration of the context given in the prompt, with only minor omissions or misinterpretations.
+          • Communicates clearly and accurately with little restriction. Limitations only evident for difficult elements. A variety of situationally appropriate expressions are used to meet the demands of the situation adequately, with minimal inaccuracies.
+
+        * **4 pts:** Response partially accomplishes the primary communication goal with some consideration of the context given in the prompt, with some omissions or misinterpretations.
+          • Communicates adequately, with some limitations of expression and minor inaccuracies. The range of expression is situationally appropriate and sufficient to meet most of the demands of the situation, with minimal inaccuracies.
+       
+        * **3 pts:** Response partially accomplishes the most basic aspect of the communication goal with some limited consideration of the context given in the prompt.
+          • Communication is functional, but range of expression is limited and contains some inaccuracies or situationally inappropriate elements. Response may include repetition of language from prompt without reformulation or context
+
+        * **2 pts:** Response contains some content relevant to the situation but does not achieve the primary communication goal or address the specifics of the context given in the prompt.
+          • Communication contains restrictions and inaccuracies that compromise meaning or is heavily reliant on using language from the prompt without reformulation or context.
+
+        * **1 pt:** Response contains content relevant to the situation but does not achieve the primary communication goal or address the specifics of the context given in the prompt, showing a lack of understanding of the situation given in the prompt.
+          • Communication is significantly restricted, containing limitations and inaccuracies that impede meaning. The response repeats isolated words and phrases from the prompt but does not provide adequate context or meaning.
+            OR
+          • Minimally addresses the prompt by providing a situationally appropriate response that accomplishes primary goal of communication, but with no elaboration or support.
+
+        * **0 pts:** Response is relevant to the prompt but too limited to assign a higher score.
+
+    * **Pronunciation (0-5 scale):** Score based on the accuracy of the transcribed words.
+        * **5 pts:** Transcription is clear and accurate, with only very minor, isolated errors that do not impact understanding.
+        * **4 pts:** Several errors that suggest pronunciation issues but text is mostly understandable.
+        * **3 pts:** Many errors, making the text difficult to follow.
+        * **2 pts:** The transcription is mostly incorrect, indicating very poor pronunciation.
+        * **1 pt:** The transcription is almost entirely incorrect, with only a few recognizable words.
+        * **0 pts:** The transcription is completely incorrect, contains no recognizable English words, or no meaningful speech transcribed.
+        
+    * **Oral Fluency (0-5 scale):** Score based on filler words, hesitations, and natural flow.
+        * **5 pts:** Smooth and flowing speech with almost no hesitations or filler words. Delivered in natural phrases.
+        * **4 pts:** Noticeable hesitations or filler words that disrupt the flow.
+        * **3 pts:** Uneven, slow, or fragmented speech.
+        * **2 pts:** Very halting speech with many pauses or fillers.
+        * **1 pt:** Extremely halting, with long pauses and many fillers.
+        * **0 pts:** Mostly isolated words, not delivered in phrases, or no meaningful speech.
+
+    **Important Guidelines:**
+    * Focus on how well the user addressed the specific situation
+    * Evaluate appropriateness and relevance of the response
+    * Consider if the user provided clear strategies for handling the situation
+    * Evaluate pronunciation based on transcription quality and clarity
+    * Assess fluency through speech patterns evident in the transcription
+
+    ---
+    ### **Error Analysis Instructions**
+
+    **CRITICAL:** You must provide detailed error analysis by identifying specific mistakes in the user's transcribed speech.
+
+    **For each error you find:**
+    1. Identify the EXACT word or phrase that contains the error (just the word, not surrounding text)
+    2. Provide the correct replacement
+    3. Give a clear explanation of the pronunciation, fluency, or content issue
+    4. Set position to {"start": 0, "end": 1} (we'll match by word content, not position)
+
+    **Error Types to Look For:**
+    - **Pronunciation**: Mispronounced words, incorrect stress, unclear articulation
+    - **Fluency**: Hesitations, filler words (um, uh, er), unnatural pauses
+    - **Content**: Vague responses, incomplete ideas, off-topic information
+
+     CRITICAL REQUIREMENTS:
+    - Identify EVERY grammar error, no matter how small
+    - Do NOT return empty arrays if errors exist
+    - For each error, provide: exact text, type, correction, and explanation
+    - Be strict and thorough in error detection
+    - When checking for grammatical mistakes, make sure that if a synonym is used but the grammar is correct, it should **not** be marked as an error.
+      - **Do not** mark the correct use of conjunctions or connectors (e.g., 'and', 'but', 'whereas', 'as') as grammatical errors. These are essential for linking ideas into the required single-sentence format.
+    - **Error Prioritization:** A single error MUST be categorized only ONCE. Use this strict priority:
+        1. **Spelling:** If a word is misspelled (e.g., "goverment"), it MUST go into "spellingErrors" ONLY. Do not list it in grammar or vocabulary.
+        2. **Grammar:** If spelling is correct, but the word or phrase breaks a sentence rule (e.g., "he go" instead of "he goes"), it MUST go into "grammarErrors" ONLY.
+        3. **Vocabulary:** Only if spelling and grammar are correct, but the word choice is poor or inappropriate (e.g., using "big" instead of "significant"), it MUST go into "vocabularyIssues".
+
+    ---
+    ### **Required Output Format**
+    Your final output **must** be a single JSON object with the following structure:
+
+    **Situation Prompt**: "${situationPrompt}"
+    **User's Transcribed Response**: "${transcribedText}"
+    **Time Taken**: ${timeTakenSeconds || 'Not specified'} seconds
+
+    {
+      "Content": <number_0_to_6>,
+      "Oral Fluency": <number_0_to_5>,
+      "Pronunciation": <number_0_to_5>,
+      "feedback": {
+        "content": "Specific feedback on how well the user addressed the situation",
+        "oralFluency": "Specific feedback on speech flow and fluency",
+        "pronunciation": "Specific feedback on pronunciation clarity"
+      },
+      "suggestions": ["Actionable tip 1", "Actionable tip 2", "Actionable tip 3"],
+       "errorAnalysis": {
+        "pronunciationErrors": [
+          {
+            "text": "mispronounced word",
+            "type": "pronunciation",
+            "position": { "start": 0, "end": 1 },
+            "correction": "correct pronunciation",
+            "explanation": "explanation of pronunciation error"
+          }
+        ],
+        "fluencyErrors": [
+          {
+            "text": "um",
+            "type": "fluency",
+            "position": { "start": 0, "end": 1 },
+            "correction": "",
+            "explanation": "filler word that disrupts fluency"
+          }
+        ],
+        "contentErrors": [
+          {
+            "text": "unclear response",
+            "type": "content",
+            "position": { "start": 0, "end": 1 },
+            "correction": "clearer response",
+            "explanation": "content clarity issue"
+          }
+        ]
+      }
+    }
+  `;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are a helpful assistant designed to output JSON for PTE Academic evaluation.',
+        },
+        { role: 'user', content: prompt },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.2,
+    });
+
+    const evaluation = JSON.parse(response.choices[0].message.content || '{}');
+
+    // Log the AI response for debugging
+    console.log(
+      'RESPOND_TO_A_SITUATION AI Response:',
+      JSON.stringify(evaluation, null, 2)
+    );
+
+    const contentScore = evaluation.Content || 0;
+    const contentMaxScore = 6;
+    const oralFluencyScore = evaluation['Oral Fluency'] || 0;
+    const oralFluencyMaxScore = 5;
+    const pronunciationScore = evaluation.Pronunciation || 0;
+    const pronunciationMaxScore = 5;
+
+    const contentPercentage = (contentScore / contentMaxScore) * 100;
+    const oralFluencyPercentage =
+      (oralFluencyScore / oralFluencyMaxScore) * 100;
+    const pronunciationPercentage =
+      (pronunciationScore / pronunciationMaxScore) * 100;
+
+    const overallScore = contentScore + oralFluencyScore + pronunciationScore;
+    const maxPossibleScore =
+      contentMaxScore + oralFluencyMaxScore + pronunciationMaxScore;
+
+    const percentageScore = Math.round((overallScore / maxPossibleScore) * 100);
+
+    return {
+      score: overallScore,
+      isCorrect: percentageScore >= 65,
+      feedback:
+        evaluation.feedback?.content ||
+        evaluation.feedback?.summary ||
+        'Respond to a Situation response evaluated successfully.',
+      detailedAnalysis: {
+        scores: {
+          content: { score: contentScore, max: contentMaxScore },
+          oralFluency: { score: oralFluencyScore, max: oralFluencyMaxScore },
+          pronunciation: {
+            score: pronunciationScore,
+            max: pronunciationMaxScore,
+          },
+        },
+        feedback: {
+          content:
+            evaluation.feedback?.content ||
+            'Focus on clearly addressing the situation',
+          oralFluency:
+            evaluation.feedback?.oralFluency ||
+            'Practice smooth, natural speech rhythm',
+          pronunciation:
+            evaluation.feedback?.pronunciation || 'Work on clear articulation',
+        },
+        contentScore,
+        contentMaxScore: contentMaxScore,
+        contentPercentage: Math.round(contentPercentage),
+        oralFluencyScore,
+        oralFluencyMaxScore: oralFluencyMaxScore,
+        oralFluencyPercentage: Math.round(oralFluencyPercentage),
+        pronunciationScore,
+        pronunciationMaxScore: pronunciationMaxScore,
+        pronunciationPercentage: Math.round(pronunciationPercentage),
+        recognizedText: evaluation.analysis?.recognizedText || transcribedText,
+        timeTaken: timeTakenSeconds || 0,
+        fullEvaluation: evaluation,
+        errorAnalysis: {
+          pronunciationErrors:
+            evaluation.errorAnalysis?.pronunciationErrors || [],
+          fluencyErrors: evaluation.errorAnalysis?.fluencyErrors || [],
+          contentErrors: evaluation.errorAnalysis?.contentErrors || [],
+        },
+        userText: transcribedText,
+      },
+      suggestions: evaluation.feedback?.suggestions || [
+        'Address all aspects of the situation',
+        'Use clear and appropriate language',
+        'Maintain natural pace and intonation',
+      ],
+    };
+  } catch (error) {
+    console.error('OpenAI evaluation error for Respond to a Situation:', error);
+    return {
+      score: 0,
+      isCorrect: false,
+      feedback: 'Error occurred during evaluation.',
+      detailedAnalysis: {
+        contentScore: 0,
+        contentMaxScore: 6,
+        oralFluencyScore: 0,
+        oralFluencyMaxScore: 5,
+        pronunciationScore: 0,
+        pronunciationMaxScore: 5,
+        feedback: 'Evaluation service error',
+        errorAnalysis: {
+          pronunciationErrors: [],
+          fluencyErrors: [],
+          contentErrors: [],
+        },
+        userText: transcribedText,
+      },
+      suggestions: [
+        'Please ensure clear audio recording',
+        'Try recording again with better microphone quality',
+        'Ensure quiet background environment',
       ],
     };
   }
@@ -1589,12 +2191,12 @@ async function evaluateSummarizeWrittenText(
     - **Spelling**: Misspelled words (check carefully)
     - **Vocabulary**: Wrong word choice, repetitive words, unclear expressions
 
-    **IMPORTANT:**
+  **IMPORTANT:**
     - Only include errors that actually exist
     - For "text" field, provide ONLY the incorrect word/phrase, nothing else
     - Be very specific with the exact word that's wrong
     - When checking for grammatical mistakes, make sure that if a synonym is used but the grammar is correct, it should **not** be marked as an error.
-    - **Do not** mark the correct use of conjunctions or connectors (e.g., 'and', 'but', 'whereas', 'as') as grammatical errors. These are essential for linking ideas into the required single-sentence format.
+    - **Connector Immunity:** Do NOT mark the usage of the connecting words **"but", "whereas", "as", "and", "so"** as grammar errors (e.g., run-on sentences). These connectors are required for the PTE single-sentence format. Treat clauses linked by these words as grammatically valid.
     - **Error Prioritization:** A single error MUST be categorized only ONCE. Use this strict priority:
       1. **Spelling:** If a word is misspelled (e.g., "goverment"), it MUST go into "spellingErrors" ONLY. Do not list it in grammar or vocabulary.
       2. **Grammar:** If spelling is correct, but the word or phrase breaks a sentence rule (e.g., "he go" instead of "he goes"), it MUST go into "grammarErrors" ONLY.
@@ -1839,14 +2441,16 @@ async function evaluateWriteEssay(
     - **Vocabulary**: Wrong word choice, repetitive words, unclear expressions
 
     **IMPORTANT:**
-    - Only include errors that actually exist
-    - For "text" field, provide ONLY the incorrect word/phrase, nothing else
-    - Be very specific with the exact word that's wrong
-    - **Error Prioritization:** A single error MUST be categorized only ONCE. Use this strict priority:
-      1. **Spelling:** If a word is misspelled (e.g., "goverment"), it MUST go into "spellingErrors" ONLY. Do not list it in grammar or vocabulary.
-      2. **Grammar:** If spelling is correct, but the word or phrase breaks a sentence rule (e.g., "he go" instead of "he goes"), it MUST go into "grammarErrors" ONLY.
-      3. **Vocabulary:** Only if spelling and grammar are correct, but the word choice is poor or inappropriate (e.g., using "big" instead of "significant"), it MUST go into "vocabularyIssues".
-    
+      - Only include errors that actually exist
+      - For "text" field, provide ONLY the incorrect word/phrase, nothing else
+      - Be very specific with the exact word that's wrong
+      - When checking for grammatical mistakes, make sure that if a synonym is used but the grammar is correct, it should **not** be marked as an error.
+      - **Connector Immunity:** Do NOT mark the usage of the connecting words **"but", "whereas", "as", "and", "so"** as grammar errors (e.g., run-on sentences). These connectors are required for the PTE single-sentence format. Treat clauses linked by these words as grammatically valid.
+      - **Error Prioritization:** A single error MUST be categorized only ONCE. Use this strict priority:
+        1. **Spelling:** If a word is misspelled (e.g., "goverment"), it MUST go into "spellingErrors" ONLY. Do not list it in grammar or vocabulary.
+        2. **Grammar:** If spelling is correct, but the word or phrase breaks a sentence rule (e.g., "he go" instead of "he goes"), it MUST go into "grammarErrors" ONLY.
+        3. **Vocabulary:** Only if spelling and grammar are correct, but the word choice is poor or inappropriate (e.g., using "big" instead of "significant"), it MUST go into "vocabularyIssues".
+      
     ### **Required Output Format**
     Your final output **must** be a single, minified JSON object with NO markdown. Adhere strictly to this schema:
     {
@@ -2661,13 +3265,15 @@ async function evaluateSummarizeSpokenText(
     - **Vocabulary**: Wrong word choice, repetitive words, unclear expressions
 
     **IMPORTANT:**
-    - Only include errors that actually exist
-    - For "text" field, provide ONLY the incorrect word/phrase, nothing else
-    - Be very specific with the exact word that's wrong
-    - **Error Prioritization:** A single error MUST be categorized only ONCE. Use this strict priority:
-      1. **Spelling:** If a word is misspelled (e.g., "goverment"), it MUST go into "spellingErrors" ONLY. Do not list it in grammar or vocabulary.
-      2. **Grammar:** If spelling is correct, but the word or phrase breaks a sentence rule (e.g., "he go" instead of "he goes"), it MUST go into "grammarErrors" ONLY.
-      3. **Vocabulary:** Only if spelling and grammar are correct, but the word choice is poor or inappropriate (e.g., using "big" instead of "significant"), it MUST go into "vocabularyIssues".
+      - Only include errors that actually exist
+      - For "text" field, provide ONLY the incorrect word/phrase, nothing else
+      - Be very specific with the exact word that's wrong
+      - When checking for grammatical mistakes, make sure that if a synonym is used but the grammar is correct, it should **not** be marked as an error.
+      - **Connector Immunity:** Do NOT mark the usage of the connecting words **"but", "whereas", "as", "and", "so"** as grammar errors (e.g., run-on sentences). These connectors are required for the PTE single-sentence format. Treat clauses linked by these words as grammatically valid.
+      - **Error Prioritization:** A single error MUST be categorized only ONCE. Use this strict priority:
+        1. **Spelling:** If a word is misspelled (e.g., "goverment"), it MUST go into "spellingErrors" ONLY. Do not list it in grammar or vocabulary.
+        2. **Grammar:** If spelling is correct, but the word or phrase breaks a sentence rule (e.g., "he go" instead of "he goes"), it MUST go into "grammarErrors" ONLY.
+        3. **Vocabulary:** Only if spelling and grammar are correct, but the word choice is poor or inappropriate (e.g., using "big" instead of "significant"), it MUST go into "vocabularyIssues".
 
     ---
     ### **Required Output Format**
