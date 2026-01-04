@@ -6,6 +6,7 @@ import {
   RotateCcw,
   Volume2,
   VolumeX,
+  X,
 } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 
@@ -20,6 +21,8 @@ interface AudioPlayerProps {
   onPause?: () => void;
   className?: string;
   compact?: boolean;
+  questionId: string;
+  questionAudioText: string;
 }
 
 const AudioPlayer = React.forwardRef<
@@ -38,6 +41,8 @@ const AudioPlayer = React.forwardRef<
       onPause,
       className = '',
       compact = false,
+      questionId = '',
+      questionAudioText = '',
     },
     ref
   ) => {
@@ -50,6 +55,11 @@ const AudioPlayer = React.forwardRef<
     const [error, setError] = useState<string | null>(null);
     const [hasStarted, setHasStarted] = useState(false);
 
+    const [showAudioTranscript, setShowAudioTranscript] = useState(false);
+    // Transcript read more/less state
+    const [expandedTranscripts, setExpandedTranscripts] = useState<Set<string>>(
+      new Set()
+    );
     const audioRef = useRef<HTMLAudioElement>(null);
 
     // Expose stop, pause, and play methods through ref
@@ -209,6 +219,23 @@ const AudioPlayer = React.forwardRef<
       }
     };
 
+    const MAX_CHARS = 300;
+    const isExpanded = expandedTranscripts.has(questionId);
+    const needsReadMore = questionAudioText.length > MAX_CHARS;
+    const displayText = isExpanded
+      ? questionAudioText
+      : questionAudioText.substring(0, MAX_CHARS);
+
+    const toggleExpanded = () => {
+      const newExpanded = new Set(expandedTranscripts);
+      if (newExpanded.has(questionId)) {
+        newExpanded.delete(questionId);
+      } else {
+        newExpanded.add(questionId);
+      }
+      setExpandedTranscripts(newExpanded);
+    };
+
     if (error) {
       return (
         <div
@@ -347,27 +374,93 @@ const AudioPlayer = React.forwardRef<
                   </button>
                 </div>
 
-                {/* Volume Controls */}
-                <div className='flex items-center space-x-3'>
+                <div className='flex gap-10'>
                   <button
-                    onClick={handleMute}
-                    className='text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-full transition-all duration-200'
+                    onClick={() => setShowAudioTranscript(true)}
+                    className='flex items-center justify-center px-5 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl'
                   >
-                    {isMuted ? (
-                      <VolumeX className='h-5 w-5' />
-                    ) : (
-                      <Volume2 className='h-5 w-5' />
-                    )}
+                    <p className='text-sm'>See Audio Transcript</p>
                   </button>
-                  <input
-                    type='range'
-                    min='0'
-                    max='1'
-                    step='0.1'
-                    value={isMuted ? 0 : volume}
-                    onChange={handleVolumeChange}
-                    className='w-20 h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer slider'
-                  />
+                  {/* Volume Controls */}
+                  <div className='flex items-center space-x-3'>
+                    <button
+                      onClick={handleMute}
+                      className='text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-full transition-all duration-200'
+                    >
+                      {isMuted ? (
+                        <VolumeX className='h-5 w-5' />
+                      ) : (
+                        <Volume2 className='h-5 w-5' />
+                      )}
+                    </button>
+                    <input
+                      type='range'
+                      min='0'
+                      max='1'
+                      step='0.1'
+                      value={isMuted ? 0 : volume}
+                      onChange={handleVolumeChange}
+                      className='w-20 h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer slider'
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {showAudioTranscript && questionAudioText && (
+              <div className='fixed inset-0 z-50 overflow-y-auto'>
+                <div className='flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0'>
+                  {/* Background overlay */}
+                  <div
+                    className='fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75 dark:bg-gray-900 dark:bg-opacity-75'
+                    onClick={() => setShowAudioTranscript(false)}
+                  ></div>
+
+                  {/* Modal */}
+                  <div className='inline-block w-full max-w-5xl  p-0 my-8  overflow-hidden text-left align-middle transition-all transform bg-white dark:bg-gray-800 shadow-2xl rounded-lg border border-gray-200 dark:border-gray-700'>
+                    {/* Header */}
+                    <div className='flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 dark:bg-gray-750'>
+                      <div>
+                        <h3 className='text-lg font-semibold text-gray-900 dark:text-white'>
+                          Audio Transcription
+                        </h3>
+                      </div>
+                      <button
+                        onClick={() => setShowAudioTranscript(false)}
+                        className='p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700'
+                      >
+                        <X className='h-5 w-5' />
+                      </button>
+                    </div>
+
+                    <div className='p-6'>
+                      {/* Content */}
+                      <div className='space-y-6 overflow-y-auto max-h-[90%]'>
+                        <p className='text-gray-700 dark:text-gray-300 text-base leading-relaxed whitespace-pre-wrap'>
+                          {displayText}
+                          {needsReadMore && !isExpanded && '...'}
+                        </p>
+                        {needsReadMore && (
+                          <button
+                            onClick={toggleExpanded}
+                            className='mt-2 text-blue-600 dark:text-blue-400 font-medium text-sm hover:text-blue-700 dark:hover:text-blue-300 transition-colors'
+                          >
+                            {isExpanded ? 'Read Less' : 'Read More'}
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Footer */}
+                      <div className='flex justify-end mt-6 pt-4 border-t border-gray-200 dark:border-gray-700'>
+                        <button
+                          onClick={() => setShowAudioTranscript(false)}
+                          className='px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors font-medium'
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

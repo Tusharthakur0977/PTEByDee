@@ -1,25 +1,25 @@
 import {
   AlertCircle,
   CheckCircle,
+  ChevronDown,
+  ChevronUp,
   Clock,
+  History,
   Loader,
   RotateCcw,
   X,
-  History,
-  ChevronDown,
-  ChevronUp,
 } from 'lucide-react';
-import React, { useCallback, useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { PracticeQuestion as PracticeQuestionType } from '../services/portal';
 import {
-  submitQuestionResponse,
   PreviousResponse,
+  submitQuestionResponse,
 } from '../services/questionResponse';
 import { PteQuestionTypeName } from '../types/pte';
 import AudioPlayer from './AudioPlayer';
 import AudioRecorder from './AudioRecorder';
-import QuestionResponseEvaluator from './QuestionResponseEvaluator';
 import PreviousResponses from './PreviousResponses';
+import QuestionResponseEvaluator from './QuestionResponseEvaluator';
 import ResponseDetailModal from './ResponseDetailModal';
 
 // Utility function to play a beep sound
@@ -228,19 +228,23 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
   useEffect(() => {
     if (!shouldShowTimer) return; // Skip timer logic for questions without timers
 
-    if (isPreparationPhase && preparationTime > 0) {
+    // Don't run prep timer if user has already started recording
+    if (isPreparationPhase && preparationTime > 0 && !hasUserStartedRecording) {
       const timer = setTimeout(
         () => setPreparationTime(preparationTime - 1),
         1000
       );
       return () => clearTimeout(timer);
-    } else if (isPreparationPhase && preparationTime === 0) {
-      // Preparation time ended
+    } else if (
+      isPreparationPhase &&
+      preparationTime === 0 &&
+      !hasUserStartedRecording
+    ) {
+      // Preparation time ended and user hasn't started recording yet
       setIsPreparationPhase(false);
 
       // Set recording time based on question type
       let recordingTime = question.content.recordingTime || 40; // Default 40 for most audio questions
-      console.log(recordingTime, 'TIMEEEEE ');
 
       if (question.type === PteQuestionTypeName.SUMMARIZE_GROUP_DISCUSSION) {
         recordingTime = question.content.recordingTime || 120; // 120 seconds for SUMMARIZE_GROUP_DISCUSSION
@@ -249,17 +253,22 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
       }
       setTimeLeft(recordingTime);
 
-      // Auto-start recording only for RESPOND_TO_A_SITUATION
-      if (question.type === PteQuestionTypeName.RESPOND_TO_A_SITUATION) {
+      // Auto-start recording only for RESPOND_TO_A_SITUATION if user hasn't started
+      if (
+        question.type === PteQuestionTypeName.RESPOND_TO_A_SITUATION &&
+        isPreparationPhase &&
+        preparationTime === 0 &&
+        !hasUserStartedRecording &&
+        !isCompleted
+      ) {
         // Play beep to signal recording start
         console.log('BEEP!555555');
-
         playBeep();
+        // Mark that we're auto-starting BEFORE playing beep and starting recording
+        isAutoStartingRef.current = true;
 
         // Schedule auto-start recording with a slight delay to ensure state updates
         setTimeout(() => {
-          // Mark that we're auto-starting to suppress beep in callback
-          isAutoStartingRef.current = true;
           setHasUserStartedRecording(true);
 
           if (audioRecorderRef.current?.startRecording) {
@@ -302,6 +311,7 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
     isAudioBasedQuestion,
     handleSubmit,
     shouldShowTimer,
+    hasUserStartedRecording,
   ]);
 
   // For Re-tell Lecture, Summarize Group Discussion, Summarize Spoken Text, and Respond to a Situation - start preparation phase when audio finishes
@@ -313,14 +323,21 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
         question.type === PteQuestionTypeName.RESPOND_TO_A_SITUATION) &&
       isAudioFinished &&
       !isCompleted &&
-      !hasStartedPreparation // Only trigger once
+      !hasStartedPreparation && // Only trigger once
+      !hasUserStartedRecording // Don't start prep phase if user already started recording
     ) {
       // Start preparation phase with 10 seconds
       setIsPreparationPhase(true);
       setPreparationTime(10); // Always 10 seconds for these question types
       setHasStartedPreparation(true); // Mark that preparation has been triggered
     }
-  }, [question.type, isAudioFinished, isCompleted, hasStartedPreparation]);
+  }, [
+    question.type,
+    isAudioFinished,
+    isCompleted,
+    hasStartedPreparation,
+    hasUserStartedRecording,
+  ]);
 
   // For Read Aloud: Auto-start recording after preparation time ends (if user hasn't started)
   useEffect(() => {
@@ -381,8 +398,6 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
     ) {
       // Only play beep if not auto-starting
       if (!isAutoStartingRef.current) {
-        console.log('BEEP777777777');
-
         // playBeep(); // Beep when user manually starts recording
       }
       setHasUserStartedRecording(true);
@@ -399,16 +414,40 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
       // Only play beep if not auto-starting
       if (!isAutoStartingRef.current) {
         console.log('BEEP!8888888');
-
         playBeep(); // Beep when user manually starts recording
       }
       setHasUserStartedRecording(true);
       setIsPreparationPhase(false);
       setRecordingTimeLeft(40); // 40 seconds for Describe Image
+    } else if (question.type === PteQuestionTypeName.RESPOND_TO_A_SITUATION) {
+      // Handle RESPOND_TO_A_SITUATION for both: during audio playback and during preparation phase
+      // Skip if auto-starting to prevent double beep and duplicate state changes
+      console.log(isAutoStartingRef.current, 'ZZZZZ');
+
+      if (!isAutoStartingRef.current) {
+        console.log('BEEP!RESPONDTOSITUATION');
+        playBeep(); // Beep when user manually starts recording
+      }
+
+      setHasUserStartedRecording(true);
+      // Stop the audio when user starts recording
+      if (lectureAudioPlayerRef.current?.stop) {
+        lectureAudioPlayerRef.current.stop();
+      }
+      // If in preparation phase, end it and set recording time
+      if (isPreparationPhase) {
+        setIsPreparationPhase(false);
+      }
+      // Set recording time
+      setRecordingTimeLeft(question.content.recordingTime || 40);
+      // Prevent preparation phase from starting when audio finishes
+      setHasStartedPreparation(true);
     } else if (
       question.type === PteQuestionTypeName.RE_TELL_LECTURE ||
       question.type === PteQuestionTypeName.SUMMARIZE_GROUP_DISCUSSION
     ) {
+      console.log(isAutoStartingRef.current, 'ZZZZZ');
+
       // Only play beep if not auto-starting (check ref, not state, for immediate effect)
       if (!isAutoStartingRef.current) {
         console.log('BEEP!99999999');
@@ -611,8 +650,12 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
     setIsCompleted(false);
     setResponse({});
     setEvaluationResult(null);
-    // For RE_TELL_LECTURE, don't set timeLeft initially - only show timer after audio ends
-    if (question.type === PteQuestionTypeName.RE_TELL_LECTURE) {
+    // For RE_TELL_LECTURE, SUMMARIZE_GROUP_DISCUSSION, RESPOND_TO_A_SITUATION - don't set timeLeft initially - only show timer after audio ends
+    if (
+      question.type === PteQuestionTypeName.RE_TELL_LECTURE ||
+      question.type === PteQuestionTypeName.SUMMARIZE_GROUP_DISCUSSION ||
+      question.type === PteQuestionTypeName.RESPOND_TO_A_SITUATION
+    ) {
       setTimeLeft(0);
       setPreparationTime(0);
       setIsPreparationPhase(false);
@@ -660,6 +703,19 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
     setShowPreviousResponses(!showPreviousResponses);
   };
 
+  // Helper function to render listening tips
+  const renderListeningTips = () => (
+    <div className='bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg border border-purple-200 dark:border-purple-800'>
+      <h4 className='font-medium text-purple-900 dark:text-purple-100 mb-2 text-sm'>
+        💡 Listening Tips
+      </h4>
+      <ul className='text-xs text-purple-800 dark:text-purple-200 space-y-1'>
+        <li>• Focus on the context around each blank</li>
+        <li>• Pay attention to grammar and word forms</li>
+      </ul>
+    </div>
+  );
+
   const renderQuestionContent = () => {
     switch (question.type) {
       case PteQuestionTypeName.READ_ALOUD:
@@ -695,7 +751,9 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 autoPlay={true}
                 autoPlayDelay={1000}
                 onEnded={() => setIsAudioFinished(true)}
-                key={`audio-${question.id}`}
+                key={`audio-${question.id}-${resetKey}`}
+                questionId={question.id}
+                questionAudioText={question.content.text || ''}
               />
             </div>
             <AudioRecorder
@@ -746,9 +804,12 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 autoPlay={true}
                 autoPlayDelay={1000}
                 onEnded={() => setIsAudioFinished(true)}
-                key={`audio-${question.id}`}
+                key={`audio-${question.id}-${resetKey}`}
+                questionId={question.id}
+                questionAudioText={question.content.text || ''}
               />
             </div>
+
             {/* Audio Recorder - Show even if audio is not finished */}
             <AudioRecorder
               ref={audioRecorderRef}
@@ -772,9 +833,12 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 autoPlay={true}
                 autoPlayDelay={1000}
                 onEnded={() => setIsAudioFinished(true)}
-                key={`audio-${question.id}`}
+                key={`audio-${question.id}-${resetKey}`}
+                questionId={question.id}
+                questionAudioText={question.content.text || ''}
               />
             </div>
+
             <AudioRecorder
               ref={audioRecorderRef}
               onRecordingComplete={handleAudioRecordingComplete}
@@ -784,6 +848,7 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
               disabled={isCompleted || !isAudioFinished}
               key={`recorder-${question.id}-${resetKey}`}
             />
+            {renderListeningTips()}
           </div>
         );
 
@@ -798,9 +863,12 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 autoPlay={true}
                 autoPlayDelay={1000}
                 onEnded={() => setIsAudioFinished(true)}
-                key={`audio-${question.id}`}
+                key={`audio-${question.id}-${resetKey}`}
+                questionId={question.id}
+                questionAudioText={question.content.text || ''}
               />
             </div>
+
             {/* Audio Recorder - Show even if audio is not finished */}
             <AudioRecorder
               ref={audioRecorderRef}
@@ -811,6 +879,7 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
               disabled={isCompleted}
               key={`recorder-${question.id}-${resetKey}`}
             />
+            {renderListeningTips()}
           </div>
         );
 
@@ -825,20 +894,13 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 autoPlay={true}
                 autoPlayDelay={1000}
                 onEnded={() => setIsAudioFinished(true)}
-                key={`audio-${question.id}`}
+                key={`audio-${question.id}-${resetKey}`}
+                questionId={question.id}
+                questionAudioText={question.content.text || ''}
               />
             </div>
-            {question.content.text && (
-              <div className='bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border-l-4 border-blue-500'>
-                <h3 className='font-semibold text-blue-800 dark:text-blue-300 mb-2'>
-                  Situation
-                </h3>
-                <p className='text-gray-900 dark:text-gray-100 leading-relaxed'>
-                  {question.content.text}
-                </p>
-              </div>
-            )}
-            {/* Audio Recorder - Show even if audio is not finished */}
+
+            {/* Audio Recorder - Always available */}
             <AudioRecorder
               ref={audioRecorderRef}
               onRecordingComplete={handleAudioRecordingComplete}
@@ -861,9 +923,12 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 autoPlay={true}
                 autoPlayDelay={1000}
                 onEnded={() => setIsAudioFinished(true)}
-                key={`audio-${question.id}`} // Reset on question change
+                key={`audio-${question.id}-${resetKey}`}
+                questionId={question.id}
+                questionAudioText={question.content.text || ''}
               />
             </div>
+
             <div>
               <div className='flex items-center justify-between mb-2'>
                 <label className='text-sm font-medium text-gray-700 dark:text-gray-300'>
@@ -885,6 +950,7 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 disabled={isCompleted}
               />
             </div>
+            {renderListeningTips()}
           </div>
         );
 
@@ -939,7 +1005,9 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                   title='Listen to the recording'
                   autoPlay={true}
                   autoPlayDelay={1000}
-                  key={`audio-${question.id}`} // Reset on question change
+                  key={`audio-${question.id}-${resetKey}`}
+                  questionId={question.id}
+                  questionAudioText={question.content.text || ''}
                 />
               </div>
             )}
@@ -976,6 +1044,7 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 </label>
               ))}
             </div>
+            {renderListeningTips()}
           </div>
         );
 
@@ -997,7 +1066,9 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                   title='Listen to the recording'
                   autoPlay={true}
                   autoPlayDelay={1000}
-                  key={`audio-${question.id}`} // Reset on question change
+                  key={`audio-${question.id}-${resetKey}`}
+                  questionId={question.id}
+                  questionAudioText={question.content.text || ''}
                 />
               </div>
             )}
@@ -1045,6 +1116,7 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 </label>
               ))}
             </div>
+            {renderListeningTips()}
           </div>
         );
 
@@ -1600,7 +1672,9 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 title='Listen and fill in the blanks'
                 autoPlay={true}
                 autoPlayDelay={1000}
-                key={`audio-${question.id}`} // Reset on question change
+                key={`audio-${question.id}-${resetKey}`}
+                questionId={question.id}
+                questionAudioText={question.content.text || ''}
               />
             </div>
             <div className='bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-600'>
@@ -1654,20 +1728,7 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
               </div>
             </div>
 
-            {/* Listening tips */}
-            <div className='bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg border border-purple-200 dark:border-purple-800'>
-              <h4 className='font-medium text-purple-900 dark:text-purple-100 mb-2 text-sm'>
-                💡 Listening Tips
-              </h4>
-              <ul className='text-xs text-purple-800 dark:text-purple-200 space-y-1'>
-                <li>
-                  • Listen to the entire audio first before selecting answers
-                </li>
-                <li>• You can replay the audio as many times as needed</li>
-                <li>• Focus on the context around each blank</li>
-                <li>• Pay attention to grammar and word forms</li>
-              </ul>
-            </div>
+            {renderListeningTips()}
           </div>
         );
 
@@ -1680,7 +1741,9 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 title='Listen to the recording'
                 autoPlay={true}
                 autoPlayDelay={1000}
-                key={`audio-${question.id}`} // Reset on question change
+                key={`audio-${question.id}-${resetKey}`}
+                questionId={question.id}
+                questionAudioText={question.content.text || ''}
               />
             </div>
             <div className='space-y-3'>
@@ -1718,6 +1781,7 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 </label>
               ))}
             </div>
+            {renderListeningTips()}
           </div>
         );
 
@@ -1730,33 +1794,45 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 title='Listen and select the missing word'
                 autoPlay={true}
                 autoPlayDelay={1000}
-                key={`audio-${question.id}`} // Reset on question change
+                key={`audio-${question.id}-${resetKey}`}
+                questionId={question.id}
+                questionAudioText={question.content.text || ''}
               />
             </div>
             <div className='space-y-4'>
               <h4 className='font-medium text-gray-900 dark:text-white text-center'>
                 Select the missing word:
               </h4>
-              <div className='grid grid-cols-2 md:grid-cols-4 gap-3'>
+              <div className='space-y-3 max-w-md mx-auto'>
                 {question.content.options?.map((option) => (
-                  <button
+                  <label
                     key={option.id}
-                    onClick={() =>
-                      !isCompleted &&
-                      setResponse({ ...response, selectedWord: option.id })
-                    }
-                    disabled={isCompleted}
-                    className={`p-4 border rounded-lg text-center transition-all duration-200 font-medium ${
+                    className={`flex items-center p-4 border rounded-lg cursor-pointer transition-all duration-200 ${
                       response.selectedWord === option.id
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 shadow-lg'
-                        : 'border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-white'
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30'
+                        : 'border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 hover:bg-gray-50 dark:hover:bg-gray-700'
                     } ${isCompleted ? 'opacity-75 cursor-not-allowed' : ''}`}
                   >
-                    {option.text}
-                  </button>
+                    <input
+                      type='radio'
+                      name='missing-word'
+                      value={option.id}
+                      checked={response.selectedWord === option.id}
+                      onChange={() =>
+                        !isCompleted &&
+                        setResponse({ ...response, selectedWord: option.id })
+                      }
+                      disabled={isCompleted}
+                      className='w-4 h-4 text-blue-600 dark:text-blue-400 accent-blue-600 dark:accent-blue-400 cursor-pointer'
+                    />
+                    <span className='ml-3 text-gray-900 dark:text-white font-medium'>
+                      {option.text}
+                    </span>
+                  </label>
                 ))}
               </div>
             </div>
+            {renderListeningTips()}
           </div>
         );
 
@@ -1769,78 +1845,70 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 title='Listen and highlight incorrect words'
                 autoPlay={true}
                 autoPlayDelay={1000}
-                key={`audio-${question.id}`} // Reset on question change
+                key={`audio-${question.id}-${resetKey}`}
+                questionId={question.id}
+                questionAudioText={question.content.text || ''}
               />
             </div>
             <div className='bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-600'>
               <h4 className='font-medium text-gray-900 dark:text-white mb-4'>
                 Click on words that are different from what you heard:
               </h4>
-              <div className='text-lg'>
-                {question.content.text
-                  ?.split(' ')
-                  .map((word, index) => {
-                    const wordId = `word-${index}`;
-                    const highlightedWordIds =
-                      response.highlightedWordIds || [];
-                    const isHighlighted = highlightedWordIds.includes(wordId);
+              <div className='text-lg leading-relaxed'>
+                {question.content.text?.split(' ').map((word, index) => {
+                  const wordId = `word-${index}`;
+                  const highlightedWordIds = response.highlightedWordIds || [];
+                  const isHighlighted = highlightedWordIds.includes(wordId);
 
-                    return (
-                      <span
-                        key={index}
-                        onClick={() => {
-                          if (isCompleted) return;
+                  return (
+                    <span
+                      key={index}
+                      onClick={() => {
+                        if (isCompleted) return;
 
-                          if (isHighlighted) {
-                            // Remove this specific word instance
-                            const wordIdIndex =
-                              highlightedWordIds.indexOf(wordId);
-                            const newHighlightedWordIds =
-                              highlightedWordIds.filter(
-                                (id: string) => id !== wordId
-                              );
-                            const newHighlightedWords = (
-                              response.highlightedWords || []
-                            ).filter((_: any, i: number) => i !== wordIdIndex);
-                            setResponse({
-                              ...response,
-                              highlightedWordIds: newHighlightedWordIds,
-                              highlightedWords: newHighlightedWords,
-                            });
-                          } else {
-                            // Add this specific word instance
-                            setResponse({
-                              ...response,
-                              highlightedWordIds: [
-                                ...highlightedWordIds,
-                                wordId,
-                              ],
-                              highlightedWords: [
-                                ...(response.highlightedWords || []),
-                                word,
-                              ],
-                            });
-                          }
-                        }}
-                        className={`cursor-pointer py-1 mx-1 rounded-md transition-all duration-200 ${
-                          isHighlighted
-                            ? 'bg-red-200 dark:bg-red-900/50 text-red-800 dark:text-red-300 shadow-sm'
-                            : 'text-gray-900 dark:text-white hover:bg-yellow-100 dark:hover:bg-yellow-900/30'
-                        } ${isCompleted ? 'pointer-events-none' : ''}`}
-                      >
-                        {word}
-                      </span>
-                    );
-                  })
-                  .reduce((prev, curr, index) => (
-                    <React.Fragment key={index}>
-                      {prev} {curr}
-                    </React.Fragment>
-                  ))}
+                        if (isHighlighted) {
+                          // Remove this specific word instance
+                          const wordIdIndex =
+                            highlightedWordIds.indexOf(wordId);
+                          const newHighlightedWordIds =
+                            highlightedWordIds.filter(
+                              (id: string) => id !== wordId
+                            );
+                          const newHighlightedWords = (
+                            response.highlightedWords || []
+                          ).filter((_: any, i: number) => i !== wordIdIndex);
+                          setResponse({
+                            ...response,
+                            highlightedWordIds: newHighlightedWordIds,
+                            highlightedWords: newHighlightedWords,
+                          });
+                        } else {
+                          // Add this specific word instance
+                          setResponse({
+                            ...response,
+                            highlightedWordIds: [...highlightedWordIds, wordId],
+                            highlightedWords: [
+                              ...(response.highlightedWords || []),
+                              word,
+                            ],
+                          });
+                        }
+                      }}
+                      className={`cursor-pointer py-1 px-1.5 mx-0.5 rounded-md transition-all duration-200 inline-block ${
+                        isHighlighted
+                          ? 'bg-red-300 dark:bg-red-800 text-red-900 dark:text-red-100 shadow-md font-semibold'
+                          : 'text-gray-900 dark:text-white hover:bg-yellow-100 dark:hover:bg-yellow-900/30 hover:shadow-sm'
+                      } ${isCompleted ? 'pointer-events-none' : ''}`}
+                    >
+                      {word}
+                    </span>
+                  );
+                })}
               </div>
               <div className='mt-4 text-sm text-gray-600 dark:text-gray-400'>
                 Selected words: {response.highlightedWords?.length || 0}
               </div>
+              {renderListeningTips()}
             </div>
           </div>
         );
@@ -1854,7 +1922,9 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                 title='Listen and type the sentence'
                 autoPlay={true}
                 autoPlayDelay={1000}
-                key={`audio-${question.id}`} // Reset on question change
+                key={`audio-${question.id}-${resetKey}`}
+                questionId={question.id}
+                questionAudioText={question.content.text || ''}
               />
             </div>
             <div className='bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-600'>
@@ -1914,7 +1984,7 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
           {/* Only show timer for specific question types */}
           {shouldShowTimer && (
             <>
-              {isPreparationPhase && (
+              {isPreparationPhase && !hasUserStartedRecording && (
                 <div className='flex items-center space-x-2 bg-orange-50 dark:bg-orange-900/20 px-3 py-2 rounded-lg border border-orange-200 dark:border-orange-800'>
                   <Clock className='h-4 w-4 text-orange-600 dark:text-orange-400' />
                   <div>
@@ -1927,19 +1997,20 @@ const PracticeQuestion: React.FC<PracticeQuestionProps> = ({
                   </div>
                 </div>
               )}
-              {!isPreparationPhase && timeLeft > 0 && (
-                <div className='flex items-center space-x-2 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-lg border border-blue-200 dark:border-blue-800'>
-                  <Clock className='h-4 w-4 text-blue-600 dark:text-blue-400' />
-                  <div>
-                    <div className='text-xs font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wide'>
-                      Time Left
-                    </div>
-                    <div className='font-mono text-sm font-bold text-blue-700 dark:text-blue-300'>
-                      {formatTime(timeLeft)}
+              {(!isPreparationPhase || hasUserStartedRecording) &&
+                timeLeft > 0 && (
+                  <div className='flex items-center space-x-2 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-lg border border-blue-200 dark:border-blue-800'>
+                    <Clock className='h-4 w-4 text-blue-600 dark:text-blue-400' />
+                    <div>
+                      <div className='text-xs font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wide'>
+                        Time Left
+                      </div>
+                      <div className='font-mono text-sm font-bold text-blue-700 dark:text-blue-300'>
+                        {formatTime(timeLeft)}
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
             </>
           )}
           {isCompleted && (

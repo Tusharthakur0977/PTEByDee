@@ -297,20 +297,20 @@ model QuestionType {
 
 // Represents a specific instance of a question that can appear in a Test
 model Question {
-    id             String       @id @default(auto()) @map("_id") @db.ObjectId
-    questionCode   String       @unique // For easy identification/referencing (e.g., "RA_001_Test1")
-    questionType   QuestionType @relation(fields: [questionTypeId], references: [id])
-    questionTypeId String       @db.ObjectId
-   difficultyLevel DifficultyLevel @default(MEDIUM) // New field for difficulty
+    id              String          @id @default(auto()) @map("_id") @db.ObjectId
+    questionCode    String          @unique // For easy identification/referencing (e.g., "RA_001_Test1")
+    questionType    QuestionType    @relation(fields: [questionTypeId], references: [id])
+    questionTypeId  String          @db.ObjectId
+    difficultyLevel DifficultyLevel @default(MEDIUM) // New field for difficulty
     // test           Test         @relation(fields: [testId], references: [id]) // Which test this question belongs to
     // testId         String       @db.ObjectId
     // orderInTest    Int // Order of question within a specific test
 
     // Question content fields - tailored for PTE Academic question types
-    textContent String? // For Read Aloud, Summarize Written Text, Essay, Reading Fill in the Blanks, R&W Fill in the Blanks, Re-order Paragraphs, Highlight Incorrect Words
+    textContent       String? // For Read Aloud, Summarize Written Text, Essay, Reading Fill in the Blanks, R&W Fill in the Blanks, Re-order Paragraphs, Highlight Incorrect Words
     questionStatement String? // The actual question being asked (e.g., "What can we infer from the passage?", "Which of the following statements are incorrect?")
-    audioUrl    String? // For Repeat Sentence, Re-tell Lecture, Answer Short Question, Summarize Spoken Text, Listening Fill in the Blanks, Highlight Correct Summary, Select Missing Word, Write from Dictation
-    imageUrl    String? // For Describe Image (URL to the image)
+    audioUrl          String? // For Repeat Sentence, Re-tell Lecture, Answer Short Question, Summarize Spoken Text, Listening Fill in the Blanks, Highlight Correct Summary, Select Missing Word, Write from Dictation
+    imageUrl          String? // For Describe Image (URL to the image)
 
     // Answer options/structure for various question types
     options        Json? // For Multiple Choice (Single/Multiple Answer), Highlight Correct Summary, Select Missing Word
@@ -335,7 +335,7 @@ model Question {
     // @@index([testId])
 
     @@index([questionTypeId])
-   @@index([difficultyLevel])
+    @@index([difficultyLevel])
 }
 
 // Represents a full PTE Mock Test
@@ -361,12 +361,12 @@ model Test {
 
 // Represents a user's attempt at a specific test
 model TestAttempt {
-    id                 String         @id @default(auto()) @map("_id") @db.ObjectId
-    user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-    userId             String         @db.ObjectId
-    test               Test           @relation(fields: [testId], references: [id])
-    testId             String         @db.ObjectId
-    startedAt          DateTime       @default(now())
+    id                 String    @id @default(auto()) @map("_id") @db.ObjectId
+    user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+    userId             String    @db.ObjectId
+    test               Test      @relation(fields: [testId], references: [id])
+    testId             String    @db.ObjectId
+    startedAt          DateTime  @default(now())
     completedAt        DateTime?
     overallScore       Int? // Final overall score (10-90)
     // Communicative skills scores (Keeping these here for easy access/display)
@@ -384,7 +384,7 @@ model TestAttempt {
     // User's answers/responses for each question (removed for standalone question practice)
     feedback           AIReport? // One-to-one with AIReport
     rawPteScoreJson    Json? // To store the full detailed PTE score breakdown from AI if available
-    status             String         @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED, REVIEW_PENDING (if human review needed)
+    status             String    @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED, REVIEW_PENDING (if human review needed)
     timeTakenSeconds   Int? // Timer for the overall test/sections
 
     @@index([userId, testId])
@@ -408,9 +408,9 @@ model UserResponse {
     highlightedWords String[] // For Highlight Incorrect Words (array of words user highlighted)
 
     // Scoring specific to this question (can be derived from AIReport, or used for partial scoring)
-    questionScore Int? // Score for this specific question (e.g., out of 1 or 2, depending on question type)
-    isCorrect     Boolean? // For questions with clear correct/incorrect answers
-    aiFeedback    String? // Direct AI feedback for this specific question (e.g., "Pronunciation clear but content slightly off")
+    questionScore    Int? // Score for this specific question (e.g., out of 1 or 2, depending on question type)
+    isCorrect        Boolean? // For questions with clear correct/incorrect answers
+    aiFeedback       String? // Direct AI feedback for this specific question (e.g., "Pronunciation clear but content slightly off")
     detailedAnalysis Json? // Detailed evaluation data including word analysis, scores, etc.
 
     timeTakenSeconds Int? // How long the user spent on this question
@@ -424,26 +424,26 @@ model UserResponse {
 
 // New model for standalone question responses (not part of a test)
 model QuestionResponse {
-    id               String   @id @default(auto()) @map("_id") @db.ObjectId
-    userId           String   @db.ObjectId
-    user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-    questionId       String   @db.ObjectId
-    question         Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-    
+    id         String   @id @default(auto()) @map("_id") @db.ObjectId
+    userId     String   @db.ObjectId
+    user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    questionId String   @db.ObjectId
+    question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
     // User's response data
     textResponse     String?
     audioResponseUrl String?
     selectedOptions  String[]
     orderedItems     String[]
     highlightedWords String[]
-    
+
     // AI Evaluation results
     score            Float    @default(0) // 0-100 score from AI evaluation
     isCorrect        Boolean  @default(false)
     aiFeedback       String? // AI-generated feedback
     detailedAnalysis Json? // Detailed analysis from AI
     suggestions      String[] // AI suggestions for improvement
-    
+
     timeTakenSeconds Int      @default(0)
     createdAt        DateTime @default(now())
     updatedAt        DateTime @updatedAt

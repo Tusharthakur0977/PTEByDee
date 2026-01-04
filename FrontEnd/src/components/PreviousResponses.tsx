@@ -122,7 +122,6 @@ const PreviousResponses: React.FC<PreviousResponsesProps> = ({
       return { score: response.questionScore || 0, maxScore: 0 };
     }
 
-
     const analysis = response.detailedAnalysis;
 
     // Audio questions (Read Aloud, Repeat Sentence, Describe Image, Re-tell Lecture, Answer Short Question, Summarize Spoken Text)
@@ -192,23 +191,26 @@ const PreviousResponses: React.FC<PreviousResponsesProps> = ({
   };
 
   const getScoreBgColor = (response: PreviousResponse): string => {
-    if (response.isCorrect === true) {
-      return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400';
-    }
-    if (response.isCorrect === false) {
-      return 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400';
-    }
+    // if (response.isCorrect === true) {
+    //   return 'bg-gradient-to-r from-emerald-100 to-green-100 dark:from-emerald-900/40 dark:to-green-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/60 shadow-sm';
+    // }
+    // if (response.isCorrect === false) {
+    //   return 'bg-gradient-to-r from-rose-100 to-red-100 dark:from-rose-900/40 dark:to-red-900/40 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-700/60 shadow-sm';
+    // }
 
     // Calculate percentage based on actual score vs total marks
     const percentage = calculateScorePercentage(response);
 
     if (percentage >= 80) {
-      return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400';
+      return 'bg-gradient-to-r from-emerald-100 to-green-100 dark:from-emerald-900/40 dark:to-green-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/60 shadow-sm';
     }
     if (percentage >= 60) {
-      return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400';
+      return 'bg-gradient-to-r from-amber-100 to-yellow-100 dark:from-amber-900/40 dark:to-yellow-900/40 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700/60 shadow-sm';
     }
-    return 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400';
+    if (percentage >= 40) {
+      return 'bg-gradient-to-r from-orange-100 to-amber-100 dark:from-orange-900/40 dark:to-amber-900/40 text-orange-700 dark:text-orange-300 border border-orange-300 dark:border-orange-700/60 shadow-sm';
+    }
+    return 'bg-gradient-to-r from-rose-100 to-red-100 dark:from-rose-900/40 dark:to-red-900/40 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-700/60 shadow-sm';
   };
 
   const getResponsePreview = (response: PreviousResponse): string => {

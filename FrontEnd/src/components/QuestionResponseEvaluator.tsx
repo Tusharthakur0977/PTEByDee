@@ -1,6 +1,11 @@
 import { Info, XCircle } from 'lucide-react';
 import React, { useState } from 'react';
 import { PteQuestionTypeName } from '../types/pte';
+import {
+  formatScoringText,
+  renderHighlightedText,
+  renderHighlightedTextByWords,
+} from '../utils/Helpers';
 
 interface QuestionEvaluation {
   score: number;
@@ -220,7 +225,7 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
                     Score
                   </th>
                   <th className='px-6 py-4 text-left text-sm font-semibold text-gray-900 dark:text-white'>
-                    Feedback
+                    {/* Feedback */}
                   </th>
                 </tr>
               </thead>
@@ -252,10 +257,7 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
                         </span>
                       </td>
                       <td className='px-6 py-4'>
-                        <span className='text-sm text-gray-600 dark:text-gray-300'>
-                          {feedback[component] ||
-                            'No specific feedback available'}
-                        </span>
+                        <span className='text-sm text-gray-600 dark:text-gray-300'></span>
                       </td>
                     </tr>
                   )
@@ -361,7 +363,8 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
               <p className='text-sm text-gray-800 dark:text-gray-200 leading-relaxed'>
                 {renderHighlightedText(
                   userText,
-                  evaluationWithParsedAnalysis.detailedAnalysis.errorAnalysis
+                  evaluationWithParsedAnalysis.detailedAnalysis.errorAnalysis,
+                  (err: string) => setSelectedError(err)
                 )}
               </p>
             </div>
@@ -419,7 +422,7 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
                         <div className='flex items-center space-x-2'>
                           <div className='w-3 h-3 bg-red-500 rounded-full'></div>
                           <span className='text-gray-600 dark:text-gray-400'>
-                            Grammar
+                            Unnecessary Words
                           </span>
                         </div>
                         <div className='flex items-center space-x-2'>
@@ -431,7 +434,7 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
                         <div className='flex items-center space-x-2'>
                           <div className='w-3 h-3 bg-purple-500 rounded-full'></div>
                           <span className='text-gray-600 dark:text-gray-400'>
-                            Vocabulary
+                            Missing Words
                           </span>
                         </div>
                         <span className='text-gray-500 dark:text-gray-400 text-xs'>
@@ -462,7 +465,7 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
                           errorAnalysis.grammarErrors.length > 0 && (
                             <div className='bg-red-50 dark:bg-red-900/20 rounded-lg p-3 border border-red-200 dark:border-red-800'>
                               <p className='text-xs font-semibold text-red-700 dark:text-red-300 mb-2'>
-                                Grammar Errors (
+                                Unnecessary Words (
                                 {errorAnalysis.grammarErrors.length})
                               </p>
                               <ul className='space-y-1'>
@@ -470,9 +473,13 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
                                   (error: any, idx: number) => (
                                     <li
                                       key={idx}
-                                      className='text-xs text-red-600 dark:text-red-400'
+                                      className='text-xs text-red-600 dark:text-red-400 cursor-pointer hover:underline'
+                                      onClick={() => setSelectedError(error)}
                                     >
-                                      • {error.text} → {error.correction}
+                                      •{' '}
+                                      {error.type === 'unnecessary_word'
+                                        ? `"${error.text}" should be removed`
+                                        : `${error.text} → ${error.correction}`}
                                     </li>
                                   )
                                 )}
@@ -492,7 +499,8 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
                                   (error: any, idx: number) => (
                                     <li
                                       key={idx}
-                                      className='text-xs text-blue-600 dark:text-blue-400'
+                                      className='text-xs text-blue-600 dark:text-blue-400 cursor-pointer hover:underline'
+                                      onClick={() => setSelectedError(error)}
                                     >
                                       • {error.text} → {error.correction}
                                     </li>
@@ -506,7 +514,7 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
                           errorAnalysis.vocabularyIssues.length > 0 && (
                             <div className='bg-purple-50 dark:bg-purple-900/20 rounded-lg p-3 border border-purple-200 dark:border-purple-800'>
                               <p className='text-xs font-semibold text-purple-700 dark:text-purple-300 mb-2'>
-                                Vocabulary Issues (
+                                Missing Words (
                                 {errorAnalysis.vocabularyIssues.length})
                               </p>
                               <ul className='space-y-1'>
@@ -514,9 +522,13 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
                                   (error: any, idx: number) => (
                                     <li
                                       key={idx}
-                                      className='text-xs text-purple-600 dark:text-purple-400'
+                                      className='text-xs text-purple-600 dark:text-purple-400 cursor-pointer hover:underline'
+                                      onClick={() => setSelectedError(error)}
                                     >
-                                      • {error.text} → {error.correction}
+                                      •{' '}
+                                      {error.type === 'missing_word'
+                                        ? `Missing: "${error.text}"`
+                                        : `${error.text} → ${error.correction}`}
                                     </li>
                                   )
                                 )}
@@ -910,26 +922,6 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
     evaluationWithParsedAnalysis.detailedAnalysis?.scoring &&
     evaluationWithParsedAnalysis.detailedAnalysis?.analysis;
 
-  // Calculate max score for accuracy level
-  const maxScore = isStandardizedFormat
-    ? evaluationWithParsedAnalysis.detailedAnalysis.scoring.overall.maxScore
-    : evaluationWithParsedAnalysis.detailedAnalysis?.scores
-    ? Object.values(
-        evaluationWithParsedAnalysis.detailedAnalysis.scores
-      ).reduce((sum: number, score: any) => sum + score.max, 0)
-    : evaluationWithParsedAnalysis.detailedAnalysis?.maxContentScore !==
-      undefined
-    ? (evaluationWithParsedAnalysis.detailedAnalysis.maxContentScore || 0) +
-      (evaluationWithParsedAnalysis.detailedAnalysis.maxFormScore || 0) +
-      (evaluationWithParsedAnalysis.detailedAnalysis.maxGrammarScore || 0) +
-      (evaluationWithParsedAnalysis.detailedAnalysis.maxVocabularyScore || 0)
-    : undefined;
-
-  const accuracyLevel = getAccuracyLevel(
-    evaluationWithParsedAnalysis.score,
-    maxScore
-  );
-
   // Function to render reading question details with correct/incorrect answers
   const renderReadingQuestionDetails = (
     qType: string,
@@ -976,7 +968,7 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
                   Explanation:
                 </label>
                 <div className='p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600'>
-                  <p className='text-sm text-gray-700 dark:text-gray-300'>
+                  <p className='text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap'>
                     {analysis.explanation}
                   </p>
                 </div>
@@ -1077,7 +1069,7 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
                   Explanation:
                 </label>
                 <div className='p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600'>
-                  <p className='text-sm text-gray-700 dark:text-gray-300'>
+                  <p className='text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap'>
                     {analysis.explanation}
                   </p>
                 </div>
@@ -1152,6 +1144,18 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
               )
             )}
           </div>
+          {analysis.explanation && (
+            <div className='mt-4'>
+              <label className='text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2'>
+                Explanation:
+              </label>
+              <div className='p-3 bg-white dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600'>
+                <p className='text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap'>
+                  {analysis.explanation}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
@@ -1233,7 +1237,7 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
                   Explanation:
                 </label>
                 <div className='p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600'>
-                  <p className='text-sm text-gray-700 dark:text-gray-300'>
+                  <p className='text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap'>
                     {(() => {
                       let explanation = analysis.explanation;
                       // Replace paragraph IDs with their text in the explanation
@@ -1300,6 +1304,18 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
                 </div>
               </div>
             )}
+            {analysis.explanation && (
+              <div>
+                <label className='text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1'>
+                  Explanation:
+                </label>
+                <div className='p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600'>
+                  <p className='text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap'>
+                    {analysis.explanation}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       );
@@ -1347,8 +1363,8 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
             {/* Missed Incorrect Words */}
             {analysis.totalIncorrectWords > analysis.correctHighlights && (
               <div>
-                <label className='text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2'>
-                  ⚠️ Missed Incorrect Words (
+                <label className='text-sm font-medium text-blue-700 dark:text-blue-300 block mb-2'>
+                  🔵 Missed Incorrect Words (
                   {analysis.totalIncorrectWords - analysis.correctHighlights}):
                 </label>
                 <div className='space-y-2'>
@@ -1360,9 +1376,9 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
                     .map((word: string, idx: number) => (
                       <div
                         key={idx}
-                        className='p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded border border-yellow-200 dark:border-yellow-800'
+                        className='p-3 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800'
                       >
-                        <p className='text-sm text-yellow-800 dark:text-yellow-200'>
+                        <p className='text-sm text-blue-800 dark:text-blue-200'>
                           {word}
                         </p>
                       </div>
@@ -1420,140 +1436,6 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
     }
 
     return null;
-  };
-
-  // Function to render text with error highlighting
-  const renderHighlightedText = (text: string, errorAnalysis: any) => {
-    if (!text || !errorAnalysis) return <span>{text}</span>;
-
-    const allErrors = [
-      // Writing question errors
-      ...(errorAnalysis.grammarErrors || []).map((error: any) => ({
-        ...error,
-        type: 'grammar',
-      })),
-      ...(errorAnalysis.spellingErrors || []).map((error: any) => ({
-        ...error,
-        type: 'spelling',
-      })),
-      ...(errorAnalysis.vocabularyIssues || []).map((error: any) => ({
-        ...error,
-        type: 'vocabulary',
-      })),
-      // Speaking question errors
-      ...(errorAnalysis.pronunciationErrors || []).map((error: any) => ({
-        ...error,
-        type: 'pronunciation',
-      })),
-      ...(errorAnalysis.fluencyErrors || []).map((error: any) => ({
-        ...error,
-        type: 'fluency',
-      })),
-      ...(errorAnalysis.contentErrors || []).map((error: any) => ({
-        ...error,
-        type: 'content',
-      })),
-    ];
-
-    // Convert text to lowercase for matching but keep original for display
-    const lowerText = text.toLowerCase();
-    const result: React.ReactNode[] = [];
-
-    // Sort errors by position in text (longest first to avoid partial matches)
-    const sortedErrors = [...allErrors].sort((a, b) => {
-      const aPos = lowerText.indexOf(a.text.toLowerCase());
-      const bPos = lowerText.indexOf(b.text.toLowerCase());
-      return b.text.length - a.text.length || aPos - bPos;
-    });
-
-    // Create a map of error positions
-    const errorPositions: Array<{
-      start: number;
-      end: number;
-      error: any;
-    }> = [];
-
-    sortedErrors.forEach((error) => {
-      const errorTextLower = error.text
-        .toLowerCase()
-        .replace(/[.,!?;:"'()]/g, '');
-      let searchStart = 0;
-      let pos = -1;
-
-      // Find all occurrences of this error in the text
-      while ((pos = lowerText.indexOf(errorTextLower, searchStart)) !== -1) {
-        // Check if this position overlaps with existing errors
-        const overlaps = errorPositions.some(
-          (ep) =>
-            (pos >= ep.start && pos < ep.end) ||
-            (pos + errorTextLower.length > ep.start && pos < ep.end)
-        );
-
-        if (!overlaps) {
-          errorPositions.push({
-            start: pos,
-            end: pos + errorTextLower.length,
-            error,
-          });
-        }
-        searchStart = pos + 1;
-      }
-    });
-
-    // Sort error positions by start index
-    errorPositions.sort((a, b) => a.start - b.start);
-
-    // Build the result with highlighted errors
-    let currentPos = 0;
-    errorPositions.forEach((ep) => {
-      // Add text before this error
-      if (currentPos < ep.start) {
-        result.push(
-          <span key={`text-${currentPos}`}>
-            {text.substring(currentPos, ep.start)}
-          </span>
-        );
-      }
-
-      // Add highlighted error
-      const errorText = text.substring(ep.start, ep.end);
-      const colorClass =
-        ep.error.type === 'grammar'
-          ? 'bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200 border border-red-300 dark:border-red-600'
-          : ep.error.type === 'spelling'
-          ? 'bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200 border border-blue-300 dark:border-blue-600'
-          : ep.error.type === 'vocabulary'
-          ? 'bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200 border border-purple-300 dark:border-purple-600'
-          : ep.error.type === 'pronunciation'
-          ? 'bg-orange-200 dark:bg-orange-800 text-orange-800 dark:text-orange-200 border border-orange-300 dark:border-orange-600'
-          : ep.error.type === 'fluency'
-          ? 'bg-yellow-200 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200 border border-yellow-300 dark:border-yellow-600'
-          : ep.error.type === 'content'
-          ? 'bg-pink-200 dark:bg-pink-800 text-pink-800 dark:text-pink-200 border border-pink-300 dark:border-pink-600'
-          : 'bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600';
-
-      result.push(
-        <span
-          key={`error-${ep.start}`}
-          className={`${colorClass} px-1 py-0.5 rounded cursor-pointer hover:shadow-md transition-all duration-200 font-medium`}
-          onClick={() => setSelectedError(ep.error)}
-          title={`Click to see ${ep.error.type} error details`}
-        >
-          {errorText}
-        </span>
-      );
-
-      currentPos = ep.end;
-    });
-
-    // Add remaining text
-    if (currentPos < text.length) {
-      result.push(
-        <span key={`text-${currentPos}`}>{text.substring(currentPos)}</span>
-      );
-    }
-
-    return <span>{result}</span>;
   };
 
   return (
@@ -1780,7 +1662,8 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
                   {renderHighlightedText(
                     evaluationWithParsedAnalysis.detailedAnalysis.userText ||
                       '',
-                    evaluationWithParsedAnalysis.detailedAnalysis.errorAnalysis
+                    evaluationWithParsedAnalysis.detailedAnalysis.errorAnalysis,
+                    (err: string) => setSelectedError(err)
                   )}
                 </div>
               </div>
@@ -1851,7 +1734,8 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
                   {renderHighlightedText(
                     evaluationWithParsedAnalysis.detailedAnalysis.userText ||
                       '',
-                    evaluationWithParsedAnalysis.detailedAnalysis.errorAnalysis
+                    evaluationWithParsedAnalysis.detailedAnalysis.errorAnalysis,
+                    (err: string) => setSelectedError(err)
                   )}
                 </div>
               </div>
@@ -1902,10 +1786,11 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
               </div>
               <div className='bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border'>
                 <div className='text-sm leading-relaxed text-gray-800 dark:text-gray-200'>
-                  {renderHighlightedText(
+                  {renderHighlightedTextByWords(
                     evaluationWithParsedAnalysis.detailedAnalysis
                       .recognizedText || '',
-                    evaluationWithParsedAnalysis.detailedAnalysis.errorAnalysis
+                    evaluationWithParsedAnalysis.detailedAnalysis.errorAnalysis,
+                    (err: string) => setSelectedError(err)
                   )}
                 </div>
               </div>
@@ -1979,9 +1864,27 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
                           </span>
                         </div>
                       </div>
+                      {/* Audio Transcript Section - Show for speaking questions */}
+                      {evaluationWithParsedAnalysis.detailedAnalysis
+                        .userText && (
+                        <div className='p-6 border-b border-gray-200 dark:border-gray-700'>
+                          <h4 className='font-semibold text-gray-900 dark:text-white mb-3'>
+                            User Answer Transcript
+                          </h4>
+                          <div className='bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600'>
+                            <p className='text-gray-900 dark:text-white whitespace-pre-wrap leading-relaxed text-sm'>
+                              {
+                                evaluationWithParsedAnalysis.detailedAnalysis
+                                  .userText
+                              }
+                            </p>
+                          </div>
+                        </div>
+                      )}
                     </>
                   );
                 }
+
                 // For SUMMARIZE_SPOKEN_TEXT and SUMMARIZE_WRITTEN_TEXT with no errors, show the text section
                 if (
                   questionType === 'SUMMARIZE_SPOKEN_TEXT' ||
@@ -2118,12 +2021,22 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
                     </div>
                     <div className='bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border'>
                       <div className='text-sm leading-relaxed text-gray-800 dark:text-gray-200'>
-                        {renderHighlightedText(
-                          evaluationWithParsedAnalysis.detailedAnalysis
-                            .userText || '',
-                          evaluationWithParsedAnalysis.detailedAnalysis
-                            .errorAnalysis
-                        )}
+                        {questionType === 'WRITE_ESSAY' ||
+                        questionType === 'SUMMARIZE_WRITTEN_TEXT'
+                          ? renderHighlightedTextByWords(
+                              evaluationWithParsedAnalysis.detailedAnalysis
+                                .userText || '',
+                              evaluationWithParsedAnalysis.detailedAnalysis
+                                .errorAnalysis,
+                              (err: string) => setSelectedError(err)
+                            )
+                          : renderHighlightedText(
+                              evaluationWithParsedAnalysis.detailedAnalysis
+                                .userText || '',
+                              evaluationWithParsedAnalysis.detailedAnalysis
+                                .errorAnalysis,
+                              (err: string) => setSelectedError(err)
+                            )}
                       </div>
                     </div>
                   </div>
@@ -2133,6 +2046,32 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
           </div>
         )}
 
+      {/* Feedback From Evaluation */}
+      {(questionType === 'RESPOND_TO_A_SITUATION' ||
+        questionType === 'SUMMARIZE_GROUP_DISCUSSION' ||
+        questionType === 'WRITE_ESSAY' ||
+        questionType === 'SUMMARIZE_WRITTEN_TEXT' ||
+        questionType === 'SUMMARIZE_SPOKEN_TEXT') && (
+        <div className='bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700'>
+          {/* Error Analysis Header */}
+          <div className='p-6 border-b border-gray-200 dark:border-gray-700'>
+            <h4 className='font-semibold text-gray-900 dark:text-white mb-2'>
+              Feedback
+            </h4>
+            {Object.entries(evaluation.detailedAnalysis.feedback).map(
+              ([key, feedback]: any) => (
+                <div
+                  key={key}
+                  className='text-sm leading-relaxed text-gray-800 dark:text-gray-200'
+                >
+                  <b>{formatScoringText(key)}</b> - {feedback || ''}
+                </div>
+              )
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Error Detail Modal */}
       {selectedError && (
         <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4'>
@@ -2141,11 +2080,14 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
               <div className='flex items-center space-x-2'>
                 <div
                   className={`w-3 h-3 rounded-full ${
-                    selectedError.type === 'grammar'
+                    selectedError.type === 'grammar' ||
+                    selectedError.type === 'unnecessary_word'
                       ? 'bg-red-500'
-                      : selectedError.type === 'spelling'
+                      : selectedError.type === 'spelling' ||
+                        selectedError.type === 'spelling_error'
                       ? 'bg-blue-500'
-                      : selectedError.type === 'vocabulary'
+                      : selectedError.type === 'vocabulary' ||
+                        selectedError.type === 'missing_word'
                       ? 'bg-purple-500'
                       : selectedError.type === 'pronunciation'
                       ? 'bg-orange-500'
@@ -2157,7 +2099,14 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
                   }`}
                 ></div>
                 <h3 className='text-base font-semibold text-gray-900 dark:text-white capitalize'>
-                  {selectedError.type} Error
+                  {selectedError.type === 'unnecessary_word'
+                    ? 'Unnecessary Word'
+                    : selectedError.type === 'missing_word'
+                    ? 'Missing Word'
+                    : selectedError.type === 'spelling_error'
+                    ? 'Spelling Mistake'
+                    : selectedError.type.replace(/_/g, ' ')}{' '}
+                  Error
                 </h3>
               </div>
               <button
@@ -2169,27 +2118,73 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
             </div>
 
             <div className='space-y-3'>
-              <div>
-                <label className='text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block'>
-                  ❌ Your text:
-                </label>
-                <div className='p-2 bg-red-50 dark:bg-red-900/20 rounded border border-red-200 dark:border-red-800'>
-                  <span className='text-red-800 dark:text-red-200 font-medium text-sm'>
-                    "{selectedError.text}"
-                  </span>
-                </div>
-              </div>
+              {selectedError.type !== 'missing_word' &&
+                selectedError.type !== 'unnecessary_word' && (
+                  <div>
+                    <label className='text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block'>
+                      ❌ Your text:
+                    </label>
+                    <div className='p-2 bg-red-50 dark:bg-red-900/20 rounded border border-red-200 dark:border-red-800'>
+                      <span className='text-red-800 dark:text-red-200 font-medium text-sm'>
+                        "{selectedError.text}"
+                      </span>
+                    </div>
+                  </div>
+                )}
 
-              <div>
-                <label className='text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block'>
-                  ✅ Suggested correction:
-                </label>
-                <div className='p-2 bg-green-50 dark:bg-green-900/20 rounded border border-green-200 dark:border-green-800'>
-                  <span className='text-green-800 dark:text-green-200 font-medium text-sm'>
-                    "{selectedError.correction}"
-                  </span>
+              {selectedError.type === 'missing_word' && (
+                <div>
+                  <label className='text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block'>
+                    ❌ Missing word:
+                  </label>
+                  <div className='p-2 bg-purple-50 dark:bg-purple-900/20 rounded border border-purple-200 dark:border-purple-800'>
+                    <span className='text-purple-800 dark:text-purple-200 font-medium text-sm'>
+                      "{selectedError.text}"
+                    </span>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {selectedError.type === 'unnecessary_word' && (
+                <div>
+                  <label className='text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block'>
+                    ❌ Extra word that should be removed:
+                  </label>
+                  <div className='p-2 bg-red-50 dark:bg-red-900/20 rounded border border-red-200 dark:border-red-800'>
+                    <span className='text-red-800 dark:text-red-200 font-medium text-sm'>
+                      "{selectedError.text}"
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {selectedError.correction &&
+                selectedError.type !== 'missing_word' &&
+                selectedError.type !== 'unnecessary_word' && (
+                  <div>
+                    <label className='text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block'>
+                      ✅ Suggested correction:
+                    </label>
+                    <div className='p-2 bg-green-50 dark:bg-green-900/20 rounded border border-green-200 dark:border-green-800'>
+                      <span className='text-green-800 dark:text-green-200 font-medium text-sm'>
+                        "{selectedError.correction}"
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+              {selectedError.type === 'missing_word' && (
+                <div>
+                  <label className='text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block'>
+                    ✅ Include this word:
+                  </label>
+                  <div className='p-2 bg-green-50 dark:bg-green-900/20 rounded border border-green-200 dark:border-green-800'>
+                    <span className='text-green-800 dark:text-green-200 font-medium text-sm'>
+                      "{selectedError.correction}"
+                    </span>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className='text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block'>
@@ -2215,8 +2210,8 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
         </div>
       )}
 
-      {/* Detailed Explanation for non-Reading Questions */}
-      {evaluationWithParsedAnalysis.detailedAnalysis?.explanation &&
+      {/* Detailed Explanation for questions with explanation support */}
+      {/* {evaluationWithParsedAnalysis.detailedAnalysis?.explanation &&
         questionType !== 'MULTIPLE_CHOICE_SINGLE_ANSWER_READING' &&
         questionType !== 'MULTIPLE_CHOICE_MULTIPLE_ANSWERS_READING' &&
         questionType !== 'RE_ORDER_PARAGRAPHS' &&
@@ -2227,11 +2222,11 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
               <Info className='h-5 w-5 text-blue-600' />
               <span>Detailed Explanation</span>
             </h4>
-            <div className='text-sm text-gray-700 dark:text-gray-300 leading-relaxed'>
+            <div className='text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap'>
               {evaluationWithParsedAnalysis.detailedAnalysis.explanation}
             </div>
           </div>
-        )}
+        )} */}
 
       {/* AI Improvement Tips */}
       {/* {evaluationWithParsedAnalysis.suggestions &&

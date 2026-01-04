@@ -42,9 +42,6 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
   onClose,
   questionType = '',
 }) => {
-  console.log(response, 'LLLKKKJJJ');
-  console.log(questionType, 'LLLKKKJJJ');
-
   const [selectedError, setSelectedError] = useState<any>(null);
 
   const [expandedError, setExpandedError] = useState<string | null>(null);
@@ -472,33 +469,6 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
             </div>
           </div>
         )}
-        {/* {response.selectedOptions && response.selectedOptions.length > 0 && (
-          <div className='text-center text-gray-500 dark:text-gray-400 py-8 flex flex-col gap-5'>
-            <div className='space-y-3'>
-              <div className='flex items-center space-x-2'>
-                <Target className='h-5 w-5 text-blue-600 dark:text-blue-400' />
-                <h4 className='font-semibold text-gray-900 dark:text-white'>
-                  Your Selected Options
-                </h4>
-              </div>
-              <div className='bg-gray-50 dark:bg-gray-700 rounded-lg p-4'>
-                <ul className='space-y-2'>
-                  {response.selectedOptions.map((option, index) => (
-                    <li
-                      key={index}
-                      className='flex items-center space-x-2'
-                    >
-                      <div className='w-2 h-2 bg-blue-600 dark:bg-blue-400 rounded-full'></div>
-                      <span className='text-gray-900 dark:text-white'>
-                        {option}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </div>
-        )} */}
         {response.orderedItems && response.orderedItems.length > 0 && (
           <div className='text-center text-gray-500 dark:text-gray-400 py-8 flex flex-col gap-5'>
             <div className='space-y-3'>
@@ -639,6 +609,18 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
               )
             )}
           </div>
+          {response.detailedAnalysis.explanation && (
+            <div className='mt-4'>
+              <label className='text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2'>
+                Explanation:
+              </label>
+              <div className='p-3 bg-white dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600'>
+                <p className='text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap'>
+                  {response.detailedAnalysis.explanation}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
@@ -727,19 +709,6 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
                 </div>
               </div>
             )}
-
-            {/* {response.detailedAnalysis.explanation && (
-              <div>
-                <label className='text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1'>
-                  Explanation:
-                </label>
-                <div className='p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600'>
-                  <p className='text-sm text-gray-700 dark:text-gray-300'>
-                    {response.detailedAnalysis.explanation}
-                  </p>
-                </div>
-              </div>
-            )} */}
           </div>
         </div>
       );
@@ -758,11 +727,12 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
           </h4>
           <div className='space-y-3'>
             <div>
-              <label className='text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1'>
+              <label className='text-sm font-medium text-gray-700 dark:text-gray-300 block mb-3'>
                 Your Answer:
               </label>
-              <div className='p-3 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800'>
-                <p className='text-sm text-blue-800 dark:text-blue-200'>
+              <div className='p-3 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800 flex items-center'>
+                <div className='w-4 h-4 rounded-full bg-blue-500 flex-shrink-0'></div>
+                <p className='text-sm text-blue-800 dark:text-blue-200 ml-3 font-medium'>
                   {response.detailedAnalysis.selectedOptionText ||
                     'Not selected'}
                 </p>
@@ -770,28 +740,29 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
             </div>
             {!response.isCorrect && (
               <div>
-                <label className='text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1'>
+                <label className='text-sm font-medium text-gray-700 dark:text-gray-300 block mb-3'>
                   ✅ Correct Answer:
                 </label>
-                <div className='p-3 bg-green-50 dark:bg-green-900/20 rounded border border-green-200 dark:border-green-800'>
-                  <p className='text-sm text-green-800 dark:text-green-200'>
+                <div className='p-3 bg-green-50 dark:bg-green-900/20 rounded border border-green-200 dark:border-green-800 flex items-center'>
+                  <div className='w-4 h-4 rounded-full bg-green-500 flex-shrink-0'></div>
+                  <p className='text-sm text-green-800 dark:text-green-200 ml-3 font-medium'>
                     {response.detailedAnalysis.correctOptionText || 'Unknown'}
                   </p>
                 </div>
               </div>
             )}
-            {/* {response.detailedAnalysis.explanation && (
+            {response.detailedAnalysis.explanation && (
               <div>
-                <label className='text-sm font-medium text-gray-700 dark:text-gray-300 block mb-1'>
-                  Explanation:
+                <label className='text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2'>
+                  💡 Explanation:
                 </label>
-                <div className='p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600'>
-                  <p className='text-sm text-gray-700 dark:text-gray-300'>
+                <div className='p-3 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800'>
+                  <p className='text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap'>
                     {response.detailedAnalysis.explanation}
                   </p>
                 </div>
               </div>
-            )} */}
+            )}
           </div>
         </div>
       );
@@ -857,130 +828,214 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
                 </p>
               </div>
             </div>
+
+            {response.detailedAnalysis.explanation && (
+              <div>
+                <label className='text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2'>
+                  💡 Explanation:
+                </label>
+                <div className='p-3 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800'>
+                  <p className='text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap'>
+                    {response.detailedAnalysis.explanation}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       );
     }
 
     if (questionType === 'HIGHLIGHT_INCORRECT_WORDS') {
+      const text = response.detailedAnalysis.textContent || '';
+      const cleanedIncorrect = response.detailedAnalysis.cleanedIncorrect || [];
+      const cleanedHighlighted =
+        response.detailedAnalysis.cleanedHighlighted || [];
+
       return (
-        <div className='bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6'>
-          <h4 className='font-semibold text-gray-900 dark:text-white mb-4'>
-            Answer Details
-          </h4>
-          <div className='space-y-4'>
-            {/* Correct Highlights */}
-            <div>
-              <label className='text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2'>
-                ✅ Correctly Identified (
-                {response.detailedAnalysis.correctHighlights}/
-                {response.detailedAnalysis.totalIncorrectWords}):
-              </label>
-              {response.detailedAnalysis.cleanedHighlighted &&
-              response.detailedAnalysis.cleanedIncorrect ? (
-                <div className='space-y-2'>
-                  {response.detailedAnalysis.cleanedHighlighted
-                    .filter((word: string) =>
-                      response.detailedAnalysis.cleanedIncorrect.includes(word)
-                    )
-                    .map((word: string, idx: number) => (
-                      <div
-                        key={idx}
-                        className='p-3 bg-green-50 dark:bg-green-900/20 rounded border border-green-200 dark:border-green-800'
-                      >
-                        <p className='text-sm text-green-800 dark:text-green-200'>
-                          {word}
-                        </p>
-                      </div>
-                    ))}
-                </div>
-              ) : (
-                <div className='p-3 bg-green-50 dark:bg-green-900/20 rounded border border-green-200 dark:border-green-800'>
-                  <p className='text-sm text-green-800 dark:text-green-200'>
-                    {response.detailedAnalysis.correctHighlights} word(s)
-                    correctly identified
-                  </p>
+        <div className='space-y-6'>
+          {/* Full Text with Color Coding */}
+          <div className='bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6'>
+            <h4 className='font-semibold text-gray-900 dark:text-white mb-4'>
+              Text with Word Analysis
+            </h4>
+            <div className='text-lg leading-relaxed bg-gray-50 dark:bg-gray-900 p-4 rounded-lg'>
+              {text.split(' ').map((word: string, index: number) => {
+                // Clean the word for comparison
+                const cleanedWord = word
+                  .toLowerCase()
+                  .replace(/[.,!?;:'"()]/g, '');
+
+                // Check if word is incorrect (in the incorrect words list)
+                const isIncorrectWord = cleanedIncorrect.includes(cleanedWord);
+                // Check if word was highlighted by user
+                const wasHighlighted = cleanedHighlighted.includes(cleanedWord);
+
+                // Determine color:
+                // RED: Incorrect word that was correctly highlighted
+                // BLUE: Incorrect word that was missed (not highlighted)
+                // GREEN: Correct word (whether highlighted or not)
+
+                let colorClass = '';
+                if (isIncorrectWord && wasHighlighted) {
+                  // RED: Correctly identified incorrect word
+                  colorClass =
+                    'bg-red-300 dark:bg-red-800 text-red-900 dark:text-red-100 font-semibold';
+                } else if (isIncorrectWord && !wasHighlighted) {
+                  // BLUE: Missed incorrect word
+                  colorClass =
+                    'bg-blue-300 dark:bg-blue-800 text-blue-900 dark:text-blue-100 font-semibold';
+                } else {
+                  // GREEN: Correct word
+                  colorClass =
+                    'bg-green-200 dark:bg-green-900/40 text-green-800 dark:text-green-200';
+                }
+
+                return (
+                  <span
+                    key={index}
+                    className={`inline-block px-1.5 py-0.5 mx-0.5 rounded-md ${colorClass}`}
+                  >
+                    {word}
+                  </span>
+                );
+              })}
+            </div>
+            {/* Legend */}
+            <div className='mt-4 grid grid-cols-3 gap-3'>
+              <div className='flex items-center space-x-2'>
+                <div className='w-4 h-4 bg-green-200 dark:bg-green-900/40 rounded'></div>
+                <span className='text-xs text-gray-700 dark:text-gray-300'>
+                  Correct
+                </span>
+              </div>
+              <div className='flex items-center space-x-2'>
+                <div className='w-4 h-4 bg-red-300 dark:bg-red-800 rounded'></div>
+                <span className='text-xs text-gray-700 dark:text-gray-300'>
+                  Incorrect (Found)
+                </span>
+              </div>
+              <div className='flex items-center space-x-2'>
+                <div className='w-4 h-4 bg-blue-300 dark:bg-blue-800 rounded'></div>
+                <span className='text-xs text-gray-700 dark:text-gray-300'>
+                  Incorrect (Missed)
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Answer Details */}
+          <div className='bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6'>
+            <h4 className='font-semibold text-gray-900 dark:text-white mb-4'>
+              Answer Details
+            </h4>
+            <div className='space-y-4'>
+              {/* Correctly Identified - RED */}
+              <div>
+                <label className='text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2'>
+                  ✅ Correctly Identified (
+                  {response.detailedAnalysis.correctHighlights}/
+                  {response.detailedAnalysis.totalIncorrectWords}):
+                </label>
+                {cleanedHighlighted.filter((w: string) =>
+                  cleanedIncorrect.includes(w)
+                ).length > 0 ? (
+                  <div className='space-y-2'>
+                    {cleanedHighlighted
+                      .filter((word: string) => cleanedIncorrect.includes(word))
+                      .map((word: string, idx: number) => (
+                        <div
+                          key={idx}
+                          className='p-3 bg-red-50 dark:bg-red-900/20 rounded border border-red-200 dark:border-red-800'
+                        >
+                          <p className='text-sm text-red-800 dark:text-red-200 font-medium'>
+                            {word}
+                          </p>
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <div className='p-3 bg-red-50 dark:bg-red-900/20 rounded border border-red-200 dark:border-red-800'>
+                    <p className='text-sm text-red-800 dark:text-red-200'>
+                      No incorrect words were identified
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Missed Incorrect Words - BLUE */}
+              {cleanedIncorrect.filter(
+                (w: string) => !cleanedHighlighted.includes(w)
+              ).length > 0 && (
+                <div>
+                  <label className='text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2'>
+                    🔵 Missed Incorrect Words (
+                    {
+                      cleanedIncorrect.filter(
+                        (w: string) => !cleanedHighlighted.includes(w)
+                      ).length
+                    }
+                    ):
+                  </label>
+                  <div className='space-y-2'>
+                    {cleanedIncorrect
+                      .filter(
+                        (word: string) => !cleanedHighlighted.includes(word)
+                      )
+                      .map((word: string, idx: number) => (
+                        <div
+                          key={idx}
+                          className='p-3 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800'
+                        >
+                          <p className='text-sm text-blue-800 dark:text-blue-200 font-medium'>
+                            {word}
+                          </p>
+                        </div>
+                      ))}
+                  </div>
                 </div>
               )}
-            </div>
 
-            {/* Missed Incorrect Words */}
-            {response.detailedAnalysis.totalIncorrectWords >
-              response.detailedAnalysis.correctHighlights && (
-              <div>
-                <label className='text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2'>
-                  ⚠️ Missed Incorrect Words (
-                  {response.detailedAnalysis.totalIncorrectWords -
-                    response.detailedAnalysis.correctHighlights}
-                  ):
-                </label>
-                <div className='space-y-2'>
-                  {response.detailedAnalysis.cleanedIncorrect
-                    .filter(
-                      (word: string) =>
-                        !response.detailedAnalysis.cleanedHighlighted.includes(
-                          word
-                        )
-                    )
-                    .map((word: string, idx: number) => (
-                      <div
-                        key={idx}
-                        className='p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded border border-yellow-200 dark:border-yellow-800'
-                      >
-                        <p className='text-sm text-yellow-800 dark:text-yellow-200'>
-                          {word}
-                        </p>
-                      </div>
-                    ))}
+              {/* Incorrectly Highlighted Words */}
+              {response.detailedAnalysis.incorrectHighlights > 0 && (
+                <div>
+                  <label className='text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2'>
+                    ❌ Incorrectly Highlighted (
+                    {response.detailedAnalysis.incorrectHighlights}):
+                  </label>
+                  <div className='space-y-2'>
+                    {cleanedHighlighted
+                      .filter(
+                        (word: string) => !cleanedIncorrect.includes(word)
+                      )
+                      .map((word: string, idx: number) => (
+                        <div
+                          key={idx}
+                          className='p-3 bg-orange-50 dark:bg-orange-900/20 rounded border border-orange-200 dark:border-orange-800'
+                        >
+                          <p className='text-sm text-orange-800 dark:text-orange-200 font-medium'>
+                            {word}
+                          </p>
+                        </div>
+                      ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Incorrectly Highlighted Words */}
-            {response.detailedAnalysis.incorrectHighlights > 0 && (
-              <div>
-                <label className='text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2'>
-                  ❌ Incorrectly Highlighted (
-                  {response.detailedAnalysis.incorrectHighlights}):
-                </label>
-                <div className='space-y-2'>
-                  {response.detailedAnalysis.cleanedHighlighted
-                    .filter(
-                      (word: string) =>
-                        !response.detailedAnalysis.cleanedIncorrect.includes(
-                          word
-                        )
-                    )
-                    .map((word: string, idx: number) => (
-                      <div
-                        key={idx}
-                        className='p-3 bg-red-50 dark:bg-red-900/20 rounded border border-red-200 dark:border-red-800'
-                      >
-                        <p className='text-sm text-red-800 dark:text-red-200'>
-                          {word}
-                        </p>
-                      </div>
-                    ))}
-                </div>
+              {/* Summary */}
+              <div className='p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600'>
+                <p className='text-sm text-gray-700 dark:text-gray-300'>
+                  You correctly identified{' '}
+                  <span className='font-semibold text-red-600 dark:text-red-400'>
+                    {response.detailedAnalysis.correctHighlights}
+                  </span>{' '}
+                  out of{' '}
+                  <span className='font-semibold'>
+                    {response.detailedAnalysis.totalIncorrectWords}
+                  </span>{' '}
+                  incorrect words.
+                </p>
               </div>
-            )}
-
-            {/* Summary */}
-            <div className='p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600'>
-              <p className='text-sm text-gray-700 dark:text-gray-300'>
-                You correctly identified{' '}
-                <span className='font-semibold text-green-600 dark:text-green-400'>
-                  {response.detailedAnalysis.correctHighlights}
-                </span>{' '}
-                out of{' '}
-                <span className='font-semibold'>
-                  {response.detailedAnalysis.totalIncorrectWords}
-                </span>{' '}
-                incorrect words
-                {response.detailedAnalysis.incorrectHighlights > 0 &&
-                  ` and incorrectly highlighted ${response.detailedAnalysis.incorrectHighlights} correct word(s)`}
-                .
-              </p>
             </div>
           </div>
         </div>
@@ -1015,15 +1070,16 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
       // Writing question errors
       ...(errorAnalysis.grammarErrors || []).map((error: any) => ({
         ...error,
-        type: 'grammar',
+        type:
+          error.type === 'unnecessary_word' ? 'unnecessary_word' : 'grammar',
       })),
       ...(errorAnalysis.spellingErrors || []).map((error: any) => ({
         ...error,
-        type: 'spelling',
+        type: error.type === 'spelling_error' ? 'spelling_error' : 'spelling',
       })),
       ...(errorAnalysis.vocabularyIssues || []).map((error: any) => ({
         ...error,
-        type: 'vocabulary',
+        type: error.type === 'missing_word' ? 'missing_word' : 'vocabulary',
       })),
       // Speaking question errors
       ...(errorAnalysis.pronunciationErrors || []).map((error: any) => ({
@@ -1103,12 +1159,14 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
       // Add highlighted error
       const errorText = text.substring(ep.start, ep.end);
       const colorClass =
-        ep.error.type === 'grammar'
+        ep.error.type === 'unnecessary_word'
           ? 'bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200 border border-red-300 dark:border-red-600'
-          : ep.error.type === 'spelling'
+          : ep.error.type === 'spelling' || ep.error.type === 'spelling_error'
           ? 'bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200 border border-blue-300 dark:border-blue-600'
-          : ep.error.type === 'vocabulary'
+          : ep.error.type === 'missing_word' || ep.error.type === 'vocabulary'
           ? 'bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200 border border-purple-300 dark:border-purple-600'
+          : ep.error.type === 'grammar'
+          ? 'bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200 border border-red-300 dark:border-red-600'
           : ep.error.type === 'pronunciation'
           ? 'bg-orange-200 dark:bg-orange-800 text-orange-800 dark:text-orange-200 border border-orange-300 dark:border-orange-600'
           : ep.error.type === 'fluency'
@@ -1159,8 +1217,6 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
       return null;
     }
 
-    console.log('Parsed analysis:', JSON.stringify(analysis, null, 2));
-
     // Try to get errorAnalysis from multiple possible locations
     let errorAnalysis = analysis.errorAnalysis;
 
@@ -1177,6 +1233,7 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
         contentErrors: analysis.contentErrors || [],
         grammarErrors: analysis.grammarErrors || [],
         spellingErrors: analysis.spellingErrors || [],
+        vocabularyIssues: analysis.vocabularyIssues || [],
       };
     }
 
@@ -1191,6 +1248,7 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
       pronunciationErrors = [],
       fluencyErrors = [],
       spellingErrors = [],
+      vocabularyIssues = [],
     } = errorAnalysis;
 
     const hasErrors =
@@ -1198,7 +1256,44 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
       (contentErrors?.length || 0) > 0 ||
       (spellingErrors?.length || 0) > 0 ||
       (pronunciationErrors?.length || 0) > 0 ||
-      (fluencyErrors?.length || 0) > 0;
+      (fluencyErrors?.length || 0) > 0 ||
+      (vocabularyIssues?.length || 0) > 0;
+
+    // For Write from Dictation, show perfect response message if no errors
+    if (!hasErrors && questionType === 'WRITE_FROM_DICTATION') {
+      return (
+        <div className='mt-8 animate-in fade-in slide-in-from-bottom-4 duration-500'>
+          <div className='bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 rounded-lg p-8 border border-emerald-200 dark:border-emerald-800'>
+            <div className='flex flex-col items-center justify-center space-y-4'>
+              <div className='text-center space-y-2'>
+                <h3 className='text-2xl font-bold text-emerald-700 dark:text-emerald-300'>
+                  Perfect!
+                </h3>
+                <p className='text-sm text-emerald-600 dark:text-emerald-400 max-w-sm'>
+                  You typed all the words correctly with no spelling mistakes or
+                  extra words. Excellent work!
+                </p>
+              </div>
+
+              {/* Confidence bar */}
+              <div className='w-full mt-6 pt-6 border-t border-emerald-200 dark:border-emerald-800'>
+                <div className='flex items-center justify-between mb-2'>
+                  <span className='text-xs font-semibold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider'>
+                    Accuracy Score
+                  </span>
+                  <span className='text-lg font-bold text-emerald-700 dark:text-emerald-300'>
+                    100%
+                  </span>
+                </div>
+                <div className='w-full bg-emerald-200 dark:bg-emerald-900/50 rounded-full h-2 overflow-hidden'>
+                  <div className='bg-gradient-to-r from-emerald-500 to-green-500 h-2 w-full rounded-full animate-pulse'></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
 
     if (!hasErrors) {
       console.log('No errors found in errorAnalysis');
@@ -1210,7 +1305,301 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
       (contentErrors?.length || 0) +
       (spellingErrors?.length || 0) +
       (pronunciationErrors?.length || 0) +
-      (fluencyErrors?.length || 0);
+      (fluencyErrors?.length || 0) +
+      (vocabularyIssues?.length || 0);
+
+    // Special rendering for Write from Dictation
+    if (questionType === 'WRITE_FROM_DICTATION') {
+      return (
+        <div className='mt-8 animate-in fade-in slide-in-from-bottom-4 duration-500'>
+          <div className='flex items-center justify-between mb-4 px-1'>
+            <div className='flex items-center space-x-2'>
+              <AlertTriangle className='h-5 w-5 text-orange-500' />
+              <h4 className='text-lg font-semibold text-gray-900 dark:text-white'>
+                Detailed Analysis
+              </h4>
+            </div>
+            <span className='px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-xs font-medium text-gray-600 dark:text-gray-300'>
+              {totalErrors} Improvements Identified
+            </span>
+          </div>
+
+          {/* Your Sentence with Highlighting */}
+          <div className='p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-800 mb-6'>
+            <div className='mb-3'>
+              <h5 className='text-sm font-medium text-gray-700 dark:text-gray-300'>
+                Your Sentence:
+              </h5>
+            </div>
+            <div className='bg-white dark:bg-gray-800 rounded-lg p-4 border border-blue-200 dark:border-blue-800'>
+              <div className='text-sm leading-relaxed text-gray-800 dark:text-gray-200'>
+                {renderHighlightedText(analysis.userText || '', errorAnalysis)}
+              </div>
+            </div>
+          </div>
+
+          {/* Correct Sentence */}
+          <div className='p-6 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg border border-green-200 dark:border-green-800 mb-6'>
+            <div className='mb-3'>
+              <h5 className='text-sm font-medium text-gray-700 dark:text-gray-300'>
+                Correct Sentence:
+              </h5>
+            </div>
+            <div className='bg-white dark:bg-gray-800 rounded-lg p-4 border border-green-200 dark:border-green-800'>
+              <p className='text-sm leading-relaxed text-gray-800 dark:text-gray-200'>
+                {analysis.correctText || ''}
+              </p>
+            </div>
+          </div>
+
+          {/* Error Categories */}
+          <div className='space-y-3'>
+            {/* Spelling Errors */}
+            {spellingErrors.length > 0 && (
+              <div className='mb-4 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm transition-all duration-200'>
+                <button
+                  onClick={() =>
+                    setExpandedError(
+                      expandedError === 'spelling' ? null : 'spelling'
+                    )
+                  }
+                  className='w-full flex items-center justify-between p-4 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors'
+                >
+                  <div className='flex items-center space-x-3'>
+                    <div className='p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20'>
+                      <LucideWholeWord className='h-5 w-5 text-blue-500' />
+                    </div>
+                    <div className='text-left'>
+                      <h5 className='text-sm font-semibold text-gray-900 dark:text-white'>
+                        Spelling Mistakes
+                      </h5>
+                      <p className='text-xs text-gray-500 dark:text-gray-400'>
+                        {spellingErrors.length}{' '}
+                        {spellingErrors.length === 1 ? 'issue' : 'issues'} found
+                      </p>
+                    </div>
+                  </div>
+                  <div
+                    className={`transform transition-transform duration-200 ${
+                      expandedError === 'spelling' ? 'rotate-180' : ''
+                    }`}
+                  >
+                    <TrendingUp className='h-4 w-4 text-gray-400' />
+                  </div>
+                </button>
+                {expandedError === 'spelling' && (
+                  <div className='border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 p-4 space-y-4'>
+                    {spellingErrors.map((error: any, idx: number) => (
+                      <div
+                        key={idx}
+                        className='relative bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm pl-4 border-l-4 border-blue-500'
+                      >
+                        <div className='flex items-start space-x-3 mb-3'>
+                          <div className='mt-1 shrink-0'>
+                            <XCircle className='h-4 w-4 text-red-500' />
+                          </div>
+                          <div>
+                            <span className='text-xs font-semibold text-gray-500 uppercase tracking-wider'>
+                              Your text
+                            </span>
+                            <p className='text-sm text-gray-700 dark:text-gray-300 line-through decoration-red-400/50 decoration-2'>
+                              "{error.text}"
+                            </p>
+                          </div>
+                        </div>
+                        {error.correction && (
+                          <div className='flex items-start space-x-3 mb-3'>
+                            <div className='mt-1 shrink-0'>
+                              <CheckCircle className='h-4 w-4 text-green-500' />
+                            </div>
+                            <div>
+                              <span className='text-xs font-semibold text-gray-500 uppercase tracking-wider'>
+                                Correction
+                              </span>
+                              <p className='text-sm font-medium text-green-700 dark:text-green-400'>
+                                "{error.correction}"
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        {error.explanation && (
+                          <div className='mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-start space-x-2'>
+                            <Lightbulb className='h-4 w-4 text-amber-500 shrink-0 mt-0.5' />
+                            <p className='text-xs text-gray-600 dark:text-gray-400 leading-relaxed'>
+                              {error.explanation}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Unnecessary Words (Grammar Errors) */}
+            {grammarErrors.filter((e: any) => e.type === 'unnecessary_word')
+              .length > 0 && (
+              <div className='mb-4 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm transition-all duration-200'>
+                <button
+                  onClick={() =>
+                    setExpandedError(
+                      expandedError === 'unnecessary' ? null : 'unnecessary'
+                    )
+                  }
+                  className='w-full flex items-center justify-between p-4 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors'
+                >
+                  <div className='flex items-center space-x-3'>
+                    <div className='p-2 rounded-lg bg-red-50 dark:bg-red-900/20'>
+                      <AlertCircle className='h-5 w-5 text-red-500' />
+                    </div>
+                    <div className='text-left'>
+                      <h5 className='text-sm font-semibold text-gray-900 dark:text-white'>
+                        Unnecessary Words
+                      </h5>
+                      <p className='text-xs text-gray-500 dark:text-gray-400'>
+                        {
+                          grammarErrors.filter(
+                            (e: any) => e.type === 'unnecessary_word'
+                          ).length
+                        }{' '}
+                        {grammarErrors.filter(
+                          (e: any) => e.type === 'unnecessary_word'
+                        ).length === 1
+                          ? 'word'
+                          : 'words'}{' '}
+                        to remove
+                      </p>
+                    </div>
+                  </div>
+                  <div
+                    className={`transform transition-transform duration-200 ${
+                      expandedError === 'unnecessary' ? 'rotate-180' : ''
+                    }`}
+                  >
+                    <TrendingUp className='h-4 w-4 text-gray-400' />
+                  </div>
+                </button>
+                {expandedError === 'unnecessary' && (
+                  <div className='border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 p-4 space-y-4'>
+                    {grammarErrors
+                      .filter((e: any) => e.type === 'unnecessary_word')
+                      .map((error: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className='relative bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm pl-4 border-l-4 border-red-500'
+                        >
+                          <div className='flex items-start space-x-3 mb-3'>
+                            <div className='mt-1 shrink-0'>
+                              <AlertCircle className='h-4 w-4 text-red-500' />
+                            </div>
+                            <div>
+                              <span className='text-xs font-semibold text-gray-500 uppercase tracking-wider'>
+                                Extra word to remove
+                              </span>
+                              <p className='text-sm text-gray-700 dark:text-gray-300 font-medium'>
+                                "{error.text}"
+                              </p>
+                            </div>
+                          </div>
+                          {error.explanation && (
+                            <div className='mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-start space-x-2'>
+                              <Lightbulb className='h-4 w-4 text-amber-500 shrink-0 mt-0.5' />
+                              <p className='text-xs text-gray-600 dark:text-gray-400 leading-relaxed'>
+                                {error.explanation}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Missing Words (Vocabulary Issues) */}
+            {vocabularyIssues.filter((e: any) => e.type === 'missing_word')
+              .length > 0 && (
+              <div className='mb-4 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm transition-all duration-200'>
+                <button
+                  onClick={() =>
+                    setExpandedError(
+                      expandedError === 'missing' ? null : 'missing'
+                    )
+                  }
+                  className='w-full flex items-center justify-between p-4 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors'
+                >
+                  <div className='flex items-center space-x-3'>
+                    <div className='p-2 rounded-lg bg-purple-50 dark:bg-purple-900/20'>
+                      <Lightbulb className='h-5 w-5 text-purple-500' />
+                    </div>
+                    <div className='text-left'>
+                      <h5 className='text-sm font-semibold text-gray-900 dark:text-white'>
+                        Missing Words
+                      </h5>
+                      <p className='text-xs text-gray-500 dark:text-gray-400'>
+                        {
+                          vocabularyIssues.filter(
+                            (e: any) => e.type === 'missing_word'
+                          ).length
+                        }{' '}
+                        {vocabularyIssues.filter(
+                          (e: any) => e.type === 'missing_word'
+                        ).length === 1
+                          ? 'word'
+                          : 'words'}{' '}
+                        not included
+                      </p>
+                    </div>
+                  </div>
+                  <div
+                    className={`transform transition-transform duration-200 ${
+                      expandedError === 'missing' ? 'rotate-180' : ''
+                    }`}
+                  >
+                    <TrendingUp className='h-4 w-4 text-gray-400' />
+                  </div>
+                </button>
+                {expandedError === 'missing' && (
+                  <div className='border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 p-4 space-y-4'>
+                    {vocabularyIssues
+                      .filter((e: any) => e.type === 'missing_word')
+                      .map((error: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className='relative bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm pl-4 border-l-4 border-purple-500'
+                        >
+                          <div className='flex items-start space-x-3 mb-3'>
+                            <div className='mt-1 shrink-0'>
+                              <CheckCircle className='h-4 w-4 text-purple-500' />
+                            </div>
+                            <div>
+                              <span className='text-xs font-semibold text-gray-500 uppercase tracking-wider'>
+                                Missing word
+                              </span>
+                              <p className='text-sm font-medium text-purple-700 dark:text-purple-400'>
+                                "{error.text}"
+                              </p>
+                            </div>
+                          </div>
+                          {error.explanation && (
+                            <div className='mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-start space-x-2'>
+                              <Lightbulb className='h-4 w-4 text-amber-500 shrink-0 mt-0.5' />
+                              <p className='text-xs text-gray-600 dark:text-gray-400 leading-relaxed'>
+                                {error.explanation}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
 
     // Helper to render a specific category section
     const renderErrorCategory = (
@@ -1544,6 +1933,7 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
       );
     }
   };
+
   return (
     <div className='fixed inset-0 z-50 overflow-y-auto'>
       <div className='flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0'>

@@ -146,8 +146,6 @@ export const submitQuestionResponse = asyncHandler(
         timeTakenSeconds
       );
 
-      console.log(evaluation, 'MNMNMNMNM');
-
       // Store the response and evaluation
       const responseRecord = await prisma.$transaction(async (tx) => {
         // Create user response record

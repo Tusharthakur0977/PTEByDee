@@ -464,6 +464,193 @@ export async function evaluateQuestionResponse(
 
 // SPEAKING QUESTION EVALUATION
 /**
+ * Corrects error positions for audio-based questions (Read Aloud, Repeat Sentence, etc.)
+ * Handles pronunciationErrors, fluencyErrors, and contentErrors
+ */
+function correctAudioErrorPositions(
+  errorAnalysis: any,
+  userText: string
+): any {
+  if (!errorAnalysis) return errorAnalysis;
+
+  // Split the text into words (same method as backend)
+  const words = userText.split(/\s+/).filter((word: string) => word.length > 0);
+
+  // Normalize function - removes punctuation for comparison
+  const normalize = (text: string): string =>
+    text.toLowerCase().replace(/[.,!?;:\-()[\]{}""'']/g, '');
+
+  // Helper function to find the correct position of an error word using context
+  const findWordPosition = (
+    errorText: string,
+    originalPosition?: { start: number; end: number },
+    context?: { before?: string; after?: string }
+  ): { start: number; end: number } | null => {
+    const normalizedError = normalize(errorText);
+
+    // Split error into words to handle multi-word errors
+    const errorWords = errorText
+      .split(/\s+/)
+      .filter((w: string) => w.length > 0);
+    const allOccurrences: Array<{
+      start: number;
+      end: number;
+      contextScore: number;
+    }> = [];
+
+    if (errorWords.length === 1) {
+      // Single word error - find all occurrences
+      for (let i = 0; i < words.length; i++) {
+        const normalizedWord = normalize(words[i]);
+        if (normalizedWord === normalizedError) {
+          let contextScore = 0;
+
+          // Score based on context matching
+          if (context) {
+            // Check word before
+            if (context.before && i > 0) {
+              const wordBefore = normalize(words[i - 1]);
+              const contextBefore = normalize(context.before);
+              if (wordBefore === contextBefore) {
+                contextScore += 50;
+              }
+            }
+
+            // Check word after
+            if (context.after && i < words.length - 1) {
+              const wordAfter = normalize(words[i + 1]);
+              const contextAfter = normalize(context.after);
+              if (wordAfter === contextAfter) {
+                contextScore += 50;
+              }
+            }
+          }
+
+          allOccurrences.push({
+            start: i,
+            end: i + 1,
+            contextScore,
+          });
+        }
+      }
+    } else {
+      // Multi-word error - find all sequences
+      for (let i = 0; i <= words.length - errorWords.length; i++) {
+        let match = true;
+        for (let j = 0; j < errorWords.length; j++) {
+          const normalizedWord = normalize(words[i + j]);
+          const normalizedErrorWord = normalize(errorWords[j]);
+          if (normalizedWord !== normalizedErrorWord) {
+            match = false;
+            break;
+          }
+        }
+
+        if (match) {
+          let contextScore = 0;
+
+          // Score based on context matching
+          if (context) {
+            // Check word before
+            if (context.before && i > 0) {
+              const wordBefore = normalize(words[i - 1]);
+              const contextBefore = normalize(context.before);
+              if (wordBefore === contextBefore) {
+                contextScore += 50;
+              }
+            }
+
+            // Check word after
+            if (context.after && i + errorWords.length < words.length) {
+              const wordAfter = normalize(words[i + errorWords.length]);
+              const contextAfter = normalize(context.after);
+              if (wordAfter === contextAfter) {
+                contextScore += 50;
+              }
+            }
+          }
+
+          allOccurrences.push({
+            start: i,
+            end: i + errorWords.length,
+            contextScore,
+          });
+        }
+      }
+    }
+
+    if (allOccurrences.length === 0) {
+      return null;
+    }
+
+    // If only one occurrence, return it
+    if (allOccurrences.length === 1) {
+      return { start: allOccurrences[0].start, end: allOccurrences[0].end };
+    }
+
+    // Multiple occurrences - use intelligent selection strategy
+    // Strategy 1: Context-based matching (highest priority)
+    const contextMatches = allOccurrences.filter(
+      (occ) => occ.contextScore > 0
+    );
+    if (contextMatches.length > 0) {
+      // Sort by context score (descending)
+      contextMatches.sort((a, b) => b.contextScore - a.contextScore);
+      const best = contextMatches[0];
+      return { start: best.start, end: best.end };
+    }
+
+    // Strategy 2: Use original position as a weak hint
+    if (originalPosition && originalPosition.start >= 0) {
+      const targetIndex = originalPosition.start;
+
+      // Find occurrence closest to target, but with a reasonable threshold
+      let bestOccurrence = allOccurrences[0];
+      let bestDistance = Math.abs(allOccurrences[0].start - targetIndex);
+
+      for (const occurrence of allOccurrences) {
+        const distance = Math.abs(occurrence.start - targetIndex);
+        // Only update if significantly closer (tolerance: within 5 words)
+        if (distance < bestDistance - 5) {
+          bestDistance = distance;
+          bestOccurrence = occurrence;
+        }
+      }
+
+      return { start: bestOccurrence.start, end: bestOccurrence.end };
+    }
+
+    // Strategy 3: No context or position hint - prefer occurrences later in the text
+    const last = allOccurrences[allOccurrences.length - 1];
+    return { start: last.start, end: last.end };
+  };
+
+  // Function to correct positions in an error array
+  const correctErrorArray = (errors: any[]): any[] => {
+    return errors.map((error: any) => {
+      const correctedPosition = findWordPosition(
+        error.text,
+        error.position,
+        error.context
+      );
+      if (correctedPosition) {
+        return {
+          ...error,
+          position: correctedPosition,
+        };
+      }
+      return error;
+    });
+  };
+
+  return {
+    pronunciationErrors: correctErrorArray(errorAnalysis.pronunciationErrors || []),
+    fluencyErrors: correctErrorArray(errorAnalysis.fluencyErrors || []),
+    contentErrors: correctErrorArray(errorAnalysis.contentErrors || []),
+  };
+}
+
+/**
  * Evaluate Read Aloud responses (audio-based)
  */
 async function evaluateReadAloud(
@@ -507,11 +694,22 @@ async function evaluateReadAloud(
 
     **CRITICAL:** You must provide detailed error analysis by identifying specific mistakes in the user's transcribed speech.
 
-    **For each error you find:**
-    1. Identify the EXACT word or phrase that contains the error (just the word, not surrounding text)
-    2. Provide the correct replacement from the original text
-    3. Give a clear explanation of the pronunciation or fluency issue
-    4. Set position to {"start": 0, "end": 1} (we'll match by word content, not position)
+    **POSITION CALCULATION (MOST IMPORTANT):**
+      - Word indexing starts from 0 (first word is position 0)
+      - Words are counted by splitting on whitespace ONLY. Punctuation is NOT a separate word.
+      - For SINGLE-WORD errors: {"start": <word_index>, "end": <word_index + 1>}
+      - For MULTI-WORD errors (e.g., "old people"): {"start": <first_word_index>, "end": <last_word_index + 1>}
+      - If incorrect word appears MULTIPLE TIMES, identify the SPECIFIC occurrence not give position of first occurence directly first check which occurence is wrong and give that in positions
+
+      **For each error you find:**
+      1. Identify the EXACT word or phrase that contains the error
+      2. Count its position carefully using the indexing method above
+      3. Include surrounding context: provide 1-2 words BEFORE and AFTER the error (if available)
+      - Example: Error "is" with context: {"before": "people", "after": "not"}
+      - This helps confirm the correct occurrence when words repeat
+      4. Provide the correct replacement
+      5. Give a clear explanation
+      6. DOUBLE-CHECK: The position should point to the actual error location in the response
 
     **Error Types to Look For:**
     - **Pronunciation**: Mispronounced words, incorrect stress, unclear articulation
@@ -659,7 +857,7 @@ async function evaluateReadAloud(
         recognizedText: evaluation.analysis?.recognizedText || transcribedText,
         wordByWordAnalysis: wordAnalysis,
         timeTaken: timeTakenSeconds || 0,
-        fullEvaluation: evaluation, // Store the complete OpenAI response
+        // fullEvaluation: evaluation, // Store the complete OpenAI response
         // Add structured scores for consistent frontend display
         scores: {
           content: { score: contentScore, max: maxContentScore },
@@ -669,11 +867,10 @@ async function evaluateReadAloud(
           },
           oralFluency: { score: fluencyScore, max: fluencyMaxScore },
         },
-        errorAnalysis: evaluation.errorAnalysis || {
-          pronunciationErrors: [],
-          fluencyErrors: [],
-          contentErrors: [],
-        },
+        errorAnalysis: correctAudioErrorPositions(
+          evaluation.errorAnalysis,
+          transcribedText
+        ),
         userText: transcribedText, // Include transcribed text for highlighting
       },
       suggestions: evaluation.feedback?.suggestions || [
@@ -876,18 +1073,17 @@ async function evaluateRepeatSentence(
         recognizedText: evaluation.analysis?.recognizedText || transcribedText,
         wordByWordAnalysis: wordAnalysis,
         timeTaken: timeTakenSeconds || 0,
-        fullEvaluation: evaluation, // Store the complete OpenAI response
+        // fullEvaluation: evaluation, // Store the complete OpenAI response
         // Add structured scores for consistent frontend display
         scores: {
           content: { score: contentScore, max: maxContentScore },
           pronunciation: { score: pronunciationScore, max: 5 },
           oralFluency: { score: fluencyScore, max: 5 },
         },
-        errorAnalysis: evaluation.errorAnalysis || {
-          pronunciationErrors: [],
-          fluencyErrors: [],
-          contentErrors: [],
-        },
+        errorAnalysis: correctAudioErrorPositions(
+          evaluation.errorAnalysis,
+          transcribedText
+        ),
         userText: transcribedText, // Include transcribed text for highlighting
       },
       suggestions: evaluation.feedback?.suggestions || [
@@ -947,8 +1143,7 @@ async function evaluateDescribeImage(
   const imageType = imageAnalysis?.imageType || 'image';
   const mainTopic = imageAnalysis?.mainTopic || 'the image content';
 
-  const prompt = `
-    You are an official PTE Academic grader. Evaluate this "Describe Image" response strictly following the provided scoring rubric.
+  const prompt = `You are an official PTE Academic grader specialized in "Describe Image" tasks. Evaluate this response focusing strictly on **Fluency**, **Pronunciation**, and **Content Coverage**.
 
     **Image Analysis Reference:**
     - Image Type: ${imageType}
@@ -958,59 +1153,62 @@ async function evaluateDescribeImage(
     **User's Description:** "${transcribedText}"
     **Time Taken:** ${timeTakenSeconds || 'Not specified'} seconds
 
+    **IMPORTANT GRADING RULES:**
+      - **IGNORE GRAMMAR:** Do not evaluate grammar, sentence structure, prepositions, or tenses. This is a content, fluency, and pronunciation test only.
+      - **CONTENT FLEXIBILITY (CRITICAL - MUST FOLLOW):** Accept partial information and equivalent descriptions. Be lenient. Examples:
+        * User mentions ONE gender when BOTH exist? = STILL 6 PTS (partial valid)
+        * User says "35%" when graph shows "40%"? = STILL 6 PTS (minor number variation ±5% acceptable)
+        * User says "peaks at 35-44" when BOTH genders peak at different ages? = STILL 6 PTS (valid observation)
+        * User mentions different keywords than reference? = STILL 6 PTS (equivalent meaning)
+      - **NO FIXED ANSWERS:** Do NOT penalize for any variation in wording, detail level, or specific numbers (±5%).
+      - **KEY RULE FOR 6 PTS:** If student clearly shows: (1) chart type identified, (2) topic identified, (3) at least one trend or number mentioned = AWARD 6 PTS. DO NOT lower to 5 pts.
+      
     **Scoring Rubrics:**
-    **1. Content (Score from 0 to 6):**
-      * **6 pts:** The response includes mainly superficial descriptions with minor inaccuracies. The vocabulary is narrow and expressions are used repeatedly. A listener could visualize **elements** of the image, but not a cohesive whole.
-      * **5 pts:** The response includes minimal, superficial descriptions with some inaccuracies. Limited vocabulary and simple expressions dominate. A listener could visualize some elements **with effort**.
-      * **4 pts:** The response is composed of disconnected elements or a list of points without description. Vocabulary is highly restricted. A listener would **struggle** to visualize the image.
-      * **3 pts:** The response is relevant but too limited to assign a higher score.
-      * **2 pts:** The response is highly minimal (e.g., one or two relevant words) but is not a coherent description.
-      * **1 pt:** The response is relevant but almost meaningless (e.g., one relevant word).
-      * **0 pts:** The response is irrelevant, non-English, or no meaningful response is provided.
+      **1. Content (Score from 0 to 6):**
+        - **6 pts:** Student identifies the chart/image type (e.g., "line graph", "bar chart") AND identifies the main topic/subject (e.g., "volunteer rates by age") AND mentions at least one key trend or specific number (e.g., "peaks at 35-44", "drops to 10%"). If all three elements are present, award 6 pts regardless of what is missing.
+        - **5 pts:** Student identifies chart type AND topic but lacks clear trend/number information.
+        - **4 pts:** Student identifies topic and type but provides very limited trend/number details.
+        - **3 pts:** Student mentions topic with some basic elements.
+        - **2 pts:** Student vaguely mentions only topic or type; unclear understanding.
+        - **1 pt:** Barely relevant response.
+        - **0 pts:** Irrelevant, non-English, or no meaningful response
 
-    **2. Pronunciation (Score from 0 to 5):**
-      * **5 pts:** All vowels and consonants are pronounced in a way that is easily understood by native speakers. Stress is placed correctly on all words. Intonation is appropriate. Any mispronunciations are rare and do not affect intelligibility.
-      * **4 pts:** Most vowels and consonants are pronounced correctly. Some consistent errors might make a few words unclear. A few consonants in certain contexts may be regularly distorted, omitted or mispronounced. Stress- dependent vowel reduction may occur on a few words.
-      * **3 pts:** Some consonants and vowels are consistently mispronounced. At least 2/3 of speech is intelligible, but listeners might need to adjust to the accent. Some consonants are regularly omitted, and consonant sequences may be simplified. Stress may be placed incorrectly on some words or be unclear.
-      * **2 pts:** Many consonants and vowels are mispronounced, resulting in a strong intrusive foreign accent. Listeners may have difficulty understanding about 1/3 of the words. Many consonants may be distorted or omitted. Consonant sequences may be non-English. Stress is placed in a non-English manner; unstressed words may be reduced or omitted, and a few syllables added or missed.
-      * **1 pt:** Pronunciation seems completely characteristic of another language. Many consonants and vowels are mispronounced, mis-ordered or omitted. Listeners may find more than 1/2 of the speech unintelligible. Stressed and unstressed syllables are realized in a non-English manner. Several words may have the wrong number of syllables
-      * **0 pts:** Very few words are intelligible, OR Irrelevant, non-English, or no meaningful speech.
+      **2. Pronunciation (Score from 0 to 5):**
+        * **5 pts:** Speech is mostly clear and understandable. Most words are pronounced correctly. Minor accent or occasional mispronunciations do not significantly affect intelligibility. Stress and intonation are generally appropriate.
+        * **4 pts:** Speech is generally clear with some accent. Most key words pronounced correctly, but some sounds may be distorted or unclear. Minor word stress issues. At least 80% of speech is easily understood.
+        * **3 pts:** Speech is understandable with noticeable accent. Some pronunciation errors but overall meaning is clear. May require listener to adjust. Around 70% intelligibility maintained.
+        * **2 pts:** Speech has significant pronunciation issues. Foreign accent is strong but speech remains largely intelligible. Many words may be distorted but main ideas are still understandable. Around 60% intelligibility.
+        * **1 pt:** Pronunciation is heavily affected by accent or many errors. Speech is still mostly intelligible but challenging for listeners. Around 50% intelligibility.
+        * **0 pts:** Unintelligible or no meaningful speech produced.
 
-    **3. Oral Fluency (Score from 0 to 5):**
-      * **5 pts:** Speech is smooth, effortless, and at a consistent native-like speed. Rhythm, phrasing, and word emphasis are natural. There are no hesitations, repetitions, or false starts.
-      * **4 pts:** Speech has an acceptable rhythm with appropriate phrasing and word emphasis. There is no more than one hesitation, one repetition or a false start. There are no significant phonological simplifications.
-      * **3 pts:** Speech is at an acceptable speed but may be uneven. There may be more than one hesitation, but most words are spoken in continuous phrases. There are few repetitions or false starts. There are no long pauses and speech does not sound staccato.
-      * **2 pts:** Speech may be uneven or staccato. Speech (if >= 6 words) has at least one smooth three-word run, and no more than two or three hesitations, repetitions or false starts. There may be one long pause, but not two or more.
-      * **1 pt:** Speech has irregular phrasing or sentence rhythm. Poor phrasing, staccato or syllabic timing, and/or multiple hesitations, repetitions, and/or false starts make spoken performance notably uneven or discontinuous. Long utterances may have one or two long pauses and inappropriate sentence-level word emphasis.
-      * **0 pts:** Speech is slow and labored with little discernable phrase grouping, multiple hesitations, pauses, false starts, OR Irrelevant, non-English, or no meaningful speech.
+      **3. Oral Fluency (Score from 0 to 5):**
+        * **5 pts:** Speech flows smoothly and naturally. Good pacing and rhythm. Few or no hesitations. Words and phrases are spoken clearly in natural groupings.
+        * **4 pts:** Speech is generally fluent with good flow. Some minor hesitations or pauses but overall natural pacing. Most utterances are smooth.
+        * **3 pts:** Speech is reasonably fluent but may have some hesitations, pauses, or repetitions. Overall pace is acceptable though may slow down occasionally. Most of speech is continuous.
+        * **2 pts:** Speech is somewhat choppy with noticeable hesitations, pauses, or repetitions. Pacing may be uneven but still mostly understandable. Some staccato rhythm but maintains basic coherence.
+        * **1 pt:** Speech is jerky with frequent hesitations, pauses, or repetitions. Pacing is uneven and may be difficult to follow. Still conveys basic meaning.
+        * **0 pts:** Severely disrupted speech, unintelligible patterns, or no meaningful speech produced.
 
     **Error Analysis Instructions:**
-    MANDATORY: You MUST analyze the user's transcribed text and identify ALL errors. Do not return empty error arrays.
+    MANDATORY: Analyze the user's transcribed text for errors. Return empty arrays if no errors exist in that category.
 
     Analyze for these error types:
     1. **Pronunciation Errors**: Words that sound mispronounced (e.g., "wuz" instead of "was")
     2. **Fluency Errors**: Filler words (um, uh, like, you know), hesitations, repetitions, false starts, or unnatural pauses
-    3. **Grammar Errors**: ALL grammatical mistakes including:
-        - Subject-verb agreement (e.g., "he go" → "he goes")
-        - Tense errors (e.g., "I go yesterday" → "I went yesterday")
-        - Article errors (e.g., "I see dog" → "I see a dog")
-        - Preposition errors (e.g., "between X and with Y" → "between X and Y")
-        - Word order errors (e.g., "quite decreasing" → "decreasing quite drastically")
-        - Awkward phrasing or unnatural expressions
-        - Incomplete phrases or missing words
-    4. **Content Errors**: Inaccurate descriptions that don't match the image
+    3. **Content Errors**: ONLY mark as errors if: user provides factually wrong information that contradicts the image data, misunderstands the data, or contradicts themselves. DO NOT mark as errors when user provides partial/subset information, minor inaccuracies in specific numbers (±5%), or alternative descriptions of the same fact.
 
     CRITICAL REQUIREMENTS:
-    - Identify EVERY grammar error, no matter how small
-    - Do NOT return empty arrays if errors exist
-    - For each error, provide: exact text, type, correction, and explanation
-    - Be strict and thorough in error detection
-    - When checking for grammatical mistakes, make sure that if a synonym is used but the grammar is correct, it should **not** be marked as an error.
-      - **Do not** mark the correct use of conjunctions or connectors (e.g., 'and', 'but', 'whereas', 'as') as grammatical errors. These are essential for linking ideas into the required single-sentence format.
+    - Return empty arrays if NO errors exist in that category
+    - For each error found, provide: exact text, type, correction, and explanation
+    - **CONTENT ERRORS POLICY**: Only flag major inaccuracies or misunderstandings, not missing information or minor variations. Examples of ACCEPTABLE variations:
+        * Says "35%" instead of "40%" = NOT an error (minor variation)
+        * Says "females peak at 35-44" instead of "both genders peak" = NOT an error (subset information)
+        * Says "decline after peak" instead of "sharp decline after peak" = NOT an error (equivalent description)
+    - **Do not** mark the correct use of conjunctions or connectors (e.g., 'and', 'but', 'whereas', 'as') as grammatical errors. These are essential for linking ideas.
     - **Error Prioritization:** A single error MUST be categorized only ONCE. Use this strict priority:
-        1. **Spelling:** If a word is misspelled (e.g., "goverment"), it MUST go into "spellingErrors" ONLY. Do not list it in grammar or vocabulary.
-        2. **Grammar:** If spelling is correct, but the word or phrase breaks a sentence rule (e.g., "he go" instead of "he goes"), it MUST go into "grammarErrors" ONLY.
-        3. **Vocabulary:** Only if spelling and grammar are correct, but the word choice is poor or inappropriate (e.g., using "big" instead of "significant"), it MUST go into "vocabularyIssues".
+        1. **Pronunciation:** If a word is mispronounced, categorize here ONLY.
+        2. **Fluency:** If it's a filler word or hesitation, categorize here ONLY.
+        3. **Content:** ONLY for factually incorrect statements, not for partial information or minor variations.
 
     **Required Output Format:**
     Respond with a single, minified JSON object in this exact format. Use camelCase for keys.
@@ -1022,7 +1220,7 @@ async function evaluateDescribeImage(
       },
       "feedback": {
         "summary": "<A brief, overall summary of the performance>",
-        "content": "<Detailed feedback specifically on the content>",
+        "content": "<Detailed feedback specifically on the content - acknowledge what they covered well, note any significant gaps if relevant>",
         "pronunciation": "<Detailed feedback specifically on pronunciation>",
         "oralFluency": "<Detailed feedback specifically on oral fluency>"
       },
@@ -1046,28 +1244,17 @@ async function evaluateDescribeImage(
             "explanation": "filler word that disrupts fluency"
           }
         ],
-        "grammarErrors": [
-          {
-            "text": "incorrect grammar phrase",
-            "type": "grammar",
-            "position": { "start": 0, "end": 1 },
-            "correction": "correct grammar phrase",
-            "explanation": "explanation of grammar error (e.g., subject-verb agreement, tense, article usage, preposition, word order)"
-          }
-        ],
+        "grammarErrors": [],
         "contentErrors": [
           {
-            "text": "incorrect description",
+            "text": "factually incorrect statement",
             "type": "content",
             "position": { "start": 0, "end": 1 },
             "correction": "accurate description",
-            "explanation": "description does not match image content"
+            "explanation": "this directly contradicts or misrepresents the image data"
           }
         ]
       }
-    }
-
-    CRITICAL: Return ALL errors found, including grammar errors. Do not return empty arrays if errors exist.
     }
   `;
 
@@ -1211,121 +1398,97 @@ async function evaluateRetellLecture(
   const originalLecture = question.textContent || '';
 
   const prompt = `
-    **Your Role:** You are an expert AI evaluator for the PTE Academic test. Your task is to analyze a user's "Re-tell Lecture" speaking performance with extreme precision.
+**Your Role:** You are an expert AI evaluator for the PTE Academic test.
+**Objective:** Evaluate the user's "Re-tell Lecture" response.
 
-    **Objective:** You will be given an original lecture transcript and a transcription of a user's spoken response. Evaluate the response based on official PTE criteria for Content, Oral Fluency, and Pronunciation, and provide detailed, actionable feedback.
+---
+### **Evaluation and Scoring Instructions**
+  **1. Content Analysis (0-6 scale):**
+    **STEP 1: THE "LIST vs. SPEECH" GATEKEEPER (Mandatory Check)**
+      Before awarding points, analyze the **grammatical structure** of the transcribed text.
+      - The Check:** Look for **Finite Verbs** (e.g., "is," "means," "helps," "reduces") and **Connectors** (e.g., "because," "and," "so," "which").
+      - The Trap:** Does the response consist of a string of Nouns/Adjectives separated by pauses or periods? (e.g., *"Sustainable farming. Environmental. Chemicals. Water."*)
+      - THE RULING:**
+          - IF "YES" (It is a list):** You **MUST** assign a score of **2** (or 1). **DO NOT** give a 3, 4, 5, or 6, even if the user lists every single keyword from the lecture. A list is not a summary.
+          - IF "NO" (It is connected speech):** Proceed to Step 2.
 
-    ---
-    ### **Evaluation and Scoring Instructions**
+    **STEP 2: STANDARD SCORING (Only for Connected Speech)**
+      - 6 pts (Perfect):** Seamless summary covering **5-6+ Key Points** in complex sentences. Flawless logic.
+      - 5 pts (Excellent):** Covers **4-5 Key Points** using natural connectors and complete sentences.
+          * *Constraint:* If the user sounds robotic or lacks flow, cap at 4.
+      - 4 pts (Good):** Covers **3-4 Key Points** in simple but complete sentences (e.g., "It reduces chemicals and saves water").
+      - 3 pts (Fragmented):** Covers 2-3 Key Points in sentences, OR uses long exact phrases (3-4 words) without connectors.
+      - 2 pts (The Keyword List):** **(Applicable if Step 1 triggered)**. The response contains valid keywords but lacks sentence structure (verbs/connectors).
+          * *Example:* "Water. Carbon. Food security." -> **Score 2**.
+      - 1 pt (Poor):** Highly minimal (1-2 words total) or irrelevant.
+      - 0 pts:** No meaningful response.
 
-    **1. Content Analysis (0-6 scale):**
-      Evaluate how well the user summarized the main ideas and important points of the lecture.
-        * **6 pts:** Mentions the general topic/theme and at least one relevant point or detail. Omissions of other main ideas or minor inaccuracies are acceptable. The gist is conveyed.
-        * **5 pts:** Identifies the topic and mentions scattered details or keywords. The connection between ideas may be weak, and the summary may lack specific main points, but it is clearly related to the lecture.
-        * **4 pts:** Mentions several relevant keywords or phrases from the lecture. Understanding may be fragmented or superficial, but the response identifies the source material.
-        * **3 pts:** Captures a few isolated words or phrases. Lacks a coherent summary, but demonstrates recognition of some vocabulary from the lecture.
-        * **2 pts:** Response is very limited (e.g., a single sentence or phrase) but contains at least one or two words relevant to the lecture.
-        * **1 pt:** Response is highly minimal, non-English, or barely intelligible.
-        * **0 pts:** No meaningful response is provided.
+    **Important Content Guidelines:**
+      - Logic Check: Verify the student hasn't stated the opposite of the lecture.
+      - Distinction:
+          - Input:* "Farming. Water. Chemicals." -> **Score 2** (List).
+          - Input:* "Farming uses water and chemicals." -> **Score 4** (Sentence).
 
-    * **Pronunciation (0-5 scale):** Score based on the accuracy of the transcribed words.
-        * **5 pts:** Transcription is clear and accurate, with only very minor, isolated errors that do not impact understanding.
-        * **4 pts:** Several errors that suggest pronunciation issues but text is mostly understandable.
-        * **3 pts:** Many errors, making the text difficult to follow.
-        * **2 pts:** The transcription is mostly incorrect, indicating very poor pronunciation.
-        * **1 pt:** The transcription is almost entirely incorrect, with only a few recognizable words.
-        * **0 pts:** The transcription is completely incorrect, contains no recognizable English words, or no meaningful speech transcribed.
-        
-    * **Oral Fluency (0-5 scale):** Score based on filler words, hesitations, and natural flow.
-        * **5 pts:** Smooth and flowing speech with almost no hesitations or filler words. Delivered in natural phrases.
-        * **4 pts:** Noticeable hesitations or filler words that disrupt the flow.
-        * **3 pts:** Uneven, slow, or fragmented speech.
-        * **2 pts:** Very halting speech with many pauses or fillers.
-        * **1 pt:** Extremely halting, with long pauses and many fillers.
-        * **0 pts:** Mostly isolated words, not delivered in phrases, or no meaningful speech.
+  **2. Pronunciation (0-5 scale):** Score based on the accuracy of the transcribed words.
+    - 5 pts:** Clear/accurate; minor isolated errors only.
+    - 4 pts:** Several errors; text mostly understandable.
+    - 3 pts:** Many errors; text difficult to follow.
+    - 2 pts:** Mostly incorrect.
+    - 1 pt:** Almost entirely incorrect.
 
-    **Important Guidelines:**
-    * Focus on content accuracy and relevance to the original lecture
-    * Consider the logical organization and coherence of the response
-    * Evaluate pronunciation based on transcription quality and clarity
-    * Assess fluency through speech patterns evident in the transcription
+  **3. Oral Fluency (0-5 scale):** Score based on filler words, hesitations, and natural flow.
+    - 5 pts:** Smooth, flowing; natural phrasing.
+    - 4 pts:** Noticeable hesitations/fillers.
+    - 3 pts:** Uneven, slow, or fragmented speech.
+    - 2 pts:** Very halting; many pauses/fillers.
+    - 1 pt:** Extremely halting.
 
-    ---
-    ### **Error Analysis Instructions**
+---
+### **Error Analysis Instructions**
 
-    **CRITICAL:** You must provide detailed error analysis by identifying specific mistakes in the user's transcribed speech.
+  **CRITICAL:** Provide detailed error analysis identifying specific mistakes.
 
-    **For each error you find:**
-    1. Identify the EXACT word or phrase that contains the error (just the word, not surrounding text)
-    2. Provide the correct replacement from the original lecture
-    3. Give a clear explanation of the pronunciation, fluency, or content issue
-    4. Set position to {"start": 0, "end": 1} (we'll match by word content, not position)
+  **For each error:**
+  1.  Identify the EXACT word/phrase (no surrounding text).
+  2.  Provide the correct replacement.
+  3.  Explain the issue (pronunciation, fluency, or content).
+  4. Set position to {"start": 0, "end": 1} (we'll match by word content, not position)
 
-    **Error Types to Look For:**
-    - **Pronunciation**: Mispronounced words, incorrect stress, unclear articulation
-    - **Fluency**: Hesitations, filler words (um, uh, er), unnatural pauses
-    - **Content**: Omitted key points, incorrect information, word substitutions
+  **Error Types:**
+  * **Pronunciation:** Mispronounced/unclear words.
+  * **Fluency:** Hesitations, fillers (um, uh), unnatural pauses.
+  * **Content:** Omitted key points, incorrect info, logic errors.
 
-    **IMPORTANT:**
-      - Only include errors that actually exist
-      - For "text" field, provide ONLY the incorrect word/phrase, nothing else
-      - Be very specific with the exact word that's wrong
-      - When checking for grammatical mistakes, make sure that if a synonym is used but the grammar is correct, it should **not** be marked as an error.
-      - **Connector Immunity:** Do NOT mark the usage of the connecting words **"but", "whereas", "as", "and", "so"** as grammar errors (e.g., run-on sentences). These connectors are required for the PTE single-sentence format. Treat clauses linked by these words as grammatically valid.
-      - **Error Prioritization:** A single error MUST be categorized only ONCE. Use this strict priority:
-        1. **Spelling:** If a word is misspelled (e.g., "goverment"), it MUST go into "spellingErrors" ONLY. Do not list it in grammar or vocabulary.
-        2. **Grammar:** If spelling is correct, but the word or phrase breaks a sentence rule (e.g., "he go" instead of "he goes"), it MUST go into "grammarErrors" ONLY.
-        3. **Vocabulary:** Only if spelling and grammar are correct, but the word choice is poor or inappropriate (e.g., using "big" instead of "significant"), it MUST go into "vocabularyIssues".
+  **IMPORTANT:**
+  * **Connector Immunity:** Do NOT mark **"but", "whereas", "as", "and", "so"** as grammar errors.
+  * **Synonym Immunity:** If a student uses a valid synonym, do **NOT** mark it as a content error.
+  * **Error Priority:** 1. Spelling -> 2. Grammar -> 3. Vocabulary.
 
-    ---
-    ### **Required Output Format**
-    Your final output **must** be a single JSON object with the following structure:
+---
+### **Required Output Format**
+  Your final output **must** be a single JSON object:
 
-    **Original Lecture**: "${originalLecture}"
-    **User's Transcribed Response**: "${transcribedText}"
-    **Time Taken**: ${timeTakenSeconds || 'Not specified'} seconds
+  **Original Lecture**: "${originalLecture}"
+  **User's Transcribed Response**: "${transcribedText}"
+  **Time Taken**: ${timeTakenSeconds || 'Not specified'} seconds
 
-    {
-      "Content": <number_0_to_6>,
-      "Oral Fluency": <number_0_to_5>,
-      "Pronunciation": <number_0_to_5>,
-      "feedback": {
-        "content": "Specific feedback on content accuracy and comprehension",
-        "oralFluency": "Specific feedback on speech flow and fluency",
-        "pronunciation": "Specific feedback on pronunciation clarity"
-      },
-      "suggestions": ["Actionable tip 1", "Actionable tip 2", "Actionable tip 3"],
-      "errorAnalysis": {
-        "pronunciationErrors": [
-          {
-            "text": "mispronounced word",
-            "type": "pronunciation",
-            "position": { "start": 0, "end": 1 },
-            "correction": "correct pronunciation",
-            "explanation": "explanation of pronunciation error"
-          }
-        ],
-        "fluencyErrors": [
-          {
-            "text": "um",
-            "type": "fluency",
-            "position": { "start": 0, "end": 1 },
-            "correction": "",
-            "explanation": "filler word that disrupts fluency"
-          }
-        ],
-        "contentErrors": [
-          {
-            "text": "incorrect information",
-            "type": "content",
-            "position": { "start": 0, "end": 1 },
-            "correction": "correct information from lecture",
-            "explanation": "content accuracy issue"
-          }
-        ]
-      }
-    }
-  `;
+{
+  "Content": <number_0_to_6>,
+  "Oral Fluency": <number_0_to_5>,
+  "Pronunciation": <number_0_to_5>,
+  "feedback": {
+    "content": "Specific feedback. *If score is 2 due to keyword listing, explicitly state: 'You provided a list of keywords. You must speak in full sentences to score higher.'*",
+    "oralFluency": "Feedback on flow/hesitations.",
+    "pronunciation": "Feedback on clarity."
+  },
+  "suggestions": ["Actionable tip 1", "Actionable tip 2", "Actionable tip 3"],
+  "errorAnalysis": {
+    "pronunciationErrors": [ { "text": "...", "type": "pronunciation", "position": {...}, "correction": "...", "explanation": "..." } ],
+    "fluencyErrors": [ { "text": "...", "type": "fluency", "position": {...}, "correction": "", "explanation": "..." } ],
+    "contentErrors": [ { "text": "...", "type": "content", "position": {...}, "correction": "...", "explanation": "..." } ]
+  }
+}
+`;
 
   try {
     const response = await openai.chat.completions.create({
@@ -1343,12 +1506,6 @@ async function evaluateRetellLecture(
     });
 
     const evaluation = JSON.parse(response.choices[0].message.content || '{}');
-
-    // Log the AI response for debugging
-    console.log(
-      'RE_TELL_LECTURE AI Response:',
-      JSON.stringify(evaluation, null, 2)
-    );
 
     // Parse the OpenAI response format for Re-tell Lecture
     // Handle the actual response structure from OpenAI
@@ -1414,7 +1571,6 @@ async function evaluateRetellLecture(
         pronunciationPercentage: Math.round(pronunciationPercentage),
         recognizedText: evaluation.analysis?.recognizedText || transcribedText,
         timeTaken: timeTakenSeconds || 0,
-        fullEvaluation: evaluation,
         errorAnalysis: evaluation.errorAnalysis || {
           pronunciationErrors: [],
           fluencyErrors: [],
@@ -1474,46 +1630,75 @@ async function evaluateSummarizeGroupDiscussion(
   const transcribedText = userResponse.textResponse;
   const discussionTranscript = question.textContent || '';
 
-  console.log(question, 'QUESTION');
-  console.log(userResponse, 'userRESPONSE');
-
   const prompt = `
-    **Your Role:** You are an expert AI evaluator for the PTE Academic test. Your task is to analyze a user's "Summarize Group Discussion" speaking performance with extreme precision.
-
-    **Objective:** You will be given a transcript of a group discussion and a transcription of a user's spoken summary. Evaluate the response based on official PTE criteria for Content, Oral Fluency, and Pronunciation, and provide detailed, actionable feedback.
+  **Your Role:** You are an expert AI evaluator for the PTE Academic test. Your task is to analyze a user's "Summarize Group Discussion" speaking performance with extreme precision.
+  **Objective:** You will be given a transcript of a group discussion and a transcription of a user's spoken summary. Evaluate the response based on official PTE criteria for Content, Oral Fluency, and Pronunciation, and provide detailed, actionable feedback.
 
     ---
-    ### **Evaluation and Scoring Instructions**
+   ## 1. CONTENT ANALYSIS (0–6 SCALE)
 
-    **1. Content Analysis (0-6 scale):**
-      Evaluate how well the user summarized the main ideas and viewpoints from the group discussion using the specific criteria below:
+    **STEP 1: LIST vs. SPEECH GATEKEEPER (MANDATORY)**
+      Before assigning a Content score, analyze the **grammatical structure** of the user's transcribed response.
+      **Check for:**
+      - **Finite verbs** (e.g., *is, are, was, means, helps, reduces*)
+      - **Logical connectors** (e.g., *and, but, because, so, which, while*)
 
-        * **6 pts:** Response captures the **main ideas** of the discussion and **some details** of individual speakers' contributions, but may include a few inaccurate ideas, or focus on less important details, showing **sufficient comprehension**.
-          • Response focuses more on **individual perspectives** than relationships between perspectives and may include some basic attempts at comparison.
-          • The range of expression and vocabulary is **sufficient** to give basic descriptions but may rely on **repetition**.
-          • The ideas in the response are **not well connected**, requiring listeners some effort to follow.
+      **Identify the trap:**
+      - Does the response consist mainly of **nouns or adjectives listed separately**, possibly divided by pauses or periods?
+      - Example: *"Environment. Water usage. Chemicals. Farming."*
 
-        * **5 pts:** Response captures **some ideas** from discussion but may not capture them fully accurately or be able to differentiate between important points and details, reflecting only **adequate comprehension**.
-          • Response includes some accurate information but **misses the substance** and general direction of the full conversation.
-          • The range of expression and vocabulary is **narrow** and simple expressions are used repeatedly.
-          • The response consists mainly of **unconnected ideas**, with little organizational structure evident, and requires effort to follow.
+      ### **RULING (STRICT):**
+      - **IF YES (It is a list):**
+      - You MUST assign **Content = 2** (or 1 if extremely minimal).
+      - **DO NOT** award 3, 4, 5, or 6 — even if all keywords from the discussion are mentioned.
+      - A list is **NOT** a summary.
 
-        * **4 pts:** Response is **mostly inaccurate, incomplete**, or focuses on **non-essential information** from the discussion while missing main ideas.
-          • Response may rely heavily on **repeating language** without reformulation or context, indicating **limited comprehension**.
-          • Limited vocabulary and simple expressions dominate the response.
-          • The response **lacks coherence** and is difficult to follow.
+      - **IF NO (It is connected speech):**
+      - Proceed to **Step 2: Standard Scoring**.
 
-        * **3 pts:** The response **repeats isolated words and phrases** from the discussion but does not provide adequate context or meaning. The content appears on topic but does not communicate in any meaningful way.
-          • Vocabulary and expressions are **highly restricted**.
-          • There is **no hierarchy of ideas or coherence** among points.
 
-        * **2 pts:** Response is relevant to the prompt but is **too limited** (e.g., only a few scattered keywords) to assign a higher score.
+    **STEP 2: STANDARD CONTENT SCORING (Connected Speech Only)**
+      Evaluate how accurately and effectively the user summarized the discussion.
 
-        * **1 pt:** Response is highly minimal (e.g., one or two relevant words) or completely fragmented.
+      - 6 pts (Excellent)**
+        - Seamless and coherent summary covering **4–5 or more key points** from the discussion.
+        - Accurately represents multiple viewpoints.
+        - Uses complete sentences with logical connectors.
+        - Ideas are logically structured with clear relationships between perspectives.
+        - No major factual distortions.
+      - 5 pts (Very Good)**
+        - Covers **3–4 key points** from the discussion.
+        - Uses complete sentences and appropriate connectors.
+        - Captures the general direction of the discussion.
+        - Minor omissions or simplifications may exist.
+        - If delivery is robotic or poorly connected, **cap at 4**.
+      - 4 pts (Good)**
+        - Covers **2-3 key points** accurately.
+        - Uses simple but complete sentences.
+        - Focuses more on individual ideas than relationships between viewpoints.
+        - Organization may be basic but meaning is clear.
+      - 3 pts (Limited / Fragmented)**
+        - Covers **2–3 key points** using sentences, OR
+        - Relies on **long exact phrases (3–4 words)** from the discussion without connectors.
+        - Logical connections are weak or unclear.
+      - 2 pts (Keyword List)**
+        - **Applied ONLY if Step 1 is triggered.**
+        - Response contains relevant keywords but lacks sentence structure.
+        - Example: *"Water. Carbon. Food security."*
+      - 1 pt (Poor)**
+        - Highly minimal response (1–2 relevant words total) OR
+        - Mostly irrelevant to the discussion.
+      - 0 pts**
+        - No meaningful response or completely non-English.
 
-        * **0 pts:** No meaningful response is provided, or is entirely irrelevant/non-English.
+       **IMPORTANT CONTENT GUIDELINES**
+        - **Logic Check:** Ensure the user has not stated the opposite of what speakers said.
+        - **Accuracy Check:** Incorrect attribution or distortion of viewpoints must be penalized.
+        - **Distinction Rule:**
+        - *"Climate. Farming. Water."* → **Score 2**
+        - *"Farming uses water and affects the climate."* → **Score 4**
 
-    * **Pronunciation (0-5 scale):** Score based on the accuracy of the transcribed words.
+    ## 2. Pronunciation (0-5 scale):** Score based on the accuracy of the transcribed words.
         * **5 pts:** Transcription is clear and accurate, with only very minor, isolated errors that do not impact understanding.
         * **4 pts:** Several errors that suggest pronunciation issues but text is mostly understandable.
         * **3 pts:** Many errors, making the text difficult to follow.
@@ -1521,7 +1706,7 @@ async function evaluateSummarizeGroupDiscussion(
         * **1 pt:** The transcription is almost entirely incorrect, with only a few recognizable words.
         * **0 pts:** The transcription is completely incorrect, contains no recognizable English words, or no meaningful speech transcribed.
         
-    * **Oral Fluency (0-5 scale):** Score based on filler words, hesitations, and natural flow.
+    ## 3. Oral Fluency (0-5 scale):** Score based on filler words, hesitations, and natural flow.
         * **5 pts:** Smooth and flowing speech with almost no hesitations or filler words. Delivered in natural phrases.
         * **4 pts:** Noticeable hesitations or filler words that disrupt the flow.
         * **3 pts:** Uneven, slow, or fragmented speech.
@@ -1529,88 +1714,80 @@ async function evaluateSummarizeGroupDiscussion(
         * **1 pt:** Extremely halting, with long pauses and many fillers.
         * **0 pts:** Mostly isolated words, not delivered in phrases, or no meaningful speech.
 
-    **Important Guidelines:**
-    * Focus on content accuracy and relevance to the group discussion
-    * Consider how well the user captured multiple viewpoints
-    * Evaluate pronunciation based on transcription quality and clarity
-    * Assess fluency through speech patterns evident in the transcription
+      **Important Guidelines:**
+        - Focus on content accuracy and relevance to the group discussion
+        - Consider how well the user captured multiple viewpoints
+        - Evaluate pronunciation based on transcription quality and clarity
+        - Assess fluency through speech patterns evident in the transcription
 
-    ---
-    ### **Error Analysis Instructions**
+  ### **Error Analysis Instructions**
 
-    **CRITICAL:** You must provide detailed error analysis by identifying specific mistakes in the user's transcribed speech.
+    **CRITICAL:** Provide detailed error analysis identifying specific mistakes.
 
-    **For each error you find:**
-    1. Identify the EXACT word or phrase that contains the error (just the word, not surrounding text)
-    2. Provide the correct replacement from the original discussion
-    3. Give a clear explanation of the pronunciation, fluency, or content issue
-    4. Set position to {"start": 0, "end": 1} (we'll match by word content, not position)
+      **For each error:**
+      1.  Identify the EXACT word/phrase (no surrounding text).
+      2.  Provide the correct replacement.
+      3.  Explain the issue (pronunciation, fluency, or content).
+      4. Set position to {"start": 0, "end": 1} (we'll match by word content, not position)
 
-    **Error Types to Look For:**
-    - **Pronunciation**: Mispronounced words, incorrect stress, unclear articulation
-    - **Fluency**: Hesitations, filler words (um, uh, er), unnatural pauses
-    - **Content**: Omitted key viewpoints, incorrect information, word substitutions
+      **Error Types:**
+      * **Pronunciation:** Mispronounced/unclear words.
+      * **Fluency:** Hesitations, fillers (um, uh, er), unnatural pauses.
+      * **Content:** Omitted key points, incorrect info, logic errors.
 
-     CRITICAL REQUIREMENTS:
-    - Identify EVERY grammar error, no matter how small
-    - Do NOT return empty arrays if errors exist
-    - For each error, provide: exact text, type, correction, and explanation
-    - Be strict and thorough in error detection
-    - When checking for grammatical mistakes, make sure that if a synonym is used but the grammar is correct, it should **not** be marked as an error.
-      - **Do not** mark the correct use of conjunctions or connectors (e.g., 'and', 'but', 'whereas', 'as') as grammatical errors. These are essential for linking ideas into the required single-sentence format.
-    - **Error Prioritization:** A single error MUST be categorized only ONCE. Use this strict priority:
-        1. **Spelling:** If a word is misspelled (e.g., "goverment"), it MUST go into "spellingErrors" ONLY. Do not list it in grammar or vocabulary.
-        2. **Grammar:** If spelling is correct, but the word or phrase breaks a sentence rule (e.g., "he go" instead of "he goes"), it MUST go into "grammarErrors" ONLY.
-        3. **Vocabulary:** Only if spelling and grammar are correct, but the word choice is poor or inappropriate (e.g., using "big" instead of "significant"), it MUST go into "vocabularyIssues".
+      **IMPORTANT:**
+      * **Connector Immunity:** Do NOT mark **"but", "whereas", "as", "and", "so"** as grammar errors.
+      * **Synonym Immunity:** If a student uses a valid synonym, do **NOT** mark it as a content error.
+      * **Error Priority:** 1. Spelling -> 2. Grammar -> 3. Vocabulary.
 
-    ---
-    ### **Required Output Format**
-    Your final output **must** be a single JSON object with the following structure:
+  ---
+  ### **Required Output Format**
+  Your final output **must** be a single JSON object with the following structure:
 
-    **Group Discussion Transcript**: "${discussionTranscript}"
-    **User's Transcribed Summary**: "${transcribedText}"
-    **Time Taken**: ${timeTakenSeconds || 'Not specified'} seconds
+  **Group Discussion Transcript**: "${discussionTranscript}"
+  **User's Transcribed Summary**: "${transcribedText}"
+  **Time Taken**: ${timeTakenSeconds || 'Not specified'} seconds
 
-    {
-      "Content": <number_0_to_6>,
-      "Oral Fluency": <number_0_to_5>,
-      "Pronunciation": <number_0_to_5>,
-      "feedback": {
-        "content": "Specific feedback on content accuracy and comprehension of discussion viewpoints",
-        "oralFluency": "Specific feedback on speech flow and fluency",
-        "pronunciation": "Specific feedback on pronunciation clarity"
-      },
-      "suggestions": ["Actionable tip 1", "Actionable tip 2", "Actionable tip 3"],
-       "errorAnalysis": {
-        "pronunciationErrors": [
-          {
-            "text": "mispronounced word",
-            "type": "pronunciation",
-            "position": { "start": 0, "end": 1 },
-            "correction": "correct pronunciation",
-            "explanation": "explanation of pronunciation error"
-          }
-        ],
-        "fluencyErrors": [
-          {
-            "text": "um",
-            "type": "fluency",
-            "position": { "start": 0, "end": 1 },
-            "correction": "",
-            "explanation": "filler word that disrupts fluency"
-          }
-        ],
-        "contentErrors": [
-          {
-            "text": "incorrect information",
-            "type": "content",
-            "position": { "start": 0, "end": 1 },
-            "correction": "correct information from lecture",
-            "explanation": "content accuracy issue"
-          }
-        ]
+{
+  "Content": <number_0_to_6>,
+  "Oral Fluency": <number_0_to_5>,
+  "Pronunciation": <number_0_to_5>,
+  "feedback": {
+    "content": "Specific feedback. *If score is 2 due to keyword listing, warn user: 'You are listing keywords. You must use full sentences and phrases to summarize the discussion.'*",
+    "oralFluency": "Specific feedback on speech flow.",
+    "pronunciation": "Specific feedback on clarity."
+  },
+  "suggestions": ["Actionable tip 1", "Actionable tip 2", "Actionable tip 3"],
+  "errorAnalysis": {
+    "pronunciationErrors": [
+      {
+        "text": "mispronounced word",
+        "type": "pronunciation",
+        "position": { "start": 0, "end": 1 },
+        "correction": "correct pronunciation",
+        "explanation": "explanation of pronunciation error"
       }
-    }
+    ],
+    "fluencyErrors": [
+      {
+        "text": "um",
+        "type": "fluency",
+        "position": { "start": 0, "end": 1 },
+        "correction": "",
+        "explanation": "filler word that disrupts fluency"
+      }
+    ],
+    "contentErrors": [
+      {
+        "text": "incorrect information",
+        "type": "content",
+        "position": { "start": 0, "end": 1 },
+        "correction": "correct information",
+        "explanation": "content accuracy issue"
+      }
+    ]
+  }
+}
   `;
 
   try {
@@ -1629,12 +1806,6 @@ async function evaluateSummarizeGroupDiscussion(
     });
 
     const evaluation = JSON.parse(response.choices[0].message.content || '{}');
-
-    // Log the AI response for debugging
-    console.log(
-      'SUMMARIZE_GROUP_DISCUSSION AI Response:',
-      JSON.stringify(evaluation, null, 2)
-    );
 
     const contentScore = evaluation.Content || 0;
     const contentMaxScore = 6;
@@ -1693,7 +1864,7 @@ async function evaluateSummarizeGroupDiscussion(
         pronunciationPercentage: Math.round(pronunciationPercentage),
         recognizedText: evaluation.analysis?.recognizedText || transcribedText,
         timeTaken: timeTakenSeconds || 0,
-        fullEvaluation: evaluation,
+        // fullEvaluation: evaluation,
         errorAnalysis: evaluation.errorAnalysis || {
           pronunciationErrors: [],
           fluencyErrors: [],
@@ -1755,65 +1926,87 @@ async function evaluateRespondToASituation(
 ): Promise<QuestionEvaluationResult> {
   const transcribedText = userResponse.textResponse;
   const situationPrompt = question.textContent || '';
-
-  console.log(question, 'QUESTION');
-  console.log(userResponse, 'userRESPONSE');
-
   const prompt = `
     **Your Role:** You are an expert AI evaluator for the PTE Academic test. Your task is to analyze a user's "Respond to a Situation" speaking performance with extreme precision.
 
     **Objective:** You will be given a situational prompt and a transcription of a user's spoken response. Evaluate the response based on official PTE criteria for Content, Oral Fluency, and Pronunciation, and provide detailed, actionable feedback.
-
+0
     ---
     ### **Evaluation and Scoring Instructions**
 
     **1. Content Analysis (0-6 scale):**
       Evaluate how well the user responded to the situation using the specific criteria below:
-
-        * **6 pts:** Response deals with the situation effectively. Successfully accomplishes the primary communication goal with full consideration of the context given in the prompt. 
-          • Communicates with ease, flexibility, and precision throughout the response. Response is situationally appropriate and fully developed, expanding beyond the prompt language to provide a persuasive response.
-
-        * **5 pts:** Response deals with the situation adequately. Successfully accomplishes the primary communication goal with some consideration of the context given in the prompt, with only minor omissions or misinterpretations.
-          • Communicates clearly and accurately with little restriction. Limitations only evident for difficult elements. A variety of situationally appropriate expressions are used to meet the demands of the situation adequately, with minimal inaccuracies.
-
-        * **4 pts:** Response partially accomplishes the primary communication goal with some consideration of the context given in the prompt, with some omissions or misinterpretations.
-          • Communicates adequately, with some limitations of expression and minor inaccuracies. The range of expression is situationally appropriate and sufficient to meet most of the demands of the situation, with minimal inaccuracies.
-       
-        * **3 pts:** Response partially accomplishes the most basic aspect of the communication goal with some limited consideration of the context given in the prompt.
-          • Communication is functional, but range of expression is limited and contains some inaccuracies or situationally inappropriate elements. Response may include repetition of language from prompt without reformulation or context
-
-        * **2 pts:** Response contains some content relevant to the situation but does not achieve the primary communication goal or address the specifics of the context given in the prompt.
-          • Communication contains restrictions and inaccuracies that compromise meaning or is heavily reliant on using language from the prompt without reformulation or context.
-
-        * **1 pt:** Response contains content relevant to the situation but does not achieve the primary communication goal or address the specifics of the context given in the prompt, showing a lack of understanding of the situation given in the prompt.
-          • Communication is significantly restricted, containing limitations and inaccuracies that impede meaning. The response repeats isolated words and phrases from the prompt but does not provide adequate context or meaning.
-            OR
-          • Minimally addresses the prompt by providing a situationally appropriate response that accomplishes primary goal of communication, but with no elaboration or support.
-
-        * **0 pts:** Response is relevant to the prompt but too limited to assign a higher score.
+      ### 6 pts
+      - The response fully and effectively addresses the situation and achieves the primary communication goal.
+      - Demonstrates clear understanding of the context and the expectations of the situation.
+      - Includes **appropriate development**, such as explanation, reasoning, reassurance, or justification relevant to the situation.
+      - Ideas are logically connected and clearly expressed.
+      - Uses original language rather than repeating the prompt.
+      ### 5 pts
+      - The response addresses the situation effectively and achieves the communication goal.
+      - Context is understood, but development is limited or incomplete.
+      - Meaning is clear, but the response lacks depth, elaboration, or nuance.
+      ### 4 pts
+      - The response generally addresses the situation and achieves most of the communication goal.
+      - Some elements are underdeveloped, unclear, or missing.
+      - Language is simple but appropriate.
+      ### 3 pts
+      - The response addresses only the basic requirement of the situation.
+      - Development is minimal or abrupt.
+      - Overall meaning is understandable but incomplete.
+      ### 2 pts
+      - The response contains some relevant content but does not clearly achieve the communication goal.
+      - Important aspects of the situation are missing or misunderstood.
+      ### 1 pt
+      - The response shows minimal understanding of the situation.
+      - Uses isolated relevant words or phrases with little or no elaboration.
+      ### 0 pts
+      - The response is relevant but too limited to assign a higher score.
 
     * **Pronunciation (0-5 scale):** Score based on the accuracy of the transcribed words.
-        * **5 pts:** Transcription is clear and accurate, with only very minor, isolated errors that do not impact understanding.
-        * **4 pts:** Several errors that suggest pronunciation issues but text is mostly understandable.
-        * **3 pts:** Many errors, making the text difficult to follow.
-        * **2 pts:** The transcription is mostly incorrect, indicating very poor pronunciation.
-        * **1 pt:** The transcription is almost entirely incorrect, with only a few recognizable words.
-        * **0 pts:** The transcription is completely incorrect, contains no recognizable English words, or no meaningful speech transcribed.
+      ### 5 pts
+      - Speech is clear and understandable throughout.
+      - Minor pronunciation errors may exist but do not affect understanding.
+      ### 4 pts
+      - Some pronunciation errors are noticeable.
+      - The response is understandable without significant effort.
+      ### 3 pts
+      - Frequent pronunciation errors.
+      - Most of the message is understandable with some effort.
+      ### 2 pts
+      - Many pronunciation errors significantly affect clarity.
+      - Listener must make considerable effort to understand.
+      ### 1 pt
+      - Very poor pronunciation.
+      - Only a few recognizable English words.
+      ### 0 pts
+      - No recognizable English words or meaningful speech.
         
     * **Oral Fluency (0-5 scale):** Score based on filler words, hesitations, and natural flow.
-        * **5 pts:** Smooth and flowing speech with almost no hesitations or filler words. Delivered in natural phrases.
-        * **4 pts:** Noticeable hesitations or filler words that disrupt the flow.
-        * **3 pts:** Uneven, slow, or fragmented speech.
-        * **2 pts:** Very halting speech with many pauses or fillers.
-        * **1 pt:** Extremely halting, with long pauses and many fillers.
-        * **0 pts:** Mostly isolated words, not delivered in phrases, or no meaningful speech.
+      ### 5 pts
+      - Speech is mostly smooth and continuous.
+      - Some hesitations or fillers may occur but do not seriously disrupt flow.
+      ### 4 pts
+      - Speech is uneven with noticeable pauses or fillers.
+      - Overall message is still delivered clearly.
+      ### 3 pts
+      - Speech is halting with frequent pauses.
+      - Message is understandable but lacks smooth flow.
+      ### 2 pts
+      - Speech is very slow and fragmented.
+      - Long pauses and fillers interfere with meaning.
+      ### 1 pt
+      - Mostly isolated words or short phrases.
+      - Very little connected speech.
+      ### 0 pts
+      - No meaningful speech or only unintelligible sounds.
 
     **Important Guidelines:**
-    * Focus on how well the user addressed the specific situation
-    * Evaluate appropriateness and relevance of the response
-    * Consider if the user provided clear strategies for handling the situation
-    * Evaluate pronunciation based on transcription quality and clarity
-    * Assess fluency through speech patterns evident in the transcription
+      - Focus on how well the user addressed the specific situation
+      - Evaluate appropriateness and relevance of the response
+      - Consider if the user provided clear strategies for handling the situation
+      - Evaluate pronunciation based on transcription quality and clarity
+      - Assess fluency through speech patterns evident in the transcription
 
     ---
     ### **Error Analysis Instructions**
@@ -1821,27 +2014,26 @@ async function evaluateRespondToASituation(
     **CRITICAL:** You must provide detailed error analysis by identifying specific mistakes in the user's transcribed speech.
 
     **For each error you find:**
-    1. Identify the EXACT word or phrase that contains the error (just the word, not surrounding text)
-    2. Provide the correct replacement
-    3. Give a clear explanation of the pronunciation, fluency, or content issue
-    4. Set position to {"start": 0, "end": 1} (we'll match by word content, not position)
+      1. Identify the EXACT word or phrase that contains the error (just the word, not surrounding text)
+      2. Provide the correct replacement
+      3. Give a clear explanation of the pronunciation, fluency, or content issue
+      4. Set position to {"start": 0, "end": 1} (we'll match by word content, not position)
 
     **Error Types to Look For:**
-    - **Pronunciation**: Mispronounced words, incorrect stress, unclear articulation
-    - **Fluency**: Hesitations, filler words (um, uh, er), unnatural pauses
-    - **Content**: Vague responses, incomplete ideas, off-topic information
+      - **Pronunciation**: Mispronounced words, incorrect stress, unclear articulation
+      - **Fluency**: Hesitations, filler words (um, uh, er), unnatural pauses
+      - **Content**: Vague responses, incomplete ideas, off-topic information
 
      CRITICAL REQUIREMENTS:
-    - Identify EVERY grammar error, no matter how small
-    - Do NOT return empty arrays if errors exist
-    - For each error, provide: exact text, type, correction, and explanation
-    - Be strict and thorough in error detection
-    - When checking for grammatical mistakes, make sure that if a synonym is used but the grammar is correct, it should **not** be marked as an error.
-      - **Do not** mark the correct use of conjunctions or connectors (e.g., 'and', 'but', 'whereas', 'as') as grammatical errors. These are essential for linking ideas into the required single-sentence format.
-    - **Error Prioritization:** A single error MUST be categorized only ONCE. Use this strict priority:
-        1. **Spelling:** If a word is misspelled (e.g., "goverment"), it MUST go into "spellingErrors" ONLY. Do not list it in grammar or vocabulary.
-        2. **Grammar:** If spelling is correct, but the word or phrase breaks a sentence rule (e.g., "he go" instead of "he goes"), it MUST go into "grammarErrors" ONLY.
-        3. **Vocabulary:** Only if spelling and grammar are correct, but the word choice is poor or inappropriate (e.g., using "big" instead of "significant"), it MUST go into "vocabularyIssues".
+      - Identify EVERY grammar error, no matter how small
+      - Do NOT return empty arrays if errors exist
+      - For each error, provide: exact text, type, correction, and explanation
+      - Be strict and thorough in error detection
+      - When checking for grammatical mistakes, make sure that if a synonym is used but the grammar is correct, it should **not** be marked as an error.
+        - **Do not** mark the correct use of conjunctions or connectors (e.g., 'and', 'but', 'whereas', 'as') as grammatical errors. These are essential for linking ideas into the required single-sentence format.
+      - **Error Prioritization:** A single error MUST be categorized only ONCE. Use this strict priority:
+          1. **Spelling:** If a word is misspelled (e.g., "goverment"), it MUST go into "spellingErrors" ONLY. Do not list it in grammar or vocabulary.
+          2. **Vocabulary:** Only if spelling and grammar are correct, but the word choice is poor or inappropriate (e.g., using "big" instead of "significant"), it MUST go into "vocabularyIssues".
 
     ---
     ### **Required Output Format**
@@ -1910,12 +2102,6 @@ async function evaluateRespondToASituation(
 
     const evaluation = JSON.parse(response.choices[0].message.content || '{}');
 
-    // Log the AI response for debugging
-    console.log(
-      'RESPOND_TO_A_SITUATION AI Response:',
-      JSON.stringify(evaluation, null, 2)
-    );
-
     const contentScore = evaluation.Content || 0;
     const contentMaxScore = 6;
     const oralFluencyScore = evaluation['Oral Fluency'] || 0;
@@ -1972,7 +2158,7 @@ async function evaluateRespondToASituation(
         pronunciationPercentage: Math.round(pronunciationPercentage),
         recognizedText: evaluation.analysis?.recognizedText || transcribedText,
         timeTaken: timeTakenSeconds || 0,
-        fullEvaluation: evaluation,
+        // fullEvaluation: evaluation,
         errorAnalysis: {
           pronunciationErrors:
             evaluation.errorAnalysis?.pronunciationErrors || [],
@@ -2137,70 +2323,109 @@ async function evaluateSummarizeWrittenText(
 
   const prompt = `
     **Your Role:** You are an expert PTE Academic grader specializing in the "Summarize Written Text" task.
-
     **Objective:** Evaluate the user's summary of the provided text. You must score the response on four distinct traits: Content, Form, Grammar, and Vocabulary, using the detailed rubrics below.
 
-    ---
     ### **Input for Evaluation**
-
-    * **Original Text:**
-    "${question.textContent}"
-
-    * **User's Summary:**
-    "${userText}"
-
-    * **Word Count:** ${wordCount}
+      **Original Text: "${question.textContent}"
+      **User's Summary: "${userText}"
+      **Word Count: ${wordCount}
 
     ---
     ### **Scoring Rubrics**
+      1. Content (Score from 0 to 4):**
+        **Evaluate comprehension and condensation.
+        **Special Copy-Paste Rule (STRICT & MANDATORY):**
+          Before evaluating Content meaning, check whether the user's summary is
+          copied directly from the source text.
 
-    **1. Content (Score from 0 to 4):**
-    * **4 pts:** Comprehensively summarizes the source text, demonstrating full comprehension. Paraphrases effectively, removes extraneous details, and synthesizes all main ideas concisely and coherently.
-    * **3 pts:** Adequately summarizes, demonstrating good comprehension. Paraphrasing is used, but extraneous details may interfere with clarity. Correctly identifies main ideas with some minor omissions.
-    * **2 pts:** Partially summarizes, demonstrating basic comprehension. Does not discern between main points and details. Relies heavily on repeating excerpts from the source text.
-    * **1 pt:** Is relevant but not meaningfully summarized, demonstrating limited comprehension. Composed of disconnected ideas or excerpts. Main ideas are omitted or misrepresented.
-    * **0 pts:** Demonstrates no comprehension of the source text.
+          Definition of DIRECT COPYING:
+          - If the user's summary (even if it is one sentence) contains more than
+            40–45% of words, phrases, or clauses taken directly from the source text
+            WITHOUT meaningful changes
+          - AND fewer than 3–4 content words have been replaced with synonyms or
+            equivalent expressions
 
-    **2. Form (Score from 0 to 1):**
-    * **1 pt:** Is written as one, single, complete sentence. The word count is between 5 and 75 words (inclusive). The summary is not written in all capital letters.
-    * **0 pts:** Is not written as one single, complete sentence, OR contains fewer than 5 or more than 75 words, OR is written in all capital letters.
+          RULING (NON-NEGOTIABLE):
+          - IF direct copying is detected:
+            → Content score MUST be capped at 1 (or 0 if off-topic)
+            → Do NOT award 2, 3, or 4 under any circumstance
+            → Add to feedback.content:
+              "Flag: direct copying detected; content capped."
 
-    **3. Grammar (Score from 0 to 2):**
-    * **2 pts:** Has correct grammatical structure.
-    * **1 pt:** Contains grammatical errors, but they do not hinder communication.
-    * **0 pts:** Has defective grammatical structure which could hinder communication.
+          - IF at least 3–4 content words are replaced:
+            → Treat the response as a legitimate paraphrase
+            → Proceed to normal Content scoring
 
-    **4. Vocabulary (Score from 0 to 2):**
-    * **2 pts:** Has appropriate choice of words.
-    * **1 pt:** Contains lexical errors, but they do not hinder communication.
-    * **0 pts:** Has defective word choice which could hinder communication.
+         **Content scoring (apply only after copy-paste check):**
+        - **4:** Comprehensive, concise paraphrase capturing all main ideas; passes semantic coverage vs internal reference (connected clauses, ideas logically synthesized).
+        - **3:** Adequate summary that captures most main ideas but omits minor points or is slightly disorganized.
+        - **2:** Partial summary; identifies some main points but relies on short quoted phrases or fails to synthesize.
+        - **1:** Relevant but minimal; captures one main idea only or is mostly verbatim copy (per copy-paste rule).
+        - **0:** No comprehension; off-topic or unintelligible.
+        **Notes:**
+        - Up to **3–4 foreign-word replacements** inside the student's summary are acceptable for Content **if** overall meaning remains clear.
+        - Use your internal reference (4–5 joined sentences with 3–4 replacements) to judge semantic coverage — do not require exact wording.
 
+      2. Form (Score from 0 to 1):**
+        **1:** Exactly one complete sentence, **5–75 words**, not in ALL CAPS, uses connectors allowed (but, as, so, whereas, and) to join clauses.
+        **0:** Not a single sentence, or word count <5 or >75, or ALL CAPS.
+
+      3. Grammar (Score from 0 to 2):**
+        **Connector Immunity:** **Do NOT** penalize use of connectors "but", "whereas", "as", "so", "and" as grammar errors (they are permitted to join clauses in the single-sentence format).
+        **Replacement Immunity:** If a student’s summary is primarily a slightly modified copy (i.e., they have replaced 3–4 words as allowed), then **do not mark minor grammatical shifts that result solely from those replacements** as grammar errors — only mark grammatical problems that impair clarity.
+        Scoring:
+        **2:** Correct grammatical structure; rare minor errors.
+        **1:** Some grammatical errors but meaning remains clear.
+        **0:** Grave structural errors that hinder comprehension.
+
+      4. Vocabulary (Score from 0 to 2):**
+        **2:** Appropriate word choice; synonyms/paraphrases demonstrate control.
+        **1:** Some lexical inaccuracies but communication not hindered.
+        **0:** Poor word choice that obscures meaning.
+        NOTE: If up to **3 non-English words** are used as part of permissible replacements and the meaning is still clear, do NOT automatically penalize Vocabulary for that — only penalize if comprehension is affected.
+    
     ---
     ### **Error Analysis Instructions**
+      **CRITICAL:** You must provide detailed error analysis by identifying specific mistakes in the user's text.
 
-    **CRITICAL:** You must provide detailed error analysis by identifying specific mistakes in the user's text.
+      **POSITION CALCULATION (MOST IMPORTANT):**
+      - Word indexing starts from 0 (first word is position 0)
+      - Words are counted by splitting on whitespace ONLY. Punctuation is NOT a separate word.
+      - For SINGLE-WORD errors: {"start": <word_index>, "end": <word_index + 1>}
+      - For MULTI-WORD errors (e.g., "old people"): {"start": <first_word_index>, "end": <last_word_index + 1>}
+      - If incorrect word appears MULTIPLE TIMES, identify the SPECIFIC occurrence not give position of first occurence directly first check which occurence is wrong and give that in positions
 
-    **For each error you find:**
-    1. Identify the EXACT word or phrase that contains the error (just the word, not surrounding text)
-    2. Provide the correct replacement
-    3. Give a clear explanation
-    4. Set position to {"start": 0, "end": 1} (we'll match by word content, not position)
+      **For each error you find:**
+      1. Identify the EXACT word or phrase that contains the error
+      2. Count its position carefully using the indexing method above
+      3. Include surrounding context: provide 1-2 words BEFORE and AFTER the error (if available)
+      - Example: Error "is" with context: {"before": "people", "after": "not"}
+      - This helps confirm the correct occurrence when words repeat
+      4. Provide the correct replacement
+      5. Give a clear explanation
+      6. DOUBLE-CHECK: The position should point to the actual error location in the response
 
-    **Error Types to Look For:**
-    - **Grammar**: Subject-verb disagreement, wrong tenses, missing/incorrect articles, preposition errors
-    - **Spelling**: Misspelled words (check carefully)
-    - **Vocabulary**: Wrong word choice, repetitive words, unclear expressions
+      **Special copy-paste detection note:** If you detect verbatim copying of ≥3 sentences without the allowed 3–4 word replacements, include a short note in 'feedback.content' stating: "Flag: verbatim copy detected; content penalized per copy-paste rule."
 
-  **IMPORTANT:**
-    - Only include errors that actually exist
-    - For "text" field, provide ONLY the incorrect word/phrase, nothing else
-    - Be very specific with the exact word that's wrong
-    - When checking for grammatical mistakes, make sure that if a synonym is used but the grammar is correct, it should **not** be marked as an error.
-    - **Connector Immunity:** Do NOT mark the usage of the connecting words **"but", "whereas", "as", "and", "so"** as grammar errors (e.g., run-on sentences). These connectors are required for the PTE single-sentence format. Treat clauses linked by these words as grammatically valid.
-    - **Error Prioritization:** A single error MUST be categorized only ONCE. Use this strict priority:
-      1. **Spelling:** If a word is misspelled (e.g., "goverment"), it MUST go into "spellingErrors" ONLY. Do not list it in grammar or vocabulary.
-      2. **Grammar:** If spelling is correct, but the word or phrase breaks a sentence rule (e.g., "he go" instead of "he goes"), it MUST go into "grammarErrors" ONLY.
-      3. **Vocabulary:** Only if spelling and grammar are correct, but the word choice is poor or inappropriate (e.g., using "big" instead of "significant"), it MUST go into "vocabularyIssues".
+      **Error Types to Look For:**
+      - **Grammar**: Subject-verb disagreement, wrong tenses, missing/incorrect articles, preposition errors.
+      - **Spelling**: Misspelled words (Check strictly).
+      - **Vocabulary**: Wrong word choice, repetitive words, unclear expressions.
+
+      **IMPORTANT:**
+      - Do NOT report minor grammar shifts that are direct consequences of permitted word replacements (3–4 words) in an otherwise correct paraphrase.
+      - **Connector Immunity:** Do NOT mark "but", "whereas", "as", "and", "so" as grammar errors.
+      - **Synonym Validity:** If a student uses a valid synonym (conceptually relevant) but the grammar is correct, do **not** mark as an error.
+      - **Error Prioritization:** 1. **Spelling:** (Highest Priority/Penalty).
+      2. **Grammar:** If spelling is correct but rule is broken.
+      3. **Vocabulary:** If word choice is poor.
+
+    ---
+    ### ADDITIONAL JUDGMENTS & IMPLEMENTATION NOTES
+    - Build the internal reference (4–5 sentences joined + 3–4 replacements) **every time**; use it to test whether the student's summary semantically covers the core ideas.
+    - If the student's summary mirrors the internal reference semantically (even with different wording or small foreign-word replacements), credit Content fully.
+    - If the student's submission is a literal copy of source sentences but contains only trivial punctuation changes (no 3–4 word replacements), apply the copy-paste penalty.
+    - When in doubt about whether a replaced non-English word preserves meaning, favor semantic comprehension: **if overall meaning is clear, do not penalize Content**; you may note the non-English tokens in 'vocabularyIssues' only if they impede understanding.
 
     ---
     ### **Required Output Format**
@@ -2321,11 +2546,15 @@ async function evaluateSummarizeWrittenText(
         actualWordCount: wordCount,
         timeTaken: timeTakenSeconds || 0,
         feedback: evaluation.feedback,
-        errorAnalysis: evaluation.errorAnalysis || {
-          grammarErrors: [],
-          spellingErrors: [],
-          vocabularyIssues: [],
-        },
+        errorAnalysis: correctErrorPositions(
+          evaluation.errorAnalysis,
+          userText
+        ),
+        // errorAnalysis: evaluation.errorAnalysis || {
+        //   grammarErrors: [],
+        //   spellingErrors: [],
+        //   vocabularyIssues: [],
+        // },
         userText: userText, // Include original text for highlighting
       },
       suggestions: [], // SWT has no single correct answer, so no suggestions provided
@@ -2346,6 +2575,190 @@ async function evaluateSummarizeWrittenText(
 }
 
 /**
+ * Corrects error positions in the error analysis by finding the actual word indices
+ * in the user text. Uses context-based matching to identify the correct occurrence
+ * when words appear multiple times in the essay.
+ */
+function correctErrorPositions(errorAnalysis: any, userText: string): any {
+  if (!errorAnalysis) return errorAnalysis;
+
+  // Split the text into words (same way as in the prompt)
+  const words = userText.split(/\s+/).filter((word: string) => word.length > 0);
+
+  // Normalize function - removes punctuation for comparison
+  const normalize = (text: string): string =>
+    text.toLowerCase().replace(/[.,!?;:\-()[\]{}""'']/g, '');
+
+  // Helper function to find the correct position of an error word using context
+  const findWordPosition = (
+    errorText: string,
+    originalPosition?: { start: number; end: number },
+    context?: { before?: string; after?: string }
+  ): { start: number; end: number } | null => {
+    const normalizedError = normalize(errorText);
+
+    // Split error into words to handle multi-word errors
+    const errorWords = errorText
+      .split(/\s+/)
+      .filter((w: string) => w.length > 0);
+    const allOccurrences: Array<{
+      start: number;
+      end: number;
+      contextScore: number;
+    }> = [];
+
+    if (errorWords.length === 1) {
+      // Single word error - find all occurrences
+      for (let i = 0; i < words.length; i++) {
+        const normalizedWord = normalize(words[i]);
+        if (normalizedWord === normalizedError) {
+          let contextScore = 0;
+
+          // Score based on context matching
+          if (context) {
+            // Check word before
+            if (context.before && i > 0) {
+              const wordBefore = normalize(words[i - 1]);
+              const contextBefore = normalize(context.before);
+              if (wordBefore === contextBefore) {
+                contextScore += 50;
+              }
+            }
+
+            // Check word after
+            if (context.after && i < words.length - 1) {
+              const wordAfter = normalize(words[i + 1]);
+              const contextAfter = normalize(context.after);
+              if (wordAfter === contextAfter) {
+                contextScore += 50;
+              }
+            }
+          }
+
+          allOccurrences.push({
+            start: i,
+            end: i + 1,
+            contextScore,
+          });
+        }
+      }
+    } else {
+      // Multi-word error - find all sequences
+      for (let i = 0; i <= words.length - errorWords.length; i++) {
+        let match = true;
+        for (let j = 0; j < errorWords.length; j++) {
+          const normalizedWord = normalize(words[i + j]);
+          const normalizedErrorWord = normalize(errorWords[j]);
+          if (normalizedWord !== normalizedErrorWord) {
+            match = false;
+            break;
+          }
+        }
+
+        if (match) {
+          let contextScore = 0;
+
+          // Score based on context matching
+          if (context) {
+            // Check word before
+            if (context.before && i > 0) {
+              const wordBefore = normalize(words[i - 1]);
+              const contextBefore = normalize(context.before);
+              if (wordBefore === contextBefore) {
+                contextScore += 50;
+              }
+            }
+
+            // Check word after
+            if (context.after && i + errorWords.length < words.length) {
+              const wordAfter = normalize(words[i + errorWords.length]);
+              const contextAfter = normalize(context.after);
+              if (wordAfter === contextAfter) {
+                contextScore += 50;
+              }
+            }
+          }
+
+          allOccurrences.push({
+            start: i,
+            end: i + errorWords.length,
+            contextScore,
+          });
+        }
+      }
+    }
+
+    if (allOccurrences.length === 0) {
+      return null;
+    }
+
+    // If only one occurrence, return it
+    if (allOccurrences.length === 1) {
+      return { start: allOccurrences[0].start, end: allOccurrences[0].end };
+    }
+
+    // Multiple occurrences - use intelligent selection strategy
+    // Strategy 1: Context-based matching (highest priority)
+    const contextMatches = allOccurrences.filter((occ) => occ.contextScore > 0);
+    if (contextMatches.length > 0) {
+      // Sort by context score (descending)
+      contextMatches.sort((a, b) => b.contextScore - a.contextScore);
+      const best = contextMatches[0];
+      return { start: best.start, end: best.end };
+    }
+
+    // Strategy 2: Use original position as a weak hint
+    if (originalPosition && originalPosition.start >= 0) {
+      const targetIndex = originalPosition.start;
+
+      // Find occurrence closest to target, but with a reasonable threshold
+      let bestOccurrence = allOccurrences[0];
+      let bestDistance = Math.abs(allOccurrences[0].start - targetIndex);
+
+      for (const occurrence of allOccurrences) {
+        const distance = Math.abs(occurrence.start - targetIndex);
+        // Only update if significantly closer (tolerance: within 5 words)
+        if (distance < bestDistance - 5) {
+          bestDistance = distance;
+          bestOccurrence = occurrence;
+        }
+      }
+
+      return { start: bestOccurrence.start, end: bestOccurrence.end };
+    }
+
+    // Strategy 3: No context or position hint - prefer occurrences later in the text
+    // (errors tend to accumulate towards the end of essays)
+    const last = allOccurrences[allOccurrences.length - 1];
+    return { start: last.start, end: last.end };
+  };
+
+  // Function to correct positions in an error array
+  const correctErrorArray = (errors: any[]): any[] => {
+    return errors.map((error: any) => {
+      const correctedPosition = findWordPosition(
+        error.text,
+        error.position,
+        error.context
+      );
+      if (correctedPosition) {
+        return {
+          ...error,
+          position: correctedPosition,
+        };
+      }
+      return error;
+    });
+  };
+
+  return {
+    grammarErrors: correctErrorArray(errorAnalysis.grammarErrors || []),
+    spellingErrors: correctErrorArray(errorAnalysis.spellingErrors || []),
+    vocabularyIssues: correctErrorArray(errorAnalysis.vocabularyIssues || []),
+  };
+}
+
+/**
  * Evaluate Write Essay responses
  */
 async function evaluateWriteEssay(
@@ -2359,99 +2772,169 @@ async function evaluateWriteEssay(
     .filter((word: string | any[]) => word.length > 0).length;
 
   const prompt = `
-    **Your Role:** You are an expert PTE Academic grader for the "Write Essay" task.
+  **Your Role:** You are an expert PTE Academic grader for the "Write Essay" task.
+  **Objective:** Evaluate the user's essay based on the provided prompt. You must score the response on seven distinct traits using the detailed rubrics below.
 
-    **Objective:** Evaluate the user's essay based on the provided prompt. You must score the response on seven distinct traits using the detailed rubrics below.
+  ### **Input for Evaluation**
+    Essay Prompt: "${question.textContent}"
+    User's Essay: "${userText}"
+    Word Count: ${wordCount}
 
-    ---
-    ### **Input for Evaluation**
+  ### **Pre-Scoring Evaluation Strategy (CRITICAL INSTRUCTIONS)**
 
-    * **Essay Prompt:**
-    "${question.textContent}"
+  **1. AI Topic Relevance Detector (Content Scoring Rule):**
+    - Do NOT judge Content based on full paragraphs.
+    - Do NOT require formal structure for Content scoring.
+    - Use **semantic understanding**, not keyword matching.
+    - Detect **meaningful idea chunks**, even if written in simple language.
 
-    * **User's Essay:**
-    "${userText}"
+  #### What counts as a valid "Idea Chunk":
+    A phrase or sentence that expresses a **topic-relevant concept**, such as:
+    - learning practical skills
+    - gaining hands-on experience
+    - solving real-world problems
+    - learning by doing
+    - applying theory to practice
+    - improving creativity or confidence
+    - experiential learning improves productivity
+    - working on real projects
 
-    * **Word Count:** ${wordCount}
+    These ideas may appear:
+    - Anywhere in the essay
+    - In simple sentences
+    - Using synonyms or paraphrasing
+    - Even inside a templated structure
 
-    ---
-    ### **Scoring Rubrics**
+    If the student contributes **40–80 words of genuinely relevant ideas**, they MUST receive a **HIGH Content score (4–6)**, even if:
+    - The rest of the essay is generic
+    - The structure is weak
+    - The wording is simple
 
-    **1. Content (Score from 0 to 6):**
-    * **6:** Adequately addresses the main point; argument is convincing but lacks depth; support is inconsistent.
-    * **5:** Relevant to the prompt but doesn't address main points adequately; support is often missing.
-    * **4:** Superficial attempt to address the prompt; little relevant information; generic statements.
-    * **3:** Incomplete understanding of the prompt; generic/repetitive phrasing.
-    * **2:** Barely addresses the prompt; mostly generic/repetitive phrasing.
-    * **1:** Almost no relevant information; very incomplete understanding.
-    * **0:** Does not properly deal with the prompt.
+  ### 2. LOW CONTENT SCORE TRIGGERS (STRICT)
 
-    **2. Form (Score from 0 to 2):**
-    * **2:** Length is between 200 and 300 words.
-    * **1:** Length is between 120-199 or 301-380 words.
-    * **0:** Length is less than 120 or more than 380 words; or the essay is written in all capital letters.
+    Assign **low Content scores (0–2)** ONLY if:
+    - The essay is clearly off-topic
+    - The ideas are random or unrelated
+    - The essay is mostly a memorized template with NO real topic-specific ideas
+    - Only isolated keywords are inserted without explanation
 
-    **3. Development, Structure & Coherence (Score from 0 to 6):**
-    * **6:** Conventional structure mostly present but requires some effort to follow; argument lacks some development; paragraphing is not always effective.
-    * **5:** Traces of structure but composed of simple/disconnected ideas; a position is present but not a logical argument.
-    * **4:** Little recognizable structure; disorganized and difficult to follow; lacks coherence.
-    * **3:** Disconnected ideas; no hierarchy or coherence; no clear position.
-    * **2:** Very disorganized; ideas are mostly disconnected.
-    * **1:** Almost no coherence or structure.
-    * **0:** No recognizable structure.
+    Length alone must NEVER reduce Content.
 
-    **4. Grammar (Score from 0 to 2):**
-    * **2:** Consistent grammatical control of complex language; errors are rare.
-    * **1:** High degree of grammatical control; no mistakes that lead to misunderstanding.
-    * **0:** Mainly simple structures and/or several basic mistakes that could hinder communication.
+  ### 3. PENALTY LOGIC (STRICT AND CONSISTENT)
 
-    **5. General Linguistic Range (Score from 0 to 6):**
-    * **6:** Sufficient range for basic ideas, but limitations are evident with complex ideas; occasional lapses in clarity.
-    * **5:** Narrow range, simple expressions used repeatedly; communication restricted to simple ideas.
-    * **4:** Limited vocabulary and simple expressions dominate; communication is compromised.
-    * **3:** Highly restricted vocabulary; significant limitations in communication.
-    * **2:** Extremely restricted vocabulary; communication is very difficult.
-    * **1:** Only isolated words or basic phrases.
-    * **0:** Meaning is not accessible.
+    - **Spelling:** Heavy penalty  
+      → Approx **–0.5 marks per spelling error**
+    - **Grammar & Vocabulary:** Moderate penalty  
+      → Approx **–0.2 marks per error**
+    - Small grammar mistakes should reduce the score gradually, not destroy it unless meaning is unclear.
 
-    **6. Vocabulary Range (Score from 0 to 2):**
-    * **2:** Good range for general academic topics, but lexical shortcomings lead to imprecision.
-    * **1:** Mainly basic vocabulary, insufficient for the topic.
-    * **0:** Very limited basic vocabulary; meaning is often obscured.
+  
+  ### **Scoring Rubrics**
 
-    **7. Spelling (Score from 0 to 2):**
-    * **2:** Correct spelling.
-    * **1:** One spelling error.
-    * **0:** More than one spelling error.
+    1. Content (Score from 0 to 6):**
+      *Note: Evaluate based on the presence of relevant idea chunks, not full paragraphs.*
+      **6 – Strong Relevance**
+        - Contains **40–80+ words** of clear, topic-related ideas
+        - Ideas show understanding and explanation
+        - Synonyms and paraphrasing are used effectively
 
-    ---
-    ### **Error Analysis Instructions**
+      **5 – Good Relevance**
+        - Main topic addressed with multiple relevant idea chunks
+        - Support may be uneven but clearly related
 
-    **CRITICAL:** You must provide detailed error analysis by identifying specific mistakes in the user's text.
+      **4 – Adequate Relevance**
+        - Some meaningful topic-related ideas are present
+        - Argument may be shallow or generic but relevant
 
-    **For each error you find:**
-    1. Identify the EXACT word or phrase that contains the error (just the word, not surrounding text)
-    2. Provide the correct replacement
-    3. Give a clear explanation
-    4. Set position to {"start": 0, "end": 1} (we'll match by word content, not position)
+      **3 – Partial Relevance**
+        - Mostly templated writing
+        - Only a few specific topic-related ideas
 
-    **Error Types to Look For:**
-    - **Grammar**: Subject-verb disagreement, wrong tenses, missing/incorrect articles, preposition errors
-    - **Spelling**: Misspelled words (check carefully)
-    - **Vocabulary**: Wrong word choice, repetitive words, unclear expressions
+      **2 – Weak Relevance**
+        - Barely addresses the topic
+        - Mostly generic or random ideas
 
-    **IMPORTANT:**
-      - Only include errors that actually exist
-      - For "text" field, provide ONLY the incorrect word/phrase, nothing else
-      - Be very specific with the exact word that's wrong
-      - When checking for grammatical mistakes, make sure that if a synonym is used but the grammar is correct, it should **not** be marked as an error.
-      - **Connector Immunity:** Do NOT mark the usage of the connecting words **"but", "whereas", "as", "and", "so"** as grammar errors (e.g., run-on sentences). These connectors are required for the PTE single-sentence format. Treat clauses linked by these words as grammatically valid.
-      - **Error Prioritization:** A single error MUST be categorized only ONCE. Use this strict priority:
-        1. **Spelling:** If a word is misspelled (e.g., "goverment"), it MUST go into "spellingErrors" ONLY. Do not list it in grammar or vocabulary.
-        2. **Grammar:** If spelling is correct, but the word or phrase breaks a sentence rule (e.g., "he go" instead of "he goes"), it MUST go into "grammarErrors" ONLY.
-        3. **Vocabulary:** Only if spelling and grammar are correct, but the word choice is poor or inappropriate (e.g., using "big" instead of "significant"), it MUST go into "vocabularyIssues".
-      
-    ### **Required Output Format**
+      **1 – Minimal**
+        - Almost no relevant information
+
+      **0 – Off-topic**
+        - Does not deal with the prompt
+
+    2. Form (Score from 0 to 2):**
+      **2:** Length is between 200 and 300 words.
+      **1:** Length is between 120-199 or 301-380 words.
+      **0:** Length is less than 120 or more than 380 words; or written in all caps.
+
+    3. Development, Structure & Coherence (Score from 0 to 6):**
+      This trait is SEPARATE from Content.
+      **6:** Logical flow; recognizable essay structure
+      **5:** Simple structure; ideas connected
+      **4:** Weak organization; some order
+      **3:** Disconnected ideas
+      **2:** Very disorganized
+      **1:** Almost no coherence
+      **0:** No recognizable structure
+
+    4. Grammar (Score from 0 to 2):**
+      - Start from a score of **2**
+      - Deduct **0.2 marks for EACH grammar error**
+      - Minimum score is **0**
+      - Do NOT mark these as grammar errors: but, whereas, as, and, so
+
+    5. General Linguistic Range (Score from 0 to 6):**
+      * **6:** Sufficient range for basic ideas; occasional lapses.
+      * **5:** Narrow range; simple expressions used repeatedly.
+      * **4:** Limited vocabulary dominates.
+      * **3:** Highly restricted vocabulary.
+      * **2:** Extremely restricted.
+      * **1:** Isolated words only.
+      * **0:** Meaning not accessible.
+
+    6. Vocabulary Range (Score from 0 to 2):**
+      * **2:** Good range for academic topics.
+      * **1:** Basic vocabulary; sufficient.
+      * **0:** Very limited; meaning often obscured.
+
+    7. Spelling (Score from 0 to 2):**
+      - Start from a score of **2**
+      - Deduct **0.5 marks for EACH spelling error**
+      - Minimum score is **0**
+      - Spelling errors must NOT be duplicated under grammar or vocabulary.
+
+  ### **Error Analysis Instructions**
+
+  **CRITICAL:** You must provide detailed error analysis by identifying specific mistakes in the user's text.
+
+  **POSITION CALCULATION (MOST IMPORTANT):**
+    - Word indexing starts from 0 (first word is position 0)
+    - Words are counted by splitting on whitespace ONLY. Punctuation is NOT a separate word.
+    - For SINGLE-WORD errors: {"start": <word_index>, "end": <word_index + 1>}
+    - For MULTI-WORD errors (e.g., "old people"): {"start": <first_word_index>, "end": <last_word_index + 1>}
+    - If incorrect word appears MULTIPLE TIMES, identify the SPECIFIC occurrence not give position of first occurence directly first check which occurence is wrong and give that in positions
+   
+  **For each error you find:**
+    1. Identify the EXACT word or phrase that contains the error
+    2. Count its position carefully using the indexing method above
+    3. Include surrounding context: provide 1-2 words BEFORE and AFTER the error (if available)
+       - Example: Error "is" with context: {"before": "people", "after": "not"}
+       - This helps confirm the correct occurrence when words repeat
+    4. Provide the correct replacement
+    5. Give a clear explanation
+    6. DOUBLE-CHECK: The position should point to the actual error location in the response
+
+  **Error Types to Look For:**
+  - **Grammar**: Subject-verb disagreement, wrong tenses, missing/incorrect articles, preposition errors.
+  - **Spelling**: Misspelled words (Check strictly).
+  - **Vocabulary**: Wrong word choice, repetitive words, unclear expressions.
+
+  **IMPORTANT:**
+    - **Connector Immunity:** Do NOT mark "but", "whereas", "as", "and", "so" as grammar errors.
+    - **Synonym Validity:** If a student uses a valid synonym (conceptually relevant) but the grammar is correct, do **not** mark as an error.
+    - **Error Prioritization:** 1. **Spelling:** (Highest Priority/Penalty).
+      2. **Grammar:** If spelling is correct but rule is broken.
+      3. **Vocabulary:** If word choice is poor.
+
+  ### **Required Output Format**
     Your final output **must** be a single, minified JSON object with NO markdown. Adhere strictly to this schema:
     {
       "scores": {
@@ -2464,41 +2947,44 @@ async function evaluateWriteEssay(
         "spelling": <number_0_to_2>
       },
       "feedback": {
-        "summary": "A brief overall assessment of the essay.",
-        "content": "Specific feedback on content.",
-        "form": "Specific feedback on form.",
-        "developmentStructureCoherence": "Specific feedback on structure.",
-        "grammar": "Specific feedback on grammar.",
-        "generalLinguisticRange": "Specific feedback on linguistic range.",
-        "vocabularyRange": "Specific feedback on vocabulary.",
-        "spelling": "Specific feedback on spelling."
+        "summary": "A brief overall assessment.",
+        "content": "Feedback on idea relevance (mention if 'idea chunks' were found).",
+        "form": "Feedback on form.",
+        "developmentStructureCoherence": "Feedback on structure.",
+        "grammar": "Feedback on grammar.",
+        "generalLinguisticRange": "Feedback on linguistic range.",
+        "vocabularyRange": "Feedback on vocabulary.",
+        "spelling": "Feedback on spelling."
       },
       "errorAnalysis": {
         "grammarErrors": [
           {
-            "text": "word or phrase with error",
+            "text": "error text",
             "type": "grammar",
-            "position": { "start": 0, "end": 5 },
-            "correction": "suggested correction",
-            "explanation": "explanation of the error"
+            "position": { "start": start position of word, "end": end position of word },
+            "context": { "before": "word before error (or empty string)", "after": "word after error (or empty string)" },
+            "correction": "correction",
+            "explanation": "explanation"
           }
         ],
         "spellingErrors": [
           {
-            "text": "misspelled word",
+            "text": "error text",
             "type": "spelling",
-            "position": { "start": 10, "end": 15 },
-            "correction": "correct spelling",
-            "explanation": "spelling correction needed"
+            "position": { "start": start position of word, "end": end position of word },
+            "context": { "before": "word before error (or empty string)", "after": "word after error (or empty string)" },
+            "correction": "correction",
+            "explanation": "explanation"
           }
         ],
         "vocabularyIssues": [
           {
-            "text": "inappropriate word choice",
+            "text": "error text",
             "type": "vocabulary",
-            "position": { "start": 20, "end": 30 },
-            "correction": "better word choice",
-            "explanation": "more appropriate vocabulary"
+            "position": { "start": start position of word, "end": end position of word },
+            "context": { "before": "word before error (or empty string)", "after": "word after error (or empty string)" },
+            "correction": "correction",
+            "explanation": "explanation"
           }
         ]
       },
@@ -2589,11 +3075,14 @@ async function evaluateWriteEssay(
           spelling: { score: spellingScore, max: maxSpellingScore },
         },
         feedback: evaluation.feedback,
-        errorAnalysis: evaluation.errorAnalysis || {
-          grammarErrors: [],
-          spellingErrors: [],
-          vocabularyIssues: [],
-        },
+        errorAnalysis: correctErrorPositions(
+          evaluation.errorAnalysis,
+          userText
+        ),
+        // errorAnalysis: correctErrorPositions(
+        //   evaluation.errorAnalysis,
+        //   userText
+        // ),
         userText: userText, // Include original text for highlighting
       },
       suggestions: evaluation.suggestions || [
@@ -2647,11 +3136,15 @@ async function evaluateMultipleChoiceSingle(
   const skillType = isReadingQuestion ? 'reading' : 'listening';
   const actualScore = isCorrect ? 1 : 0;
 
-  // Generate detailed explanation for reading questions using AI
+  // Generate detailed explanation for both reading and listening questions using AI
   let explanation = '';
-  if (!isCorrect && isReadingQuestion) {
+  if (!isCorrect) {
     try {
-      explanation = await generateDynamicExplanation({
+      const generationFunction = isReadingQuestion
+        ? generateDynamicExplanation
+        : generateDynamicExplanationListening;
+
+      explanation = await generationFunction({
         questionType: question.questionType.name,
         textContent: question.textContent,
         questionStatement: question.questionStatement,
@@ -2662,7 +3155,11 @@ async function evaluateMultipleChoiceSingle(
     } catch (error) {
       console.error('Error generating explanation:', error);
       // Fallback to static explanation
-      explanation = `The correct answer is "${correctOptionText}". Your selected answer "${selectedOptionText}" was incorrect. Review the passage carefully to find evidence supporting the correct answer.`;
+      explanation = `The correct answer is "${correctOptionText}". Your selected answer "${selectedOptionText}" was incorrect. ${
+        isReadingQuestion
+          ? 'Review the passage carefully to find evidence supporting the correct answer.'
+          : 'Listen again carefully to identify the correct information.'
+      }`;
     }
   }
 
@@ -2760,11 +3257,15 @@ async function evaluateMultipleChoiceMultiple(
         options.find((opt: any) => opt.id === optId)?.text || 'Unknown option'
     );
 
-  // Generate detailed explanation for reading questions using AI
+  // Generate detailed explanation for both reading and listening questions using AI
   let explanation = '';
-  if (!isCorrect && isReadingQuestion) {
+  if (!isCorrect) {
     try {
-      explanation = await generateDynamicExplanationMultiple({
+      const generationFunction = isReadingQuestion
+        ? generateDynamicExplanationMultiple
+        : generateDynamicExplanationListeningMultiple;
+
+      explanation = await generationFunction({
         questionType: question.questionType.name,
         textContent: question.textContent,
         questionStatement: question.questionStatement,
@@ -2999,7 +3500,9 @@ async function evaluateFillInTheBlanks(
   );
 
   // Determine if this is a reading or listening question
-  const isReadingQuestion = question.questionType.name.includes('READING');
+  const isReadingQuestion =
+    question.questionType.name.includes('READING') ||
+    question.questionType.name === 'FILL_IN_THE_BLANKS_DRAG_AND_DROP';
   const skillType = isReadingQuestion ? 'reading' : 'reading'; // Both are reading-based
 
   // Generate detailed explanation for reading questions using AI
@@ -3205,126 +3708,193 @@ async function evaluateSummarizeSpokenText(
     .filter((word: string | any[]) => word.length > 0).length;
 
   const prompt = `
-    **Your Role:** You are an expert PTE Academic grader for the "Summarize Spoken Text" task.
+  **Your Role:** You are an expert PTE Academic grader for the "Summarize Spoken Text" task.
+  **Objective:** Evaluate the user's summary based on the official PTE scoring rubric. You must score the response on five distinct traits using the detailed rubrics below.
 
-    **Objective:** Evaluate the user's summary based on the official PTE scoring rubric. You must score the response on five distinct traits using the detailed rubrics below.
+  ---
+  ### **Input for Evaluation**
 
-    ---
-    ### **Input for Evaluation**
-
-    * **Task:** Listen to audio and write a summary (50-70 words)
-    * **User's Summary:**
-    "${userText}"
-
-    * **Word Count:** ${wordCount}
-    * **Required Word Range:** ${question.wordCountMin || 50}-${
+  * Task: Listen to audio and write a summary (50-70 words)
+  * Audio Transcript: "${question.textContent}"
+  * User's Summary: "${userText}"
+  * **Word Count:** ${wordCount}
+  * **Required Word Range:** ${question.wordCountMin || 50}-${
     question.wordCountMax || 70
   } words
 
-    ---
-    ### **Scoring Rubrics**
+  ---
+  ### **Evaluation Strategy (CRITICAL INSTRUCTIONS)**
 
-    **1. Content (Score from 0 to 1):**
-    * **1:** The response is relevant and meaningfully summarized, demonstrating good comprehension of the source text. Main ideas are captured and presented coherently with proper synthesis and the response is relevant but not meaningfully summarized, demonstrating limited comprehension of the source text. The response is composed of disconnected ideas or excerpts from the source text without any context or attempt at synthesis. Main ideas are omitted or misrepresented. The response lacks coherence and is difficult to follow.
-    * **0:** Response is too limited to assign a higher score and demonstrates no comprehension of the source text.
+  CONTENT EVALUATION HIERARCHY (MANDATORY):
+    ### **Step 1 — IDEA COVERAGE CHECK (PRIMARY)**
+    Evaluate whether the user's summary accurately captures the **CORE MESSAGE** and **MAIN IDEAS** of the audio, regardless of wording.
 
-    **2. Form (Score from 0 to 2):**
-    * **2:** Contains 50-70 words
-    * **1:** Contains 40-49 words or 71-100 words
-    * **0:** Contains less than 40 words or more than 100 words. Summary is written in capital letters, contains no punctuation or consists only of bullet points or very short sentences.
+    Main ideas may include:
+    - the central topic or comparison,
+    - key causes or reasons,
+    - key effects or consequences,
+    - limitations or challenges,
+    - and the final conclusion or outcome.
 
-    **3. Grammar (Score from 0 to 2):**
-    * **2:** Correct grammatical structures
-    * **1:** Contains grammatical errors with no hindrance to communication
-    * **0:** Defective grammatical structure which could hinder communication
+    **RULE:**
+    If **ALL main ideas are present and correct**, the response **MUST be eligible for Content = 4**, even if:
+    - wording is fully paraphrased,
+    - ideas are combined or compressed,
+    - examples are removed,
+    - or the summary is concise.
 
-    **4. Vocabulary (Score from 0 to 2):**
-    * **2:** Appropriate choice of words
-    * **1:** Some lexical errors but with no hindrance to communication
-    * **0:** Defective word choice which could hinder communication
+    ### **CONTENT SUFFICIENCY RULE (MANDATORY)**
+    A summary is considered **sufficient** if it communicates the full meaning of the audio.
+    Do NOT require every reason or explanation to be stated separately.
 
-    **5. Spelling (Score from 0 to 2):**
-    * **2:** Correct spelling
-    * **1:** One spelling error
-    * **0:** More than one spelling error
+    ### **CONTENT COMPRESSION RULE (STRICT)**
+    When multiple related reasons, limitations, or explanations from the audio
+    are accurately **combined into one clause or sentence**, this MUST be treated as
+    **FULL idea coverage**, not missing detail.
 
-    ---
-    ### **Error Analysis Instructions**
+    Do NOT penalize Content for:
+    - merging multiple causes into one sentence,
+    - summarizing explanations at a higher level,
+    - removing examples while keeping meaning intact.
 
-    **CRITICAL:** You must provide detailed error analysis by identifying specific mistakes in the user's text.
-
-    **For each error you find:**
-    1. Identify the EXACT word or phrase that contains the error (just the word, not surrounding text)
-    2. Provide the correct replacement
-    3. Give a clear explanation
-    4. Set position to {"start": 0, "end": 1} (we'll match by word content, not position)
-
-    **Error Types to Look For:**
-    - **Grammar**: Subject-verb disagreement, wrong tenses, missing/incorrect articles, preposition errors
-    - **Spelling**: Misspelled words (check carefully)
-    - **Vocabulary**: Wrong word choice, repetitive words, unclear expressions
+    ### **Step 2 — PHRASE SUPPORT CHECK (SECONDARY)**
+    Scan for meaningful phrases (3–5 connected words) from the Audio Transcript.
+    Phrase matching may be used **ONLY as supporting evidence** of comprehension.
 
     **IMPORTANT:**
-      - Only include errors that actually exist
-      - For "text" field, provide ONLY the incorrect word/phrase, nothing else
-      - Be very specific with the exact word that's wrong
-      - When checking for grammatical mistakes, make sure that if a synonym is used but the grammar is correct, it should **not** be marked as an error.
-      - **Connector Immunity:** Do NOT mark the usage of the connecting words **"but", "whereas", "as", "and", "so"** as grammar errors (e.g., run-on sentences). These connectors are required for the PTE single-sentence format. Treat clauses linked by these words as grammatically valid.
-      - **Error Prioritization:** A single error MUST be categorized only ONCE. Use this strict priority:
-        1. **Spelling:** If a word is misspelled (e.g., "goverment"), it MUST go into "spellingErrors" ONLY. Do not list it in grammar or vocabulary.
-        2. **Grammar:** If spelling is correct, but the word or phrase breaks a sentence rule (e.g., "he go" instead of "he goes"), it MUST go into "grammarErrors" ONLY.
-        3. **Vocabulary:** Only if spelling and grammar are correct, but the word choice is poor or inappropriate (e.g., using "big" instead of "significant"), it MUST go into "vocabularyIssues".
+    - Exact phrase reuse is NOT required for full marks.
+    - Phrase matching must NEVER override accurate idea coverage.
+    - Penalize Content ONLY when ideas are missing, incorrect, or listed without synthesis.
 
-    ---
-    ### **Required Output Format**
-    Your final output **must** be a single, minified JSON object with NO markdown. Adhere strictly to this schema:
-    {
-      "scores": {
-        "content": <number_0_to_1>,
-        "form": <number_0_to_2>,
-        "grammar": <number_0_to_2>,
-        "vocabulary": <number_0_to_2>,
-        "spelling": <number_0_to_2>
-      },
-      "feedback": {
-        "summary": "A brief overall assessment of the summary.",
-        "content": "Specific feedback on content comprehension and relevance.",
-        "form": "Specific feedback on word count and format.",
-        "grammar": "Specific feedback on grammatical structures.",
-        "vocabulary": "Specific feedback on word choice and usage.",
-        "spelling": "Specific feedback on spelling accuracy."
-      },
-      "suggestions": ["Actionable tip 1.", "Actionable tip 2.", "Actionable tip 3."],
-      "errorAnalysis": {
-        "grammarErrors": [
-          {
-            "text": "word or phrase with error",
-            "type": "grammar",
-            "position": { "start": 0, "end": 1 },
-            "correction": "suggested correction",
-            "explanation": "explanation of the error"
-          }
-        ],
-        "spellingErrors": [
-          {
-            "text": "misspelled word",
-            "type": "spelling",
-            "position": { "start": 0, "end": 1 },
-            "correction": "correct spelling",
-            "explanation": "spelling correction needed"
-          }
-        ],
-        "vocabularyIssues": [
-          {
-            "text": "inappropriate word choice",
-            "type": "vocabulary",
-            "position": { "start": 0, "end": 1 },
-            "correction": "better word choice",
-            "explanation": "more appropriate vocabulary"
-          }
-        ]
-      }
+    ### **CONTENT–FORM SEPARATION RULE (STRICT)**
+    Word count and Form penalties MUST NOT influence Content scoring.
+    If all main ideas are present, Content MUST be scored independently.
+    
+  ---
+  ### **Scoring Rubrics**
+
+  **1. Content (Score from 0 to 4):**
+    4 — Full comprehension:
+      - Accurately summarizes ALL main ideas from the audio
+      - Ideas are logically connected and condensed
+      - Paraphrasing is accurate and meaningful
+      - Phrase overlap may exist but is NOT required
+    3 — Adequate comprehension:
+      - Most main ideas are captured
+      - Minor omissions or inefficient synthesis
+      - May rely on some phrase reuse OR partial paraphrasing
+    2 — Partial comprehension:
+      - Some main ideas identified
+      - Heavy repetition, weak synthesis, or over-reliance on copied fragments
+    1 — Limited comprehension:
+      - Disconnected ideas or keyword listing
+    0 — No comprehension:
+      - Irrelevant, unintelligible, or keyword-only response
+
+  **2. Form (Score from 0 to 2):**
+    * **2:** Contains 50-70 words.
+    * **1:** Contains 40-49 words or 71-100 words.
+    * **0:** Contains less than 40 words or more than 100 words; or written in all caps/bullet points.
+
+  **3. Grammar (Score from 0 to 2):**
+    * **2:** **Correct:** Correct grammatical structures. No Article or Verb form errors.
+    * **1:** **Minor Errors:** Contains 1-2 grammatical errors (e.g., a missing article or slight verb slip) but communication is not hindered.
+    * **0:** **Defective:** Contains multiple basic errors (Articles, V1/V3/V4 violations) or defective structure (e.g., "Promote use of technology" instead of "Promoting the use...").
+
+  **4. Vocabulary (Score from 0 to 2):**
+    * **2:** Appropriate choice of words.
+    * **1:** Some lexical errors but with no hindrance to communication.
+    * **0:** Defective word choice which could hinder communication.
+
+  **5. Spelling (Score from 0 to 2):**
+    * **2:** Correct spelling.
+    * **1:** One spelling error.
+    * **0:** More than one spelling error.
+    * NOTE : Spelling errors must NOT be duplicated under grammar or vocabulary.
+
+  ---
+  ### **Error Analysis Instructions**
+
+  **CRITICAL:** You must provide detailed error analysis by identifying specific mistakes in the user's text.
+
+  **POSITION CALCULATION (MOST IMPORTANT):**
+    - Word indexing starts from 0 (first word is position 0)
+    - Words are counted by splitting on whitespace ONLY. Punctuation is NOT a separate word.
+    - For SINGLE-WORD errors: {"start": <word_index>, "end": <word_index + 1>}
+    - For MULTI-WORD errors (e.g., "old people"): {"start": <first_word_index>, "end": <last_word_index + 1>}
+    - If incorrect word appears MULTIPLE TIMES, identify the SPECIFIC occurrence not give position of first occurence directly first check which occurence is wrong and give that in positions
+   
+  **For each error you find:**
+    1. Identify the EXACT word or phrase that contains the error
+    2. Count its position carefully using the indexing method above
+    3. Include surrounding context: provide 1-2 words BEFORE and AFTER the error (if available)
+       - Example: Error "is" with context: {"before": "people", "after": "not"}
+       - This helps confirm the correct occurrence when words repeat
+    4. Provide the correct replacement
+    5. Give a clear explanation
+    6. DOUBLE-CHECK: The position should point to the actual error location in the response
+
+  **Error Types to Look For:**
+  - **Grammar (High Priority):**
+    - **Articles:** Missing/Wrong 'a', 'an', 'the'.
+    - **Verb Forms:** Incorrect form after to/be/have.
+    - **Agreement:** Subject-verb mismatches.
+  - **Spelling:** Misspelled words (Strict check).
+  - **Vocabulary:** Wrong word choice.
+
+  **IMPORTANT:**
+    - **Connector Immunity:** Do NOT mark "but", "whereas", "as", "and", "so" as grammar errors.
+    - **Error Prioritization:** 1. Spelling -> 2. Grammar -> 3. Vocabulary.
+
+  ### **Required Output Format**
+  Your final output **must** be a single, minified JSON object with NO markdown. Adhere strictly to this schema:
+  {
+    "scores": {
+      "content": <number_0_to_4>,
+      "form": <number_0_to_2>,
+      "grammar": <number_0_to_2>,
+      "vocabulary": <number_0_to_2>,
+      "spelling": <number_0_to_2>
+    },
+    "feedback": {
+      "summary": "A brief overall assessment.",
+      "content": "Feedback on phrase usage (mention if phrases were found or if it was just keywords).",
+      "form": "Feedback on length.",
+      "grammar": "Feedback on articles and verb forms.",
+      "vocabulary": "Feedback on word choice.",
+      "spelling": "Feedback on spelling."
+    },
+    "suggestions": ["Actionable tip 1 (e.g., 'Use more 3-5 word phrases from audio').", "Actionable tip 2."],
+    "errorAnalysis": {
+      "grammarErrors": [
+        {
+          "text": "error text",
+          "type": "grammar",
+          "position": { "start": 0, "end": 1 },
+          "correction": "correction",
+          "explanation": "Specific rule explanation (e.g., 'Verb should be base form after to')"
+        }
+      ],
+      "spellingErrors": [
+        {
+          "text": "error text",
+          "type": "spelling",
+          "position": { "start": 0, "end": 1 },
+          "correction": "correction",
+          "explanation": "explanation"
+        }
+      ],
+      "vocabularyIssues": [
+        {
+          "text": "error text",
+          "type": "vocabulary",
+          "position": { "start": 0, "end": 1 },
+          "correction": "correction",
+          "explanation": "explanation"
+        }
+      ]
     }
+  }
   `;
 
   try {
@@ -3379,14 +3949,14 @@ async function evaluateSummarizeSpokenText(
         }`,
         timeTakenSeconds: timeTakenSeconds || 0,
         scores: {
-          content: { score: contentScore, max: 1 },
+          content: { score: contentScore, max: 4 },
           form: { score: formScore, max: 2 },
           grammar: { score: grammarScore, max: 2 },
           vocabulary: { score: vocabularyScore, max: 2 },
           spelling: { score: spellingScore, max: 2 },
         },
         breakdown: {
-          content: `${contentScore}/1 - Content relevance and comprehension`,
+          content: `${contentScore}/4 - Content relevance and comprehension`,
           form: `${formScore}/2 - Word count and format`,
           grammar: `${grammarScore}/2 - Grammatical structures`,
           vocabulary: `${vocabularyScore}/2 - Word choice and usage`,
@@ -3420,14 +3990,14 @@ async function evaluateSummarizeSpokenText(
         }`,
         timeTakenSeconds: timeTakenSeconds || 0,
         scores: {
-          content: { score: 0, max: 2 },
+          content: { score: 0, max: 4 },
           form: { score: 0, max: 2 },
           grammar: { score: 0, max: 2 },
           vocabulary: { score: 0, max: 2 },
           spelling: { score: 0, max: 2 },
         },
         breakdown: {
-          content: '0/2 - Content relevance and comprehension',
+          content: '0/4 - Content relevance and comprehension',
           form: '0/2 - Word count and format',
           grammar: '0/2 - Grammatical structures',
           vocabulary: '0/2 - Word choice and usage',
@@ -3511,9 +4081,9 @@ async function evaluateWriteFromDictation(
 ): Promise<QuestionEvaluationResult> {
   const userText = userResponse.text?.toLowerCase().trim() || '';
   const correctTextLower = question.textContent?.toLowerCase().trim() || '';
-  const correctTextOriginal = question.textContent?.trim() || ''; // Keep original for display
-  ``;
-  // Calculate word-level accuracy
+  const correctTextOriginal = question.textContent?.trim() || '';
+
+  // Calculate word-level accuracy (order-independent)
   const userWords = userText
     .split(/\s+/)
     .filter((word: string | any[]) => word.length > 0);
@@ -3521,20 +4091,123 @@ async function evaluateWriteFromDictation(
     .split(/\s+/)
     .filter((word: string | any[]) => word.length > 0);
 
-  let correctWordCount = 0;
-  const minLength = Math.min(userWords.length, correctWords.length);
+  // Validate inputs
+  if (correctWords.length === 0) {
+    return {
+      score: 0,
+      isCorrect: false,
+      feedback: 'No correct answer defined for this question.',
+      detailedAnalysis: {
+        overallScore: 0,
+        userText: userResponse.text || '',
+        correctText: correctTextOriginal,
+        userWords,
+        correctWords,
+        correctWordCount: 0,
+        totalWords: 0,
+        accuracy: 0,
+        missingWords: [],
+        extraWords: [],
+        scores: {
+          listening: { score: 0, max: 0 },
+        },
+        errorAnalysis: {
+          spellingErrors: [],
+          grammarErrors: [],
+          vocabularyIssues: [],
+        },
+      },
+      suggestions: [
+        'Focus on spelling accuracy',
+        'Listen for punctuation cues in the audio',
+        'Practice typing while listening to improve speed and accuracy',
+      ],
+    };
+  }
 
-  for (let i = 0; i < minLength; i++) {
-    if (userWords[i] === correctWords[i]) {
+  // Helper function to calculate Levenshtein distance (similarity)
+  const levenshteinDistance = (str1: string, str2: string): number => {
+    const m = str1.length;
+    const n = str2.length;
+    const dp: number[][] = Array(m + 1)
+      .fill(null)
+      .map(() => Array(n + 1).fill(0));
+
+    for (let i = 0; i <= m; i++) dp[i][0] = i;
+    for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        if (str1[i - 1] === str2[j - 1]) {
+          dp[i][j] = dp[i - 1][j - 1];
+        } else {
+          dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+        }
+      }
+    }
+    return dp[m][n];
+  };
+
+  // Helper function to check similarity (words are similar if distance is <= 2)
+  const areSimilar = (word1: string, word2: string): boolean => {
+    const distance = levenshteinDistance(word1, word2);
+    const maxLen = Math.max(word1.length, word2.length);
+    // Consider similar if distance is small relative to word length
+    return distance <= Math.max(2, Math.ceil(maxLen * 0.25));
+  };
+
+  // Check if all correct words are present in user response (regardless of order)
+  let correctWordCount = 0;
+  const missingWords: string[] = [];
+  const spellingMistakes: { userWord: string; correctWord: string }[] = [];
+  const userWordsCopy = [...userWords];
+  const userWordsUsed = new Set<number>(); // Track which user words have been matched
+
+  // First pass: exact matches
+  for (const correctWord of correctWords) {
+    const index = userWordsCopy.findIndex(
+      (w, idx) => w === correctWord && !userWordsUsed.has(idx)
+    );
+    if (index !== -1) {
       correctWordCount++;
+      userWordsUsed.add(index);
     }
   }
+
+  // Second pass: find spelling mistakes (similar words for unmatched correct words)
+  for (const correctWord of correctWords) {
+    const hasExactMatch = userWordsCopy.some(
+      (w, idx) => w === correctWord && userWordsUsed.has(idx)
+    );
+    if (!hasExactMatch) {
+      const similarIndex = userWordsCopy.findIndex(
+        (w, idx) => !userWordsUsed.has(idx) && areSimilar(w, correctWord)
+      );
+      if (similarIndex !== -1) {
+        spellingMistakes.push({
+          userWord: userWordsCopy[similarIndex],
+          correctWord,
+        });
+        userWordsUsed.add(similarIndex);
+      } else {
+        missingWords.push(correctWord);
+      }
+    }
+  }
+
+  // Remaining words in userWordsCopy are truly extra/unnecessary words
+  const extraWordsInResponse = userWordsCopy.filter(
+    (_, idx) => !userWordsUsed.has(idx)
+  );
 
   const accuracy =
     correctWords.length > 0
       ? (correctWordCount / correctWords.length) * 100
       : 0;
-  const isCorrect = accuracy >= 80; // 80% accuracy threshold
+  const isCorrect =
+    accuracy === 100 &&
+    extraWordsInResponse.length === 0 &&
+    spellingMistakes.length === 0; // Must have all correct words, no extra words, and no spelling mistakes
 
   // Generate error analysis for incorrect words
   const errorAnalysis = {
@@ -3543,63 +4216,81 @@ async function evaluateWriteFromDictation(
     vocabularyIssues: [] as any[],
   };
 
-  // Compare words and identify errors
-  for (let i = 0; i < Math.max(userWords.length, correctWords.length); i++) {
-    const userWord = userWords[i] || '';
-    const correctWord = correctWords[i] || '';
-
-    if (userWord !== correctWord) {
-      if (correctWord && !userWord) {
-        // Missing word
-        errorAnalysis.spellingErrors.push({
-          text: '(missing)',
-          type: 'spelling',
-          position: { start: 0, end: 1 },
-          correction: correctWord,
-          explanation: `Missing word: "${correctWord}"`,
-        });
-      } else if (userWord && !correctWord) {
-        // Extra word
-        errorAnalysis.spellingErrors.push({
-          text: userWord,
-          type: 'spelling',
-          position: { start: 0, end: 1 },
-          correction: '',
-          explanation: `Extra word that should be removed`,
-        });
-      } else if (userWord && correctWord) {
-        // Incorrect word
-        errorAnalysis.spellingErrors.push({
-          text: userWord,
-          type: 'spelling',
-          position: { start: 0, end: 1 },
-          correction: correctWord,
-          explanation: `Incorrect spelling or word`,
-        });
-      }
-    }
+  // Add spelling mistakes to error analysis
+  for (const mistake of spellingMistakes) {
+    errorAnalysis.spellingErrors.push({
+      text: mistake.userWord,
+      type: 'spelling_error',
+      position: { start: 0, end: 1 },
+      correction: mistake.correctWord,
+      explanation: `Spelling mistake: "${mistake.userWord}" should be "${mistake.correctWord}"`,
+    });
   }
 
-  // Use correct/total format like Fill in the Blanks
-  const score = correctWordCount; // Show actual correct words count
+  // Add missing words to error analysis (as vocabulary/listening issues)
+  for (const missingWord of missingWords) {
+    errorAnalysis.vocabularyIssues.push({
+      text: missingWord,
+      type: 'missing_word',
+      position: { start: 0, end: 1 },
+      correction: missingWord,
+      explanation: `You missed the word: "${missingWord}"`,
+    });
+  }
+
+  // Add extra words to error analysis (as unnecessary additions)
+  for (const extraWord of extraWordsInResponse) {
+    errorAnalysis.grammarErrors.push({
+      text: extraWord,
+      type: 'unnecessary_word',
+      position: { start: 0, end: 1 },
+      correction: '',
+      explanation: `Unnecessary word that should be removed: "${extraWord}"`,
+    });
+  }
+
+  // Use correct/total format
+  const score = correctWordCount;
 
   return {
     score,
     isCorrect,
-    feedback: `You typed ${correctWordCount} out of ${correctWords.length} words correctly.`,
+    feedback:
+      correctWordCount === correctWords.length &&
+      extraWordsInResponse.length === 0 &&
+      spellingMistakes.length === 0
+        ? `Perfect! You typed all ${correctWords.length} words correctly.`
+        : `You typed ${correctWordCount} out of ${
+            correctWords.length
+          } words correctly.${
+            spellingMistakes.length > 0
+              ? ` Spelling mistakes: ${spellingMistakes
+                  .map((m) => `"${m.userWord}" → "${m.correctWord}"`)
+                  .join(', ')}.`
+              : ''
+          }${
+            missingWords.length > 0
+              ? ` Missing: ${missingWords.join(', ')}.`
+              : ''
+          }${
+            extraWordsInResponse.length > 0
+              ? ` Extra words: ${extraWordsInResponse.join(', ')}.`
+              : ''
+          }`,
     detailedAnalysis: {
       overallScore: score,
-      userText: userResponse.text || '', // Include original text for highlighting
-      correctText: correctTextOriginal, // Use original text for display (not lowercase)
+      userText: userResponse.text || '',
+      correctText: correctTextOriginal,
       userWords,
       correctWords,
       correctWordCount,
       totalWords: correctWords.length,
       accuracy,
+      missingWords,
+      extraWords: extraWordsInResponse,
       // Add structured scores for consistent frontend display
       scores: {
         listening: { score: correctWordCount, max: correctWords.length },
-        // writing: { score: correctWordCount, max: correctWords.length }, // Also tests writing
       },
       errorAnalysis,
     },
@@ -3607,6 +4298,7 @@ async function evaluateWriteFromDictation(
       'Focus on spelling accuracy',
       'Listen for punctuation cues in the audio',
       'Practice typing while listening to improve speed and accuracy',
+      'Make sure all words are present and no extra words are added',
     ],
   };
 }
@@ -3645,6 +4337,26 @@ async function evaluateHighlightCorrectSummary(
 
   const correctOptionText = correctAnswers[0].text;
 
+  // Generate explanation for incorrect answers
+  let explanation = '';
+  if (!isCorrect) {
+    try {
+      explanation = await generateDynamicExplanationListening({
+        questionType: 'HIGHLIGHT_CORRECT_SUMMARY',
+        questionStatement: question.questionStatement,
+        selectedAnswer: userSelectedText,
+        correctAnswer: correctOptionText,
+        allOptions: question.options,
+      });
+    } catch (error) {
+      console.error(
+        'Error generating explanation for HIGHLIGHT_CORRECT_SUMMARY:',
+        error
+      );
+      explanation = '';
+    }
+  }
+
   return {
     score,
     isCorrect,
@@ -3661,6 +4373,7 @@ async function evaluateHighlightCorrectSummary(
       },
       selectedOptionText: userSelectedText,
       correctOptionText: correctOptionText,
+      explanation: explanation,
     },
     suggestions: isCorrect
       ? ['Excellent listening comprehension!']
@@ -3698,6 +4411,26 @@ async function evaluateSelectMissingWord(
 
   console.log(correctOptionText, 'MMMM');
 
+  // Generate explanation for incorrect answers
+  let explanation = '';
+  if (!isCorrect) {
+    try {
+      explanation = await generateDynamicExplanationListening({
+        questionType: 'SELECT_MISSING_WORD',
+        questionStatement: question.questionStatement,
+        selectedAnswer: selectedOptionText,
+        correctAnswer: correctOptionText,
+        allOptions: question.options,
+      });
+    } catch (error) {
+      console.error(
+        'Error generating explanation for SELECT_MISSING_WORD:',
+        error
+      );
+      explanation = '';
+    }
+  }
+
   return {
     score,
     isCorrect,
@@ -3715,6 +4448,7 @@ async function evaluateSelectMissingWord(
       },
       selectedOptionText,
       correctOptionText,
+      explanation: explanation,
     },
     suggestions: isCorrect
       ? ['Great listening skills!']
@@ -3782,6 +4516,39 @@ async function evaluateListeningFillInTheBlanks(
     score
   );
 
+  // Generate formal explanation for incorrect blanks
+  let explanation = '';
+  if (!isCorrect) {
+    try {
+      // Get first incorrect blank for explanation
+      const firstIncorrectBlank = Object.entries(blankResults).find(
+        ([_, result]: [string, any]) => !result.isCorrect
+      ) as [string, any] | undefined;
+
+      if (firstIncorrectBlank) {
+        const [blankKey, result] = firstIncorrectBlank;
+        explanation = await generateDynamicExplanationListeningFillBlanks({
+          questionType: 'LISTENING_FILL_IN_THE_BLANKS',
+          userAnswer: result.userAnswer,
+          correctAnswer: result.correctAnswer,
+          blankContext: question.questionStatement || '',
+          allIncorrectBlanks: Object.entries(blankResults)
+            .filter(([_, b]: [string, any]) => !b.isCorrect)
+            .map(([_, b]: [string, any]) => ({
+              userAnswer: b.userAnswer,
+              correctAnswer: b.correctAnswer,
+            })),
+        });
+      }
+    } catch (error) {
+      console.error(
+        'Error generating explanation for LISTENING_FILL_IN_THE_BLANKS:',
+        error
+      );
+      explanation = '';
+    }
+  }
+
   // Generate error analysis for incorrect blanks
   const errorAnalysis = {
     spellingErrors: [] as any[],
@@ -3837,6 +4604,7 @@ async function evaluateListeningFillInTheBlanks(
       blankResults,
       errorAnalysis,
       userText, // Include text representation for highlighting
+      explanation: explanation,
     },
   };
 }
@@ -3961,26 +4729,29 @@ ${questionStatement || 'No specific question statement'}
 **All Answer Options:**
 ${
   allOptions
-    ? allOptions
-        .map((opt: any, index: number) => `${index + 1}. ${opt.text}`)
-        .join('\n')
+    ? allOptions.map((opt: any) => `• ${opt.text}`).join('\n')
     : 'Options not available'
 }
 
-**Student's Answer:** ${selectedAnswer}
+**Your Answer:** ${selectedAnswer}
 **Correct Answer:** ${correctAnswer}
 
-Please provide a detailed, educational explanation that:
-1. Clearly states why the correct answer is right
-2. Explains why the student's answer was wrong
-3. Points to specific evidence in the passage (if available)
-4. Helps the student understand the reasoning process
-5. Identifies any common misconceptions or traps
+Provide a brief explanation (2-3 lines maximum) that:
+1. Clearly states why the correct answer is right with evidence from the passage
+2. Explains why your incorrectly selected options were wrong or what you missed
 
-Keep the explanation concise but informative (2-3 sentences maximum).
-Focus on teaching the student how to approach similar questions in the future.
+IMPORTANT RULES:
+- Always refer to the user in **second person** only.
+- You MUST use phrases like:
+  - "Your answer was incorrect because..."
+  - "Your selection was incomplete because..."
+- NEVER use:
+  - "My answer"
+  - "I selected"
+  - "We chose"
 
-**Response format:** Provide only the explanation text, no additional formatting.
+Be direct and focus only on what is correct and what is wrong. No tips or additional advice needed.
+Use line breaks to separate the two points.
 `;
 
     const response = await openai.chat.completions.create({
@@ -4049,31 +4820,34 @@ ${questionStatement || 'No specific question statement'}
 **All Answer Options:**
 ${
   allOptions
-    ? allOptions
-        .map((opt: any, index: number) => `${index + 1}. ${opt.text}`)
-        .join('\n')
+    ? allOptions.map((opt: any) => `• ${opt.text}`).join('\n')
     : 'Options not available'
 }
 
-**Student's Selected Answers:** ${selectedAnswers.join(', ')}
+**Your Selected Answers:** ${selectedAnswers.join(', ')}
 **Correct Answers:** ${correctAnswers.join(', ')}
 **Incorrectly Selected:** ${
       incorrectlySelected.length > 0 ? incorrectlySelected.join(', ') : 'None'
     }
-**Missed Correct Answers:** ${
+**Answers You Missed:** ${
       missedCorrect.length > 0 ? missedCorrect.join(', ') : 'None'
     }
 
-Please provide a detailed, educational explanation that:
+Provide a brief explanation (3-4 lines maximum) that:
 1. Explains why each correct answer is right with specific evidence from the passage
-2. Explains why the incorrectly selected options were wrong
-3. Helps the student understand what they missed and why
-4. Provides guidance on how to identify all correct answers in similar questions
+2. Explains why your incorrectly selected options were wrong or what you missed
 
-Keep the explanation concise but informative (3-4 sentences maximum).
-Focus on teaching the student the systematic approach to multiple answer questions.
+IMPORTANT RULES:
+- Always refer to the user in **second person** only.
+- You MUST use phrases like:
+  - "Your answer was incorrect because..."
+  - "Your selection was incomplete because..."
+- NEVER use:
+  - "My answer"
+  - "I selected"
+  - "We chose"
 
-**Response format:** Provide only the explanation text, no additional formatting.
+Be direct and focus only on what is correct and what is wrong. No tips or additional advice needed.
 `;
 
     const response = await openai.chat.completions.create({
@@ -4142,20 +4916,25 @@ You are an expert PTE Academic tutor providing detailed explanations for reorder
 **Paragraphs:**
 ${paragraphTexts.join('\n')}
 
-**Student's Order:** ${userOrder.join(' → ')}
+**Your Order:** ${userOrder.join(' → ')}
 **Correct Order:** ${correctOrder.join(' → ')}
 **Score:** ${correctPairs} out of ${maxPairs} adjacent pairs correct
 
-Please provide a detailed, educational explanation that:
+Provide a brief explanation (3-4 lines maximum) that:
 1. Explains the logical flow of the correct order
-2. Identifies where the student went wrong in their ordering
-3. Points out key connecting words, chronological markers, or logical relationships
-4. Helps the student understand how to identify the correct sequence
+2. Identifies where your ordering went wrong and what you should have done instead
 
-Keep the explanation concise but informative (3-4 sentences maximum).
-Focus on teaching the student how to identify logical connections between paragraphs.
+IMPORTANT RULES:
+- Always refer to the user in **second person** only.
+- You MUST use phrases like:
+  - "Your answer was incorrect because..."
+  - "Your selection was incomplete because..."
+- NEVER use:
+  - "My answer"
+  - "I selected"
+  - "We chose"
 
-**Response format:** Provide only the explanation text, no additional formatting.
+Be direct and focus only on what is correct and what is wrong. No tips or additional advice needed.
 `;
 
     const response = await openai.chat.completions.create({
@@ -4207,38 +4986,35 @@ async function generateDynamicExplanationFillBlanks(params: {
       .filter(([_, result]: [string, any]) => !result.isCorrect)
       .map(([blankKey, result]: [string, any]) => {
         const blankNumber = blankKey.replace('blank', '');
-        return `Blank ${blankNumber}: Student wrote "${
+        return `Blank ${blankNumber}: You wrote "${
           result.userAnswer || '(empty)'
         }", correct answer is "${result.correctAnswer}"`;
       });
 
     const prompt = `
-You are an expert PTE Academic tutor providing detailed explanations for fill in the blanks reading questions.
+You are an expert PTE Academic tutor. Analyze the fill-in-the-blanks performance and provide a concise, educational explanation.
 
-**Question Type:** ${questionType}
-
-**Passage with Blanks:**
+**Passage Context:**
 ${textContent || 'No passage provided'}
 
-**Performance:** ${correctCount} out of ${totalBlanks} blanks correct
+**Your Performance:** ${correctCount}/${totalBlanks} correct
 
-**Incorrect Answers:**
+**Your Incorrect Answers:**
 ${
   incorrectBlanks.length > 0
     ? incorrectBlanks.join('\n')
     : 'All answers were correct'
 }
 
-Please provide a detailed, educational explanation that:
-1. Explains why the correct answers fit grammatically and contextually
-2. Identifies the specific grammatical or contextual clues that should guide the student
-3. Explains common mistakes and how to avoid them
-4. Provides strategies for approaching similar questions
+Generate a 2-3 sentence explanation that:
+1. Points out the grammatical or contextual reason why your incorrect answers don't fit
+2. Explains what the correct answers reveal about the intended meaning or grammar
 
-Keep the explanation concise but informative (3-4 sentences maximum).
-Focus on teaching the student how to use context and grammar clues effectively.
-
-**Response format:** Provide only the explanation text, no additional formatting.
+Guidelines:
+- Address the user directly in second person: "Your answers showed...", "The text suggests..."
+- Focus on understanding patterns and word relationships
+- Be specific about grammatical rules (e.g., verb tense, word form, collocations)
+- Keep it educational and encouraging
 `;
 
     const response = await openai.chat.completions.create({
@@ -4265,6 +5041,300 @@ Focus on teaching the student how to use context and grammar clues effectively.
   } catch (error) {
     console.error(
       'Error generating dynamic explanation for fill in the blanks:',
+      error
+    );
+    throw error;
+  }
+}
+
+/**
+ * Generate explanation for listening questions (single answer choice)
+ */
+async function generateDynamicExplanationListening(params: {
+  questionType: string;
+  questionStatement?: string | null;
+  audioTranscript?: string | null;
+  selectedAnswer: string;
+  correctAnswer: string;
+  allOptions?: any;
+}): Promise<string> {
+  const {
+    questionType,
+    questionStatement,
+    audioTranscript,
+    selectedAnswer,
+    correctAnswer,
+    allOptions,
+  } = params;
+
+  try {
+    const prompt = `
+You are an expert PTE Academic tutor providing detailed explanations for listening questions.
+
+**Question Type:** ${questionType}
+
+**Question Statement:**
+${questionStatement || 'No specific question statement'}
+
+**Audio Transcript:**
+${audioTranscript || 'Transcript not available'}
+
+**All Answer Options:**
+${
+  allOptions
+    ? allOptions.map((opt: any) => `• ${opt.text}`).join('\n')
+    : 'Options not available'
+}
+
+**Your Answer:** ${selectedAnswer}
+**Correct Answer:** ${correctAnswer}
+
+Provide a brief explanation (2-3 lines maximum) that:
+1. Clearly states why the correct answer is right with evidence from the audio
+2. Clearly explains why **your selected answers** were incorrect or incomplete.
+
+IMPORTANT RULES:
+- Always refer to the user in **second person** only.
+- You MUST use phrases like:
+  - "Your answer was incorrect because..."
+  - "Your selection was incomplete because..."
+- NEVER use:
+  - "My answer"
+  - "I selected"
+  - "We chose"
+
+Be direct and focus only on what is correct and what is wrong. No tips or additional advice needed.
+Use line breaks to separate the two points.
+`;
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are an expert PTE Academic tutor specializing in listening comprehension questions.',
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      max_tokens: 200,
+      temperature: 0.3,
+    });
+
+    return (
+      response.choices[0]?.message?.content?.trim() ||
+      'Unable to generate explanation.'
+    );
+  } catch (error) {
+    console.error('Error generating dynamic explanation for listening:', error);
+    throw error;
+  }
+}
+
+/**
+ * Generate explanation for listening fill in the blanks questions
+ */
+async function generateDynamicExplanationListeningFillBlanks(params: {
+  questionType: string;
+  audioTranscript?: string | null;
+  userAnswer: string;
+  correctAnswer: string;
+  blankContext?: string | null;
+  allIncorrectBlanks?: any[];
+}): Promise<string> {
+  const {
+    questionType,
+    audioTranscript,
+    userAnswer,
+    correctAnswer,
+    blankContext,
+    allIncorrectBlanks,
+  } = params;
+
+  try {
+    const incorrectBlanksText =
+      allIncorrectBlanks && allIncorrectBlanks.length > 1
+        ? `\n\nOther incorrect answers:\n${allIncorrectBlanks
+            .map(
+              (b: any) =>
+                `• You wrote: "${b.userAnswer}", Correct: "${b.correctAnswer}"`
+            )
+            .join('\n')}`
+        : '';
+
+    const prompt = `
+You are an expert PTE Academic tutor providing detailed explanations for listening fill in the blanks questions.
+
+**Question Type:** ${questionType}
+
+**Question Context:**
+${blankContext || 'Context not available'}
+
+**Audio Transcript:**
+${audioTranscript || 'Transcript not available'}
+
+**This Blank:**
+• Your Answer: "${userAnswer}"
+• Correct Answer: "${correctAnswer}"
+${incorrectBlanksText}
+
+Provide a brief explanation (2-3 lines maximum) that:
+1. Clearly states why the correct answer is right with evidence from the audio
+2. Explains why your incorrectly selected options were wrong or what you missed
+
+IMPORTANT RULES:
+- Always refer to the user in **second person** only.
+- You MUST use phrases like:
+  - "Your answer was incorrect because..."
+  - "Your selection was incomplete because..."
+- NEVER use:
+  - "My answer"
+  - "I selected"
+  - "We chose"
+
+Be direct and focus only on what is correct and what is wrong. No tips or additional advice needed.
+Use line breaks to separate the two points.
+`;
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are an expert PTE Academic tutor specializing in listening fill in the blanks questions.',
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      max_tokens: 200,
+      temperature: 0.3,
+    });
+
+    return (
+      response.choices[0]?.message?.content?.trim() ||
+      'Unable to generate explanation.'
+    );
+  } catch (error) {
+    console.error(
+      'Error generating dynamic explanation for listening fill in the blanks:',
+      error
+    );
+    throw error;
+  }
+}
+
+/**
+ * Generate explanation for listening multiple choice multiple answers questions
+ */
+async function generateDynamicExplanationListeningMultiple(params: {
+  questionType: string;
+  questionStatement?: string | null;
+  audioTranscript?: string | null;
+  selectedAnswers: string[];
+  correctAnswers: string[];
+  incorrectlySelected?: string[];
+  missedCorrect?: string[];
+  allOptions?: any;
+}): Promise<string> {
+  const {
+    questionType,
+    questionStatement,
+    audioTranscript,
+    selectedAnswers,
+    correctAnswers,
+    incorrectlySelected,
+    missedCorrect,
+    allOptions,
+  } = params;
+
+  try {
+    const prompt = `
+You are an expert PTE Academic tutor providing detailed explanations for listening questions with multiple answers.
+
+**Question Type:** ${questionType}
+
+**Question Statement:**
+${questionStatement || 'No specific question statement'}
+
+**Audio Transcript:**
+${audioTranscript || 'Transcript not available'}
+
+**All Answer Options:**
+${
+  allOptions
+    ? allOptions.map((opt: any) => `• ${opt.text}`).join('\n')
+    : 'Options not available'
+}
+
+**Correct Answers:** ${correctAnswers
+      .map((ans: string) => `"${ans}"`)
+      .join(', ')}
+**Your Selected Answers:** ${selectedAnswers
+      .map((ans: string) => `"${ans}"`)
+      .join(', ')}
+${
+  incorrectlySelected && incorrectlySelected.length > 0
+    ? `**Incorrectly Selected:** ${incorrectlySelected
+        .map((ans: string) => `"${ans}"`)
+        .join(', ')}`
+    : ''
+}
+${
+  missedCorrect && missedCorrect.length > 0
+    ? `**Answers You Missed:** ${missedCorrect
+        .map((ans: string) => `"${ans}"`)
+        .join(', ')}`
+    : ''
+}
+
+Provide a brief explanation (2-3 lines maximum) that:
+1. Clearly states which answers are correct and why with evidence from the audio
+2. Explains why your selection was incorrect or incomplete
+
+IMPORTANT RULES:
+- Always refer to the user in **second person** only.
+- You MUST use phrases like:
+  - "Your answer was incorrect because..."
+  - "Your selection was incomplete because..."
+- NEVER use:
+  - "My answer"
+  - "I selected"
+  - "We chose"
+
+Be direct and focus only on what is correct and what is wrong. No tips or additional advice needed.
+Use line breaks to separate the two points.
+`;
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are an expert PTE Academic tutor specializing in listening comprehension questions with multiple answers.',
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      max_tokens: 200,
+      temperature: 0.3,
+    });
+
+    return (
+      response.choices[0]?.message?.content?.trim() ||
+      'Unable to generate explanation.'
+    );
+  } catch (error) {
+    console.error(
+      'Error generating dynamic explanation for listening multiple answers:',
       error
     );
     throw error;
