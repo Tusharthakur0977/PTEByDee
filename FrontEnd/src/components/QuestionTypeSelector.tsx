@@ -16,8 +16,10 @@ import {
   Volume2,
 } from 'lucide-react';
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getQuestionTypes } from '../services/portal';
 import { PteQuestionTypeName } from '../types/pte';
+import { getPracticePagePath } from '../utils/questionTypeToSlug';
 
 interface QuestionTypeSelectorProps {
   selectedType: PteQuestionTypeName | null;
@@ -30,6 +32,7 @@ const QuestionTypeSelector: React.FC<QuestionTypeSelectorProps> = ({
   onTypeSelect,
   className = '',
 }) => {
+  const navigate = useNavigate();
   const [questionTypes, setQuestionTypes] = React.useState<any>({});
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -268,9 +271,11 @@ const QuestionTypeSelector: React.FC<QuestionTypeSelectorProps> = ({
                   return (
                     <button
                       key={questionType.type}
-                      onClick={() => onTypeSelect(questionType.type)}
+                      onClick={() =>
+                        navigate(getPracticePagePath(questionType.type))
+                      }
                       className={`group relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-left transition-all duration-200 hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 ${getColorClasses(
-                        category.color,
+                        category.color, 
                         'hover'
                       )}`}
                     >

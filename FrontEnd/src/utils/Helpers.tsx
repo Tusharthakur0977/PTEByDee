@@ -49,6 +49,7 @@ export const formatScoringText = (text: string) => {
 };
 
 // Function to render text with error highlighting
+// Handles omitted words, inserted words, and other corrections
 export const renderHighlightedText = (
   text: string,
   errorAnalysis: any,
@@ -80,10 +81,13 @@ export const renderHighlightedText = (
       type: 'fluency',
     })),
     ...(errorAnalysis.contentErrors || []).map((error: any) => ({
-      ...error,
+        ...error,
       type: 'content',
     })),
   ];
+
+console.log(allErrors, 'OPPO');
+
 
   // Convert text to lowercase for matching but keep original for display
   const lowerText = text.toLowerCase();
@@ -184,6 +188,51 @@ export const renderHighlightedText = (
       <span key={`text-${currentPos}`}>{text.substring(currentPos)}</span>
     );
   }
+
+  return <span>{result}</span>;
+};
+
+// Function to render text with word-by-word analysis showing omitted words
+// Used for ANSWER_SHORT_QUESTION where words are missing from the user's response
+export const renderWordByWordAnalysis = (
+  wordAnalysis: Array<{ word: string; status: string }>,
+  errorAnalysis: any,
+  onPressError: any
+) => {
+  if (!wordAnalysis || wordAnalysis.length === 0)
+    return <span>No words to analyze</span>;
+
+  const result: React.ReactNode[] = [];
+
+  wordAnalysis.forEach((wordData, index) => {
+    const { word, status } = wordData;
+
+    if (status === 'correct') {
+      // Correct word - no highlighting
+      result.push(
+        <span key={`word-${index}`}>
+          {word}
+          {index < wordAnalysis.length - 1 ? ' ' : ''}
+        </span>
+      );
+    } else if (status === 'omitted') {
+      // Omitted word - show in pink with strike-through
+      const error = errorAnalysis?.contentErrors?.find(
+        (e: any) => e.text === word
+      );
+      result.push(
+        <span
+          key={`word-${index}`}
+          className='bg-pink-200 dark:bg-pink-800 text-pink-800 dark:text-pink-200 border border-pink-300 dark:border-pink-600 px-1 py-0.5 rounded cursor-pointer hover:shadow-md transition-all duration-200 font-medium line-through'
+          onClick={() => error && onPressError(error)}
+          title={`Click to see details about missing word: ${word}`}
+        >
+          {word}
+        </span>
+      );
+      result.push(index < wordAnalysis.length - 1 ? ' ' : '');
+    }
+  });
 
   return <span>{result}</span>;
 };
@@ -328,4 +377,27 @@ export const renderHighlightedTextByWords = (
   }
 
   return <span>{result}</span>;
+};
+
+
+export const playBeep = () => {
+  const audioContext = new (window.AudioContext ||
+    (window as any).webkitAudioContext)();
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
+
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+
+  oscillator.frequency.value = 1000; // 1000 Hz beep
+  oscillator.type = 'sine';
+
+  gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(
+    0.01,
+    audioContext.currentTime + 0.5
+  );
+
+  oscillator.start(audioContext.currentTime);
+  oscillator.stop(audioContext.currentTime + 0.5);
 };

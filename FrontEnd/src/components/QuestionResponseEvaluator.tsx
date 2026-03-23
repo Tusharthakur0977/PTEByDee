@@ -5,6 +5,7 @@ import {
   formatScoringText,
   renderHighlightedText,
   renderHighlightedTextByWords,
+  renderWordByWordAnalysis,
 } from '../utils/Helpers';
 
 interface QuestionEvaluation {
@@ -1731,9 +1732,9 @@ const QuestionResponseEvaluator: React.FC<QuestionResponseEvaluatorProps> = ({
               </div>
               <div className='bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border'>
                 <div className='text-sm leading-relaxed text-gray-800 dark:text-gray-200'>
-                  {renderHighlightedText(
-                    evaluationWithParsedAnalysis.detailedAnalysis.userText ||
-                      '',
+                  {renderWordByWordAnalysis(
+                    evaluationWithParsedAnalysis.detailedAnalysis
+                      .wordByWordAnalysis || '',
                     evaluationWithParsedAnalysis.detailedAnalysis.errorAnalysis,
                     (err: string) => setSelectedError(err)
                   )}

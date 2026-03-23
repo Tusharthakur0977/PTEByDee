@@ -15,6 +15,7 @@ interface UseAudioRecorderReturn {
   uploadAudio: () => Promise<string | null>;
   isSupported: boolean;
   resetUploadState: () => void;
+  stopAndRelease: () => void;
 }
 
 export const useAudioRecorder = (): UseAudioRecorderReturn => {
@@ -55,6 +56,27 @@ export const useAudioRecorder = (): UseAudioRecorderReturn => {
     setUploadSuccess(false);
     setUploadProgress(0);
   }, []);
+
+  const stopAndRelease = useCallback(() => {
+    // Stop recorder safely
+    if (mediaRecorderRef.current) {
+      if (mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
+      mediaRecorderRef.current = null;
+    }
+
+    // 🔥 Force-release microphone
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => {
+        track.stop();
+      });
+      streamRef.current = null;
+    }
+
+    stopTimer();
+    setIsRecording(false);
+  }, [stopTimer]);
 
   const startRecording = useCallback(async () => {
     if (!isSupported) {
@@ -185,7 +207,7 @@ export const useAudioRecorder = (): UseAudioRecorderReturn => {
         const token = localStorage.getItem('token');
         xhr.open(
           'POST',
-          `${import.meta.env.VITE_API_BASE_URL}/user/upload-audio`
+          `${import.meta.env.VITE_API_BASE_URL}/user/upload-audio`,
         );
         if (token) {
           xhr.setRequestHeader('Authorization', `Bearer ${token}`);
@@ -225,5 +247,6 @@ export const useAudioRecorder = (): UseAudioRecorderReturn => {
     uploadAudio,
     isSupported,
     resetUploadState,
+    stopAndRelease,
   };
 };

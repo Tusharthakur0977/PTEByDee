@@ -30,7 +30,7 @@ interface LegacyQuestionEvaluationResult {
 function convertToStandardizedFormat(
   legacyResult: LegacyQuestionEvaluationResult,
   questionType: PteQuestionTypeName,
-  timeTaken: number = 0
+  timeTaken: number = 0,
 ): StandardizedEvaluationResponse {
   const { score, isCorrect, feedback, detailedAnalysis, suggestions } =
     legacyResult;
@@ -67,7 +67,7 @@ function convertToStandardizedFormat(
           detailedAnalysis.contentScore,
           contentMaxScore,
           0.4,
-          'Content accuracy and completeness'
+          'Content accuracy and completeness',
         );
         totalMaxScore += contentMaxScore;
       }
@@ -79,7 +79,7 @@ function convertToStandardizedFormat(
           detailedAnalysis.pronunciationScore,
           pronunciationMaxScore,
           0.4,
-          'Pronunciation clarity and accuracy'
+          'Pronunciation clarity and accuracy',
         );
         totalMaxScore += pronunciationMaxScore;
       }
@@ -90,7 +90,7 @@ function convertToStandardizedFormat(
           detailedAnalysis.fluencyScore,
           fluencyMaxScore,
           0.2,
-          'Speech fluency and rhythm'
+          'Speech fluency and rhythm',
         );
         totalMaxScore += fluencyMaxScore;
       }
@@ -137,11 +137,11 @@ function convertToStandardizedFormat(
               scoreData.score,
               maxScore,
               1 / Object.keys(detailedAnalysis.scores).length,
-              `${key.charAt(0).toUpperCase() + key.slice(1)} evaluation`
+              `${key.charAt(0).toUpperCase() + key.slice(1)} evaluation`,
             );
             totalMaxScore += maxScore;
           }
-        }
+        },
       );
 
       scoring.components = components;
@@ -198,7 +198,7 @@ function convertToStandardizedFormat(
       scoring.itemAnalysis = createItemAnalysis(
         detailedAnalysis.totalBlanks,
         detailedAnalysis.correctCount,
-        detailedAnalysis.blankResults
+        detailedAnalysis.blankResults,
       );
     }
   }
@@ -217,7 +217,7 @@ function convertToStandardizedFormat(
     {
       evaluationMethod: detailedAnalysis?.evaluationMethod || 'legacy',
       confidence: detailedAnalysis?.confidence,
-    }
+    },
   );
 }
 
@@ -248,7 +248,7 @@ interface Question {
 export async function evaluateQuestionResponse(
   question: Question,
   userResponse: any,
-  timeTakenSeconds?: number
+  timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
   const questionType = question.questionType.name;
 
@@ -260,7 +260,7 @@ export async function evaluateQuestionResponse(
       legacyResult = await evaluateReadAloud(
         question,
         userResponse,
-        timeTakenSeconds
+        timeTakenSeconds,
       );
       break;
 
@@ -268,7 +268,7 @@ export async function evaluateQuestionResponse(
       legacyResult = await evaluateRepeatSentence(
         question,
         userResponse,
-        timeTakenSeconds
+        timeTakenSeconds,
       );
       break;
 
@@ -276,7 +276,7 @@ export async function evaluateQuestionResponse(
       legacyResult = await evaluateDescribeImage(
         question,
         userResponse,
-        timeTakenSeconds
+        timeTakenSeconds,
       );
       break;
 
@@ -284,7 +284,7 @@ export async function evaluateQuestionResponse(
       legacyResult = await evaluateRetellLecture(
         question,
         userResponse,
-        timeTakenSeconds
+        timeTakenSeconds,
       );
       break;
 
@@ -292,7 +292,7 @@ export async function evaluateQuestionResponse(
       legacyResult = await evaluateSummarizeGroupDiscussion(
         question,
         userResponse,
-        timeTakenSeconds
+        timeTakenSeconds,
       );
       break;
 
@@ -300,7 +300,7 @@ export async function evaluateQuestionResponse(
       legacyResult = await evaluateRespondToASituation(
         question,
         userResponse,
-        timeTakenSeconds
+        timeTakenSeconds,
       );
       break;
 
@@ -312,7 +312,7 @@ export async function evaluateQuestionResponse(
       legacyResult = await evaluateSummarizeWrittenText(
         question,
         userResponse,
-        timeTakenSeconds
+        timeTakenSeconds,
       );
       break;
 
@@ -320,7 +320,7 @@ export async function evaluateQuestionResponse(
       legacyResult = await evaluateWriteEssay(
         question,
         userResponse,
-        timeTakenSeconds
+        timeTakenSeconds,
       );
       break;
 
@@ -329,7 +329,7 @@ export async function evaluateQuestionResponse(
       legacyResult = await evaluateMultipleChoiceSingle(
         question,
         userResponse,
-        timeTakenSeconds
+        timeTakenSeconds,
       );
       break;
 
@@ -338,7 +338,7 @@ export async function evaluateQuestionResponse(
       legacyResult = await evaluateMultipleChoiceMultiple(
         question,
         userResponse,
-        timeTakenSeconds
+        timeTakenSeconds,
       );
       break;
 
@@ -346,7 +346,7 @@ export async function evaluateQuestionResponse(
       legacyResult = await evaluateReorderParagraphs(
         question,
         userResponse,
-        timeTakenSeconds
+        timeTakenSeconds,
       );
       break;
 
@@ -355,7 +355,7 @@ export async function evaluateQuestionResponse(
       legacyResult = await evaluateFillInTheBlanks(
         question,
         userResponse,
-        timeTakenSeconds
+        timeTakenSeconds,
       );
       break;
 
@@ -363,7 +363,7 @@ export async function evaluateQuestionResponse(
       legacyResult = await evaluateListeningFillInTheBlanks(
         question,
         userResponse,
-        timeTakenSeconds
+        timeTakenSeconds,
       );
       break;
 
@@ -371,7 +371,7 @@ export async function evaluateQuestionResponse(
       legacyResult = await evaluateSummarizeSpokenText(
         question,
         userResponse,
-        timeTakenSeconds
+        timeTakenSeconds,
       );
       break;
 
@@ -379,7 +379,7 @@ export async function evaluateQuestionResponse(
       legacyResult = await evaluateHighlightCorrectSummary(
         question,
         userResponse,
-        timeTakenSeconds
+        timeTakenSeconds,
       );
       break;
 
@@ -387,7 +387,7 @@ export async function evaluateQuestionResponse(
       legacyResult = await evaluateSelectMissingWord(
         question,
         userResponse,
-        timeTakenSeconds
+        timeTakenSeconds,
       );
       break;
 
@@ -395,7 +395,7 @@ export async function evaluateQuestionResponse(
       legacyResult = await evaluateHighlightIncorrectWords(
         question,
         userResponse,
-        timeTakenSeconds
+        timeTakenSeconds,
       );
       break;
 
@@ -403,7 +403,7 @@ export async function evaluateQuestionResponse(
       legacyResult = await evaluateWriteFromDictation(
         question,
         userResponse,
-        timeTakenSeconds
+        timeTakenSeconds,
       );
       break;
 
@@ -447,7 +447,7 @@ export async function evaluateQuestionResponse(
     const standardizedAnalysis = convertToStandardizedFormat(
       legacyResult,
       questionType,
-      timeTakenSeconds || 0
+      timeTakenSeconds || 0,
     );
     detailedAnalysisToReturn = standardizedAnalysis;
   }
@@ -467,10 +467,7 @@ export async function evaluateQuestionResponse(
  * Corrects error positions for audio-based questions (Read Aloud, Repeat Sentence, etc.)
  * Handles pronunciationErrors, fluencyErrors, and contentErrors
  */
-function correctAudioErrorPositions(
-  errorAnalysis: any,
-  userText: string
-): any {
+function correctAudioErrorPositions(errorAnalysis: any, userText: string): any {
   if (!errorAnalysis) return errorAnalysis;
 
   // Split the text into words (same method as backend)
@@ -484,7 +481,7 @@ function correctAudioErrorPositions(
   const findWordPosition = (
     errorText: string,
     originalPosition?: { start: number; end: number },
-    context?: { before?: string; after?: string }
+    context?: { before?: string; after?: string },
   ): { start: number; end: number } | null => {
     const normalizedError = normalize(errorText);
 
@@ -590,9 +587,7 @@ function correctAudioErrorPositions(
 
     // Multiple occurrences - use intelligent selection strategy
     // Strategy 1: Context-based matching (highest priority)
-    const contextMatches = allOccurrences.filter(
-      (occ) => occ.contextScore > 0
-    );
+    const contextMatches = allOccurrences.filter((occ) => occ.contextScore > 0);
     if (contextMatches.length > 0) {
       // Sort by context score (descending)
       contextMatches.sort((a, b) => b.contextScore - a.contextScore);
@@ -631,7 +626,7 @@ function correctAudioErrorPositions(
       const correctedPosition = findWordPosition(
         error.text,
         error.position,
-        error.context
+        error.context,
       );
       if (correctedPosition) {
         return {
@@ -644,7 +639,9 @@ function correctAudioErrorPositions(
   };
 
   return {
-    pronunciationErrors: correctErrorArray(errorAnalysis.pronunciationErrors || []),
+    pronunciationErrors: correctErrorArray(
+      errorAnalysis.pronunciationErrors || [],
+    ),
     fluencyErrors: correctErrorArray(errorAnalysis.fluencyErrors || []),
     contentErrors: correctErrorArray(errorAnalysis.contentErrors || []),
   };
@@ -656,7 +653,7 @@ function correctAudioErrorPositions(
 async function evaluateReadAloud(
   question: Question,
   userResponse: any,
-  timeTakenSeconds?: number
+  timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
   const transcribedText = userResponse.textResponse;
 
@@ -826,7 +823,7 @@ async function evaluateReadAloud(
 
     // Calculate overall score as sum of component scores (points)
     const overallScore = Math.round(
-      contentScore + pronunciationScore + fluencyScore
+      contentScore + pronunciationScore + fluencyScore,
     );
 
     // Calculate max possible score
@@ -869,7 +866,7 @@ async function evaluateReadAloud(
         },
         errorAnalysis: correctAudioErrorPositions(
           evaluation.errorAnalysis,
-          transcribedText
+          transcribedText,
         ),
         userText: transcribedText, // Include transcribed text for highlighting
       },
@@ -904,7 +901,7 @@ async function evaluateReadAloud(
 async function evaluateRepeatSentence(
   question: Question,
   userResponse: any,
-  timeTakenSeconds?: number
+  timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
   const transcribedText = userResponse.textResponse;
   const originalSentence =
@@ -1045,7 +1042,7 @@ async function evaluateRepeatSentence(
 
     // Calculate overall score as sum of component scores (points)
     const overallScore = Math.round(
-      contentScore + pronunciationScore + fluencyScore
+      contentScore + pronunciationScore + fluencyScore,
     );
 
     // Calculate max possible score
@@ -1082,7 +1079,7 @@ async function evaluateRepeatSentence(
         },
         errorAnalysis: correctAudioErrorPositions(
           evaluation.errorAnalysis,
-          transcribedText
+          transcribedText,
         ),
         userText: transcribedText, // Include transcribed text for highlighting
       },
@@ -1124,7 +1121,7 @@ async function evaluateRepeatSentence(
 async function evaluateDescribeImage(
   question: Question,
   userResponse: any,
-  timeTakenSeconds?: number
+  timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
   const transcribedText = userResponse.textResponse;
 
@@ -1209,6 +1206,15 @@ async function evaluateDescribeImage(
         1. **Pronunciation:** If a word is mispronounced, categorize here ONLY.
         2. **Fluency:** If it's a filler word or hesitation, categorize here ONLY.
         3. **Content:** ONLY for factually incorrect statements, not for partial information or minor variations.
+        POSITION HANDLING (CRITICAL):
+    - DO NOT attempt to calculate character index positions.
+    - DO NOT return long phrases or full sentences as error.text.
+    - error.text MUST be:
+      - A short word or short phrase (1–5 words max)
+      - Exactly as it appears in the user's transcribed text
+    - If an error occurs multiple times (e.g., repetition),
+      return ONE representative short phrase only.
+    - The frontend will locate and highlight occurrences.
 
     **Required Output Format:**
     Respond with a single, minified JSON object in this exact format. Use camelCase for keys.
@@ -1230,7 +1236,7 @@ async function evaluateDescribeImage(
           {
             "text": "mispronounced word",
             "type": "pronunciation",
-            "position": { "start": 0, "end": 1 },
+            "position": { "start": null, "end":null },
             "correction": "correct pronunciation",
             "explanation": "explanation of pronunciation error"
           }
@@ -1239,7 +1245,7 @@ async function evaluateDescribeImage(
           {
             "text": "um",
             "type": "fluency",
-            "position": { "start": 0, "end": 1 },
+            "position": { "start": null, "end":null },
             "correction": "",
             "explanation": "filler word that disrupts fluency"
           }
@@ -1249,7 +1255,7 @@ async function evaluateDescribeImage(
           {
             "text": "factually incorrect statement",
             "type": "content",
-            "position": { "start": 0, "end": 1 },
+            "position": { "start": null, "end":null },
             "correction": "accurate description",
             "explanation": "this directly contradicts or misrepresents the image data"
           }
@@ -1392,7 +1398,7 @@ async function evaluateDescribeImage(
 async function evaluateRetellLecture(
   question: Question,
   userResponse: any,
-  timeTakenSeconds?: number
+  timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
   const transcribedText = userResponse.textResponse;
   const originalLecture = question.textContent || '';
@@ -1625,7 +1631,7 @@ async function evaluateRetellLecture(
 async function evaluateSummarizeGroupDiscussion(
   question: Question,
   userResponse: any,
-  timeTakenSeconds?: number
+  timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
   const transcribedText = userResponse.textResponse;
   const discussionTranscript = question.textContent || '';
@@ -1881,7 +1887,7 @@ async function evaluateSummarizeGroupDiscussion(
   } catch (error) {
     console.error(
       'OpenAI evaluation error for Summarize Group Discussion:',
-      error
+      error,
     );
     return {
       score: 0,
@@ -1922,7 +1928,7 @@ async function evaluateSummarizeGroupDiscussion(
 async function evaluateRespondToASituation(
   question: Question,
   userResponse: any,
-  timeTakenSeconds?: number
+  timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
   const transcribedText = userResponse.textResponse;
   const situationPrompt = question.textContent || '';
@@ -2217,7 +2223,7 @@ function isAnswerCorrect(userTranscript: string, correctAnswers: string[]) {
   }
   const normalizedUserTranscript = userTranscript.toLowerCase().trim();
   return correctAnswers.some((answer) =>
-    normalizedUserTranscript.includes(answer.toLowerCase().trim())
+    normalizedUserTranscript.includes(answer.toLowerCase().trim()),
   );
 }
 
@@ -2257,8 +2263,6 @@ function evaluateAnswerShortQuestion(question: Question, userResponse: any) {
         isCorrect: true,
         feedback: 'Your answer is correct.',
         detailedAnalysis: {
-          overallScore: 1,
-          evaluationMethod: 'Partial Match',
           transcribedText,
           correctAnswers,
           scores: {
@@ -2275,11 +2279,9 @@ function evaluateAnswerShortQuestion(question: Question, userResponse: any) {
         isCorrect: false,
         feedback: 'Your answer is incorrect.',
         detailedAnalysis: {
-          overallScore: 0,
           evaluationMethod: 'Partial Match',
           transcribedText,
           correctAnswers,
-          // Add structured scores for consistent frontend display
           scores: {
             vocabulary: { score: 0, max: 1 },
           },
@@ -2314,7 +2316,7 @@ function evaluateAnswerShortQuestion(question: Question, userResponse: any) {
 async function evaluateSummarizeWrittenText(
   question: Question,
   userResponse: any,
-  timeTakenSeconds?: number
+  timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
   const userText = userResponse.text || '';
   const wordCount = userText
@@ -2516,7 +2518,7 @@ async function evaluateSummarizeWrittenText(
 
     // Calculate percentage for isCorrect check (65% threshold)
     const percentageScore = Math.round(
-      (totalAchievedScore / totalMaxScore) * 100
+      (totalAchievedScore / totalMaxScore) * 100,
     );
 
     return {
@@ -2548,7 +2550,7 @@ async function evaluateSummarizeWrittenText(
         feedback: evaluation.feedback,
         errorAnalysis: correctErrorPositions(
           evaluation.errorAnalysis,
-          userText
+          userText,
         ),
         // errorAnalysis: evaluation.errorAnalysis || {
         //   grammarErrors: [],
@@ -2593,7 +2595,7 @@ function correctErrorPositions(errorAnalysis: any, userText: string): any {
   const findWordPosition = (
     errorText: string,
     originalPosition?: { start: number; end: number },
-    context?: { before?: string; after?: string }
+    context?: { before?: string; after?: string },
   ): { start: number; end: number } | null => {
     const normalizedError = normalize(errorText);
 
@@ -2739,7 +2741,7 @@ function correctErrorPositions(errorAnalysis: any, userText: string): any {
       const correctedPosition = findWordPosition(
         error.text,
         error.position,
-        error.context
+        error.context,
       );
       if (correctedPosition) {
         return {
@@ -2764,7 +2766,7 @@ function correctErrorPositions(errorAnalysis: any, userText: string): any {
 async function evaluateWriteEssay(
   question: Question,
   userResponse: any,
-  timeTakenSeconds?: number
+  timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
   const userText = userResponse.text || '';
   const wordCount = userText
@@ -3051,7 +3053,7 @@ async function evaluateWriteEssay(
 
     // Calculate percentage for isCorrect check (65% threshold)
     const percentageScore = Math.round(
-      (totalAchievedScore / totalMaxScore) * 100
+      (totalAchievedScore / totalMaxScore) * 100,
     );
 
     return {
@@ -3077,7 +3079,7 @@ async function evaluateWriteEssay(
         feedback: evaluation.feedback,
         errorAnalysis: correctErrorPositions(
           evaluation.errorAnalysis,
-          userText
+          userText,
         ),
         // errorAnalysis: correctErrorPositions(
         //   evaluation.errorAnalysis,
@@ -3113,7 +3115,7 @@ async function evaluateWriteEssay(
 async function evaluateMultipleChoiceSingle(
   question: Question,
   userResponse: any,
-  timeTakenSeconds?: number
+  timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
   const selectedOption = userResponse.selectedOption;
   const correctAnswers = question.options
@@ -3185,18 +3187,18 @@ async function evaluateMultipleChoiceSingle(
     suggestions: isCorrect
       ? ['Great job! Continue practicing similar questions.']
       : isReadingQuestion
-      ? [
-          'Re-read the passage carefully and identify key information',
-          'Look for specific evidence that directly supports the correct answer',
-          'Eliminate options that are only partially correct or off-topic',
-          'Pay attention to qualifying words like "always", "never", "some", "most"',
-          'Consider the main idea vs. specific details when answering',
-        ]
-      : [
-          'Review the passage/audio more carefully',
-          'Look for key information that supports the correct answer',
-          'Practice elimination techniques for wrong options',
-        ],
+        ? [
+            'Re-read the passage carefully and identify key information',
+            'Look for specific evidence that directly supports the correct answer',
+            'Eliminate options that are only partially correct or off-topic',
+            'Pay attention to qualifying words like "always", "never", "some", "most"',
+            'Consider the main idea vs. specific details when answering',
+          ]
+        : [
+            'Review the passage/audio more carefully',
+            'Look for key information that supports the correct answer',
+            'Practice elimination techniques for wrong options',
+          ],
   };
 }
 
@@ -3206,7 +3208,7 @@ async function evaluateMultipleChoiceSingle(
 async function evaluateMultipleChoiceMultiple(
   question: Question,
   userResponse: any,
-  timeTakenSeconds?: number
+  timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
   const selectedOptions = userResponse.selectedOptions || [];
   const correctAnswers = question.options
@@ -3215,12 +3217,12 @@ async function evaluateMultipleChoiceMultiple(
 
   // Count how many of the user's selections are correct
   const correctSelected = selectedOptions.filter((option: string) =>
-    correctAnswers.includes(option)
+    correctAnswers.includes(option),
   ).length;
 
   // Count how many of the user's selections are incorrect
   const incorrectSelected = selectedOptions.filter(
-    (option: string) => !correctAnswers.includes(option)
+    (option: string) => !correctAnswers.includes(option),
   ).length;
 
   const totalCorrectAnswers = correctAnswers.length;
@@ -3238,23 +3240,23 @@ async function evaluateMultipleChoiceMultiple(
   const options = question.options || [];
   const selectedOptionTexts = selectedOptions.map(
     (optId: string) =>
-      options.find((opt: any) => opt.id === optId)?.text || 'Unknown option'
+      options.find((opt: any) => opt.id === optId)?.text || 'Unknown option',
   );
   const correctOptionTexts = correctAnswers.map(
     (optId: string) =>
-      options.find((opt: any) => opt.id === optId)?.text || 'Unknown option'
+      options.find((opt: any) => opt.id === optId)?.text || 'Unknown option',
   );
   const incorrectlySelectedTexts = selectedOptions
     .filter((optId: string) => !correctAnswers.includes(optId))
     .map(
       (optId: string) =>
-        options.find((opt: any) => opt.id === optId)?.text || 'Unknown option'
+        options.find((opt: any) => opt.id === optId)?.text || 'Unknown option',
     );
   const missedCorrectTexts = correctAnswers
     .filter((optId: string) => !selectedOptions.includes(optId))
     .map(
       (optId: string) =>
-        options.find((opt: any) => opt.id === optId)?.text || 'Unknown option'
+        options.find((opt: any) => opt.id === optId)?.text || 'Unknown option',
     );
 
   // Generate detailed explanation for both reading and listening questions using AI
@@ -3322,18 +3324,18 @@ async function evaluateMultipleChoiceMultiple(
     suggestions: isCorrect
       ? ['Excellent! You identified all correct answers.']
       : isReadingQuestion
-      ? [
-          'Read the passage thoroughly to identify all relevant information',
-          'Look for multiple pieces of evidence that support different correct answers',
-          'Be careful not to select options that are only partially supported',
-          'Check that each selected option is directly supported by the text',
-          'Consider whether you might have missed any correct options',
-        ]
-      : [
-          'Read all options carefully before selecting',
-          'Look for multiple pieces of evidence in the text/audio',
-          'Avoid selecting options that are only partially correct',
-        ],
+        ? [
+            'Read the passage thoroughly to identify all relevant information',
+            'Look for multiple pieces of evidence that support different correct answers',
+            'Be careful not to select options that are only partially supported',
+            'Check that each selected option is directly supported by the text',
+            'Consider whether you might have missed any correct options',
+          ]
+        : [
+            'Read all options carefully before selecting',
+            'Look for multiple pieces of evidence in the text/audio',
+            'Avoid selecting options that are only partially correct',
+          ],
   };
 }
 
@@ -3343,7 +3345,7 @@ async function evaluateMultipleChoiceMultiple(
 async function evaluateReorderParagraphs(
   question: Question,
   userResponse: any,
-  timeTakenSeconds?: number
+  timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
   const userOrder = userResponse.orderedParagraphs || [];
   const correctOrder = question.correctAnswers?.correctOrder || [];
@@ -3367,51 +3369,35 @@ async function evaluateReorderParagraphs(
   const score = correctPairs; // Show actual correct pairs count
   const isCorrect = correctPairs === maxPairs;
 
-  // Get paragraph texts for detailed feedback
-  // const paragraphs = question.content?.paragraphs || [];
-  // const userOrderTexts = userOrder.map((id: string) => {
-  //   const paragraph = paragraphs.find((p: any) => p.id === id);
-  //   return paragraph
-  //     ? paragraph.text.substring(0, 50) + '...'
-  //     : 'Unknown paragraph';
-  // });
-  // const correctOrderTexts = correctOrder.map((id: string) => {
-  //   const paragraph = paragraphs.find((p: any) => p.id === id);
-  //   return paragraph
-  //     ? paragraph.text.substring(0, 50) + '...'
-  //     : 'Unknown paragraph';
-  // });
+  // Map paragraph IDs to their text and order for explanation
+  const paragraphMap = new Map<string, string>();
+  question.options.forEach((opt: any) => {
+    paragraphMap.set(opt.id, opt.text);
+  });
+
+  const userOrderText = userOrder.map((id: string) => ({
+    id,
+    text: paragraphMap.get(id) || '',
+  }));
+
+  const correctOrderText = correctOrder.map((id: string) => ({
+    id,
+    text: paragraphMap.get(id) || '',
+  }));
 
   // Generate detailed explanation using AI
   let explanation = '';
-  if (!isCorrect) {
-    try {
-      explanation = await generateDynamicExplanationReorder({
-        questionType: question.questionType.name,
-        textContent: question.textContent,
-        userOrder,
-        correctOrder,
-        correctPairs,
-        maxPairs,
-        paragraphs: question.options, // Paragraphs are stored in options
-      });
-    } catch (error) {
-      console.error('Error generating explanation:', error);
-      // Fallback to static explanation
-      explanation = `You got ${correctPairs} out of ${maxPairs} adjacent pairs correct. Look for logical flow, chronological order, and connecting words between paragraphs.`;
-    }
+  try {
+    explanation = await generateDynamicExplanationReorder({
+      questionType: question.questionType.name,
+      textContent: question.textContent,
+      correctOrderText, // Pass only correct order - explain why it's correct
+    });
+  } catch (error) {
+    console.error('Error generating explanation:', error);
+    // Fallback to static explanation
+    explanation = `The correct paragraph order follows a logical flow that connects ideas through transitions, chronological sequencing, or cause-and-effect relationships. Look for topic connections and structural clues that indicate which paragraphs belong together.`;
   }
-
-  const correctOrderText = question.correctAnswers.correctOrder.map(
-    (id: string) => {
-      const item = question.options.find((opt: any) => opt.id === id);
-      return item ? item.text : null;
-    }
-  );
-  const userOrderText = userResponse.orderedParagraphs.map((id: string) => {
-    const item = question.options.find((opt: any) => opt.id === id);
-    return item ? item.text : null;
-  });
 
   return {
     score,
@@ -3426,8 +3412,8 @@ async function evaluateReorderParagraphs(
       totalPairs: maxPairs, // For consistent display
       explanation: explanation || undefined,
       // Add structured scores for consistent frontend display
-      userOrderText,
-      correctOrderText,
+      userOrderText: userOrderText.map((item: any) => item.text),
+      correctOrderText: correctOrderText.map((item: any) => item.text),
       scores: {
         reading: { score: correctPairs, max: maxPairs },
       },
@@ -3451,7 +3437,7 @@ async function evaluateReorderParagraphs(
 async function evaluateFillInTheBlanks(
   question: Question,
   userResponse: any,
-  timeTakenSeconds?: number
+  timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
   const userBlanks = userResponse.blanks || {};
 
@@ -3491,55 +3477,52 @@ async function evaluateFillInTheBlanks(
   const score = correctCount; // Show actual correct count
   const isCorrect = correctCount >= Math.ceil(totalBlanks * 0.65); // 65% threshold
 
-  // Generate AI feedback
-  const aiFeedback = await generateFillInTheBlanksAIFeedback(
-    question,
-    userResponse,
-    blankResults,
-    score
-  );
-
-  // Determine if this is a reading or listening question
-  const isReadingQuestion =
-    question.questionType.name.includes('READING') ||
-    question.questionType.name === 'FILL_IN_THE_BLANKS_DRAG_AND_DROP';
-  const skillType = isReadingQuestion ? 'reading' : 'reading'; // Both are reading-based
+  // // Generate AI feedback
+  // const aiFeedback = await generateFillInTheBlanksAIFeedback(
+  //   question,
+  //   userResponse,
+  //   blankResults,
+  //   score,
+  // );
 
   // Generate detailed explanation for reading questions using AI
   let explanation = '';
-  if (!isCorrect && isReadingQuestion) {
-    try {
-      explanation = await generateDynamicExplanationFillBlanks({
-        questionType: question.questionType.name,
-        textContent: question.textContent,
-        blankResults,
-        correctCount,
-        totalBlanks,
+  try {
+    // explanation = await generateDynamicExplanationFillBlanks({
+    //   questionType: question.questionType.name,
+    //   textContent: question.textContent,
+    //   blankResults,
+    //   correctCount,
+    //   totalBlanks,
+    // });
+
+    explanation = await generateAnswerExplanation({
+      questionText: question.textContent!,
+      blankResults,
+    });
+  } catch (error) {
+    console.error('Error generating explanation:', error);
+    // Fallback to static explanation
+    const incorrectBlanks = Object.entries(blankResults)
+      .filter(([_, result]: [string, any]) => !result.isCorrect)
+      .map(([blankKey, result]: [string, any]) => {
+        const blankNumber = blankKey.replace('blank', '');
+        return `Blank ${blankNumber}: You wrote "${
+          result.userAnswer || '(empty)'
+        }", correct answer is "${result.correctAnswer}"`;
       });
-    } catch (error) {
-      console.error('Error generating explanation:', error);
-      // Fallback to static explanation
-      const incorrectBlanks = Object.entries(blankResults)
-        .filter(([_, result]: [string, any]) => !result.isCorrect)
-        .map(([blankKey, result]: [string, any]) => {
-          const blankNumber = blankKey.replace('blank', '');
-          return `Blank ${blankNumber}: You wrote "${
-            result.userAnswer || '(empty)'
-          }", correct answer is "${result.correctAnswer}"`;
-        });
 
-      if (incorrectBlanks.length > 0) {
-        explanation = `Incorrect answers: ${incorrectBlanks.join('; ')}. `;
-      }
-
-      explanation += `Consider the context around each blank for grammatical and meaning clues.`;
+    if (incorrectBlanks.length > 0) {
+      explanation = `Incorrect answers: ${incorrectBlanks.join('; ')}. `;
     }
+
+    explanation += `Consider the context around each blank for grammatical and meaning clues.`;
   }
 
   return {
     score,
     isCorrect,
-    feedback: aiFeedback.feedback,
+    feedback: '',
     detailedAnalysis: {
       overallScore: score,
       blankResults,
@@ -3549,148 +3532,69 @@ async function evaluateFillInTheBlanks(
       timeTaken: timeTakenSeconds || 0,
       // Add structured scores for consistent frontend display
       scores: {
-        [skillType]: { score: correctCount, max: totalBlanks },
+        ['reading']: { score: correctCount, max: totalBlanks },
       },
-      ...aiFeedback.detailedAnalysis,
     },
     suggestions: isCorrect
       ? ['Great work! You understood the context well.']
-      : isReadingQuestion
-      ? [
+      : [
           'Read the entire passage first to understand the overall meaning',
           'Look for grammatical clues around each blank (verb forms, articles, etc.)',
           'Consider the logical flow and meaning of the sentence',
           'Pay attention to collocations (words that commonly go together)',
           'Check if your answer fits grammatically and semantically',
-        ]
-      : aiFeedback.suggestions,
+        ],
   };
 }
 
-/**
- * Generate AI feedback for Fill in the Blanks responses
- */
-async function generateFillInTheBlanksAIFeedback(
-  question: any,
-  userResponse: any,
-  blankResults: any,
-  score: number
-): Promise<{
-  feedback: string;
-  detailedAnalysis: any;
-  suggestions: string[];
-}> {
-  try {
-    const prompt = `
-You are an expert PTE Academic evaluator specializing in Fill in the Blanks questions.
+async function generateAnswerExplanation({
+  questionText,
+  blankResults,
+}: {
+  questionText: string;
+  blankResults: any;
+}): Promise<string> {
+  const prompt = `
+You are a PTE expert trainer.
 
-**Question Text:**
-${question.textContent}
+Your job is to explain the correct answers in a detailed, paragraph-style explanation (like a teacher).
 
-**Question Type:** ${question.questionType.name}
+**Passage:**
+${questionText}
 
-**User's Answers:**
+**Answers:**
 ${Object.entries(blankResults)
   .map(
-    ([key, result]: [string, any]) =>
-      `${key}: "${result.userAnswer}" (Correct: "${result.correctAnswer}") - ${
-        result.isCorrect ? '✓' : '✗'
-      }`
+    ([key, val]: any, index) =>
+      `${index + 1}. User="${val.userAnswer}", Correct="${val.correctAnswer}"`,
   )
   .join('\n')}
 
-### **Scoring Rubrics**
-    1 Each correctly completed blank
-    0 Minimum score
+### Instructions:
+- Write explanation in structured paragraphs (NOT blank-wise labels)
+- Explain:
+  - why correct word fits (grammar + meaning)
+  - why other options are incorrect
+- Use simple teaching tone
+- Keep it clear and readable
+- Use numbering (1, 2, 3...) but NOT "Blank 1"
 
-**Overall Score:** ${score}%
+### Example Style:
+1. The word that best fits is "enabled". The sentence requires...
 
-Please provide:
-1. **Feedback**: Constructive feedback on the user's performance (2-3 sentences)
-2. **Detailed Analysis**: Analysis of vocabulary, grammar, and context understanding
-3. **Suggestions**: 3-4 specific improvement tips
+2. The word that best fits is "interconnected"...
 
-Respond in JSON format:
-{
-  "feedback": "Your feedback here",
-  "detailedAnalysis": {
-    "vocabularyAccuracy": 85,
-    "grammarUnderstanding": 90,
-    "contextComprehension": 80,
-    "commonMistakes": ["mistake1", "mistake2"]
-  },
-  "suggestions": ["suggestion1", "suggestion2", "suggestion3"]
-}
+Do NOT return JSON. Return plain text.
 `;
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.3,
-      max_tokens: 800,
-      response_format: { type: 'json_object' },
-    });
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o',
+    messages: [{ role: 'user', content: prompt }],
+    temperature: 0.3,
+    max_tokens: 900,
+  });
 
-    const aiResponse = response.choices[0]?.message?.content;
-    if (!aiResponse) {
-      throw new Error('No response from AI');
-    }
-
-    const parsedResponse = JSON.parse(aiResponse);
-    return {
-      feedback: parsedResponse.feedback || 'Response evaluated successfully.',
-      detailedAnalysis: parsedResponse.detailedAnalysis || {},
-      suggestions: parsedResponse.suggestions || [],
-    };
-  } catch (error) {
-    console.error(
-      'Error generating AI feedback for fill in the blanks:',
-      error
-    );
-
-    // Fallback feedback based on score
-    let feedback = '';
-    let suggestions = [];
-
-    if (score >= 80) {
-      feedback =
-        'Excellent work! You demonstrated strong vocabulary and context understanding.';
-      suggestions = [
-        'Continue practicing with more challenging texts',
-        'Focus on academic vocabulary expansion',
-        'Practice identifying word forms and collocations',
-      ];
-    } else if (score >= 60) {
-      feedback =
-        "Good effort! You got most answers correct but there's room for improvement.";
-      suggestions = [
-        'Pay attention to grammatical context around blanks',
-        'Consider word forms (noun, verb, adjective, adverb)',
-        'Read the entire sentence before selecting answers',
-        'Practice more vocabulary in academic contexts',
-      ];
-    } else {
-      feedback =
-        'Keep practicing! Focus on understanding context and grammar patterns.';
-      suggestions = [
-        'Read the entire passage first to understand the topic',
-        'Look for grammatical clues around each blank',
-        'Study common academic vocabulary and collocations',
-        'Practice identifying parts of speech',
-      ];
-    }
-
-    return {
-      feedback,
-      detailedAnalysis: {
-        vocabularyAccuracy: Math.max(0, score - 10),
-        grammarUnderstanding: Math.max(0, score - 5),
-        contextComprehension: score,
-        aiEvaluationFailed: true,
-      },
-      suggestions,
-    };
-  }
+  return response.choices[0]?.message?.content || '';
 }
 
 // LISTENING QUESTION EVALUATION
@@ -3700,7 +3604,7 @@ Respond in JSON format:
 async function evaluateSummarizeSpokenText(
   question: Question,
   userResponse: any,
-  timeTakenSeconds?: number
+  timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
   const userText = userResponse.text || '';
   const wordCount = userText
@@ -3932,7 +3836,7 @@ async function evaluateSummarizeSpokenText(
 
     // Calculate percentage for isCorrect check (65% threshold)
     const percentageScore = Math.round(
-      (totalAchievedScore / totalMaxScore) * 100
+      (totalAchievedScore / totalMaxScore) * 100,
     );
 
     return {
@@ -4016,7 +3920,7 @@ async function evaluateSummarizeSpokenText(
 async function evaluateHighlightIncorrectWords(
   question: Question,
   userResponse: any,
-  timeTakenSeconds?: number
+  timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
   const highlightedWords = userResponse.highlightedWords || [];
   const incorrectWords = question.incorrectWords || [];
@@ -4077,7 +3981,7 @@ async function evaluateHighlightIncorrectWords(
 async function evaluateWriteFromDictation(
   question: Question,
   userResponse: any,
-  timeTakenSeconds?: number
+  timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
   const userText = userResponse.text?.toLowerCase().trim() || '';
   const correctTextLower = question.textContent?.toLowerCase().trim() || '';
@@ -4166,7 +4070,7 @@ async function evaluateWriteFromDictation(
   // First pass: exact matches
   for (const correctWord of correctWords) {
     const index = userWordsCopy.findIndex(
-      (w, idx) => w === correctWord && !userWordsUsed.has(idx)
+      (w, idx) => w === correctWord && !userWordsUsed.has(idx),
     );
     if (index !== -1) {
       correctWordCount++;
@@ -4177,11 +4081,11 @@ async function evaluateWriteFromDictation(
   // Second pass: find spelling mistakes (similar words for unmatched correct words)
   for (const correctWord of correctWords) {
     const hasExactMatch = userWordsCopy.some(
-      (w, idx) => w === correctWord && userWordsUsed.has(idx)
+      (w, idx) => w === correctWord && userWordsUsed.has(idx),
     );
     if (!hasExactMatch) {
       const similarIndex = userWordsCopy.findIndex(
-        (w, idx) => !userWordsUsed.has(idx) && areSimilar(w, correctWord)
+        (w, idx) => !userWordsUsed.has(idx) && areSimilar(w, correctWord),
       );
       if (similarIndex !== -1) {
         spellingMistakes.push({
@@ -4197,7 +4101,7 @@ async function evaluateWriteFromDictation(
 
   // Remaining words in userWordsCopy are truly extra/unnecessary words
   const extraWordsInResponse = userWordsCopy.filter(
-    (_, idx) => !userWordsUsed.has(idx)
+    (_, idx) => !userWordsUsed.has(idx),
   );
 
   const accuracy =
@@ -4309,7 +4213,7 @@ async function evaluateWriteFromDictation(
 async function evaluateHighlightCorrectSummary(
   question: Question,
   userResponse: any,
-  timeTakenSeconds?: number
+  timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
   const selectedSummary =
     userResponse.selectedSummary || userResponse.selectedOptions?.[0];
@@ -4332,7 +4236,7 @@ async function evaluateHighlightCorrectSummary(
   //   return item ? item.text : null;
   // });
   const userSelectedText = question.options.filter(
-    (option: any) => option.id === selectedSummary
+    (option: any) => option.id === selectedSummary,
   )[0].text;
 
   const correctOptionText = correctAnswers[0].text;
@@ -4351,7 +4255,7 @@ async function evaluateHighlightCorrectSummary(
     } catch (error) {
       console.error(
         'Error generating explanation for HIGHLIGHT_CORRECT_SUMMARY:',
-        error
+        error,
       );
       explanation = '';
     }
@@ -4391,7 +4295,7 @@ async function evaluateHighlightCorrectSummary(
 async function evaluateSelectMissingWord(
   question: Question,
   userResponse: any,
-  timeTakenSeconds?: number
+  timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
   const selectedWord =
     userResponse.selectedWord || userResponse.selectedOptions?.[0];
@@ -4405,7 +4309,7 @@ async function evaluateSelectMissingWord(
   console.log(question);
 
   const selectedOptionText = question.options.filter(
-    (opt: any) => opt.id === selectedWord
+    (opt: any) => opt.id === selectedWord,
   )[0].text;
   const correctOptionText = correctAnswers[0].text;
 
@@ -4425,7 +4329,7 @@ async function evaluateSelectMissingWord(
     } catch (error) {
       console.error(
         'Error generating explanation for SELECT_MISSING_WORD:',
-        error
+        error,
       );
       explanation = '';
     }
@@ -4466,7 +4370,7 @@ async function evaluateSelectMissingWord(
 async function evaluateListeningFillInTheBlanks(
   question: Question,
   userResponse: any,
-  timeTakenSeconds?: number
+  timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
   const userBlanks = userResponse.blanks || {};
 
@@ -4513,7 +4417,7 @@ async function evaluateListeningFillInTheBlanks(
     question,
     userResponse,
     blankResults,
-    score
+    score,
   );
 
   // Generate formal explanation for incorrect blanks
@@ -4522,7 +4426,7 @@ async function evaluateListeningFillInTheBlanks(
     try {
       // Get first incorrect blank for explanation
       const firstIncorrectBlank = Object.entries(blankResults).find(
-        ([_, result]: [string, any]) => !result.isCorrect
+        ([_, result]: [string, any]) => !result.isCorrect,
       ) as [string, any] | undefined;
 
       if (firstIncorrectBlank) {
@@ -4543,7 +4447,7 @@ async function evaluateListeningFillInTheBlanks(
     } catch (error) {
       console.error(
         'Error generating explanation for LISTENING_FILL_IN_THE_BLANKS:',
-        error
+        error,
       );
       explanation = '';
     }
@@ -4615,7 +4519,7 @@ async function evaluateListeningFillInTheBlanks(
  */
 function isListeningAnswerCorrect(
   userAnswer: string,
-  correctAnswer: string
+  correctAnswer: string,
 ): boolean {
   if (!userAnswer || !correctAnswer) return false;
 
@@ -4649,10 +4553,10 @@ async function generateListeningFillInTheBlanksAIFeedback(
   question: Question,
   userResponse: any,
   blankResults: any,
-  score: number
+  score: number,
 ): Promise<{ feedback: string; suggestions: string[] }> {
   const correctCount = Object.values(blankResults).filter(
-    (result: any) => result.isCorrect
+    (result: any) => result.isCorrect,
   ).length;
   const totalBlanks = Object.keys(blankResults).length;
 
@@ -4874,7 +4778,7 @@ Be direct and focus only on what is correct and what is wrong. No tips or additi
   } catch (error) {
     console.error(
       'Error generating dynamic explanation for multiple choice:',
-      error
+      error,
     );
     throw error;
   }
@@ -4886,55 +4790,51 @@ Be direct and focus only on what is correct and what is wrong. No tips or additi
 async function generateDynamicExplanationReorder(params: {
   questionType: string;
   textContent?: string | null;
-  userOrder: string[];
-  correctOrder: string[];
-  correctPairs: number;
-  maxPairs: number;
-  paragraphs?: any;
+  correctOrderText: Array<{ id: string; text: string }>;
 }): Promise<string> {
-  const {
-    questionType,
-    textContent,
-    userOrder,
-    correctOrder,
-    correctPairs,
-    maxPairs,
-    paragraphs,
-  } = params;
+  const { questionType, textContent, correctOrderText } = params;
 
   try {
-    // Get paragraph texts for context
-    const paragraphTexts =
-      paragraphs?.map((p: any) => `${p.id}: ${p.text.substring(0, 100)}...`) ||
-      [];
+    // Format the correct paragraph order with full text and indexes
+    const correctOrderFormatted = correctOrderText
+      .map(
+        (item, index) =>
+          `Paragraph ${index + 1}: "${item.text}"`,
+      )
+      .join('\n\n');
 
     const prompt = `
-You are an expert PTE Academic tutor providing detailed explanations for reorder paragraphs reading questions.
+You are an expert PTE Academic tutor explaining reading comprehension concepts.
 
 **Question Type:** ${questionType}
 
-**Paragraphs:**
-${paragraphTexts.join('\n')}
+**Correct Paragraph Order:**
+${correctOrderFormatted}
 
-**Your Order:** ${userOrder.join(' → ')}
-**Correct Order:** ${correctOrder.join(' → ')}
-**Score:** ${correctPairs} out of ${maxPairs} adjacent pairs correct
+Your task is to explain WHY this is the correct paragraph order.
 
-Provide a brief explanation (3-4 lines maximum) that:
-1. Explains the logical flow of the correct order
-2. Identifies where your ordering went wrong and what you should have done instead
+Provide a clear explanation (4-5 sentences) that:
+1. Describes the logical flow by referencing the ACTUAL paragraph text/content
+2. Explains how each paragraph connects to the next
+3. Identifies key transitions, topic connections, or structural clues
+4. Helps the reader understand the coherent progression of ideas
 
-IMPORTANT RULES:
-- Always refer to the user in **second person** only.
-- You MUST use phrases like:
-  - "Your answer was incorrect because..."
-  - "Your selection was incomplete because..."
-- NEVER use:
-  - "My answer"
-  - "I selected"
-  - "We chose"
+Guidelines:
+- Reference paragraphs by QUOTING their actual content or the START of the paragraph text
+- Use quotes or paraphrasing directly from the paragraphs themselves
+- Example: "The paragraph '...[actual start text]...' introduces X, which connects to the next paragraph '...[actual start text]...' because..."
+- Explain the PURPOSE of each paragraph in the sequence
+- Highlight CONNECTIONS between consecutive paragraphs by referencing their actual themes/content
+- Focus on what makes this order CORRECT and logical
+- Do NOT reference ordinal numbers like "first", "second", "third"
+- Do NOT reference any incorrect ordering or user mistakes
+- Use clear, teaching-friendly language
+- Show HOW the paragraphs connect through their ACTUAL CONTENT
 
-Be direct and focus only on what is correct and what is wrong. No tips or additional advice needed.
+Example explanation style:
+"The passage begins with 'The Japanese tea ceremony holds...' which introduces the foundational significance. This naturally connects to 'The ceremony originated from...' which provides the historical context needed to understand the traditions. This leads to 'The tea ceremony is far more than...' which deepens our understanding of its scope. Finally, 'Mindfulness and aesthetics form...' completes the narrative by exploring the spiritual dimensions that justify the earlier emphasis on its importance."
+
+Do NOT return JSON. Return plain text explanation only.
 `;
 
     const response = await openai.chat.completions.create({
@@ -4943,25 +4843,25 @@ Be direct and focus only on what is correct and what is wrong. No tips or additi
         {
           role: 'system',
           content:
-            'You are an expert PTE Academic tutor specializing in reorder paragraphs reading questions.',
+            'You are an expert PTE Academic tutor. Explain why paragraph orders are correct by focusing on logical flow, connections, and coherence using the ACTUAL paragraph content. Never use ordinal numbers like first/second/third. Always reference what the paragraphs actually SAY.',
         },
         {
           role: 'user',
           content: prompt,
         },
       ],
-      max_tokens: 250,
+      max_tokens: 300,
       temperature: 0.3,
     });
 
     return (
       response.choices[0]?.message?.content?.trim() ||
-      'Unable to generate explanation.'
+      'The paragraphs are arranged in a logical sequence that creates coherent meaning through their connections and flow.'
     );
   } catch (error) {
     console.error(
       'Error generating dynamic explanation for reorder paragraphs:',
-      error
+      error,
     );
     throw error;
   }
@@ -5041,7 +4941,7 @@ Guidelines:
   } catch (error) {
     console.error(
       'Error generating dynamic explanation for fill in the blanks:',
-      error
+      error,
     );
     throw error;
   }
@@ -5160,7 +5060,7 @@ async function generateDynamicExplanationListeningFillBlanks(params: {
         ? `\n\nOther incorrect answers:\n${allIncorrectBlanks
             .map(
               (b: any) =>
-                `• You wrote: "${b.userAnswer}", Correct: "${b.correctAnswer}"`
+                `• You wrote: "${b.userAnswer}", Correct: "${b.correctAnswer}"`,
             )
             .join('\n')}`
         : '';
@@ -5223,7 +5123,7 @@ Use line breaks to separate the two points.
   } catch (error) {
     console.error(
       'Error generating dynamic explanation for listening fill in the blanks:',
-      error
+      error,
     );
     throw error;
   }
@@ -5335,7 +5235,7 @@ Use line breaks to separate the two points.
   } catch (error) {
     console.error(
       'Error generating dynamic explanation for listening multiple answers:',
-      error
+      error,
     );
     throw error;
   }

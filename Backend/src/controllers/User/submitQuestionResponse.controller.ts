@@ -51,8 +51,6 @@ export const submitQuestionResponse = asyncHandler(
         );
       }
 
-      console.log('USER RESPONSE:', userResponse);
-
       // Get question details with correct answers
       const question = await prisma.question.findUnique({
         where: { id: questionId },

@@ -31,7 +31,7 @@ const Navbar: React.FC = () => {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className='hidden md:flex items-center space-x-8'>
+          <div className='hidden lg:flex items-center space-x-8'>
             <Link
               to='/'
               className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
@@ -131,7 +131,7 @@ const Navbar: React.FC = () => {
           </div>
 
           {/* Right side buttons */}
-          <div className='hidden md:flex items-center space-x-4'>
+          <div className='hidden lg:flex items-center space-x-4'>
             <button
               onClick={toggleTheme}
               className='p-2 rounded-md text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200'
@@ -183,7 +183,7 @@ const Navbar: React.FC = () => {
           </div>
 
           {/* Mobile menu button */}
-          <div className='md:hidden flex items-center space-x-2'>
+          <div className='lg:hidden flex items-center space-x-2'>
             <button
               onClick={toggleTheme}
               className='p-2 rounded-md text-gray-700 dark:text-gray-300'
@@ -209,7 +209,7 @@ const Navbar: React.FC = () => {
 
         {/* Mobile menu */}
         {isMenuOpen && (
-          <div className='md:hidden'>
+          <div className='lg:hidden'>
             <div className='px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white dark:bg-gray-900 border-t dark:border-gray-700'>
               <Link
                 to='/'
