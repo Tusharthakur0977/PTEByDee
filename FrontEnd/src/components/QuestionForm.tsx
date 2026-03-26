@@ -29,6 +29,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
   questionTypes,
   tests,
 }) => {
+  const [formError, setFormError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     questionCode: question?.questionCode || '',
     questionTypeId: question?.questionType?.id || '',
@@ -62,6 +63,21 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
   const [autoGenerateCode, setAutoGenerateCode] = useState(!question); // Auto-generate for new questions
   const [previewQuestionCode, setPreviewQuestionCode] = useState('');
   const [loadingPreview, setLoadingPreview] = useState(false);
+
+  const isSingleAnswerQuestion = Boolean(
+    selectedQuestionType?.name?.includes('SINGLE_ANSWER')
+  );
+  const isMultipleChoiceQuestion = Boolean(
+    selectedQuestionType?.name?.includes('MULTIPLE_CHOICE')
+  );
+  const selectedCorrectOptionCount = (formData.options || []).filter(
+    (option: any) => option?.isCorrect
+  ).length;
+  const hasInvalidCorrectAnswerSelection = isMultipleChoiceQuestion
+    ? isSingleAnswerQuestion
+      ? selectedCorrectOptionCount !== 1
+      : selectedCorrectOptionCount === 0
+    : false;
 
   // Fetch preview question code when question type changes
   const fetchPreviewQuestionCode = async (questionTypeId: string) => {
@@ -108,10 +124,41 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
     setLoading(true);
     try {
       // Prepare submission data
       const submissionData = { ...formData };
+
+      if (isMultipleChoiceQuestion) {
+        const correctOptions = (submissionData.options || []).filter(
+          (option: any) => option?.isCorrect && option?.text?.trim()
+        );
+
+        if (
+          isSingleAnswerQuestion &&
+          correctOptions.length !== 1
+        ) {
+          setFormError(
+            'Please mark exactly one option as the correct answer for single-answer multiple choice questions.'
+          );
+          return;
+        }
+
+        if (
+          !isSingleAnswerQuestion &&
+          correctOptions.length === 0
+        ) {
+          setFormError(
+            'Please mark at least one option as correct before saving this multiple-choice question.'
+          );
+          return;
+        }
+
+        submissionData.correctAnswers = correctOptions.map((option: any) =>
+          option.text.trim()
+        );
+      }
 
       // If there's a selected audio file, upload it first
       if (selectedAudioFile) {
@@ -190,18 +237,21 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
 
   // Enhanced option management
   const addOption = () => {
+    setFormError(null);
     const newOptions = [...(formData.options || [])];
     newOptions.push({ id: `option_${Date.now()}`, text: '', isCorrect: false });
     setFormData((prev) => ({ ...prev, options: newOptions }));
   };
 
   const updateOption = (index: number, field: string, value: any) => {
+    setFormError(null);
     const newOptions = [...(formData.options || [])];
     newOptions[index] = { ...newOptions[index], [field]: value };
     setFormData((prev) => ({ ...prev, options: newOptions }));
   };
 
   const removeOption = (index: number) => {
+    setFormError(null);
     const newOptions = [...(formData.options || [])];
     newOptions.splice(index, 1);
     setFormData((prev) => ({ ...prev, options: newOptions }));
@@ -1310,6 +1360,11 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                           ? 'Select one correct answer (radio buttons)'
                           : 'Select multiple correct answers (checkboxes)'}
                       </p>
+                      {isSingleAnswerQuestion && (
+                        <p className='mt-2 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-medium text-indigo-700'>
+                          You must choose one option as the correct answer before creating this question.
+                        </p>
+                      )}
                     </div>
                     <button
                       type='button'
@@ -1329,7 +1384,11 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                         return (
                           <div
                             key={option.id || index}
-                            className='flex items-center gap-3 p-3 border border-gray-200 rounded-lg bg-white'
+                            className={`flex items-center gap-3 rounded-lg border p-3 bg-white ${
+                              option.isCorrect
+                                ? 'border-emerald-300 ring-1 ring-emerald-200'
+                                : 'border-gray-200'
+                            }`}
                           >
                             <input
                               type={isSingleAnswer ? 'radio' : 'checkbox'}
@@ -1351,6 +1410,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                                     ...prev,
                                     options: updatedOptions,
                                   }));
+                                  setFormError(null);
                                 } else {
                                   // For multiple answers, just toggle this option
                                   updateOption(
@@ -1372,6 +1432,11 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                               placeholder={`Option ${index + 1}`}
                               required
                             />
+                            {option.isCorrect && (
+                              <span className='rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700'>
+                                Correct answer
+                              </span>
+                            )}
                             <button
                               type='button'
                               onClick={() => removeOption(index)}
@@ -1390,6 +1455,35 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                       No options added yet. Click "Add Option" to create answer
                       choices.
                     </p>
+                  )}
+
+                  {requirements.requiresOptions && (
+                    <div className='mt-3 flex flex-wrap items-center gap-3 text-xs'>
+                      <span className='text-gray-600'>
+                        Correct answers selected:{' '}
+                        <span className='font-semibold text-gray-900'>
+                          {selectedCorrectOptionCount}
+                        </span>
+                      </span>
+                      {isSingleAnswerQuestion && selectedCorrectOptionCount !== 1 && (
+                        <span className='rounded-full bg-amber-100 px-2.5 py-1 font-medium text-amber-700'>
+                          Select exactly one correct answer
+                        </span>
+                      )}
+                      {!isSingleAnswerQuestion &&
+                        isMultipleChoiceQuestion &&
+                        selectedCorrectOptionCount === 0 && (
+                          <span className='rounded-full bg-amber-100 px-2.5 py-1 font-medium text-amber-700'>
+                            Select at least one correct answer
+                          </span>
+                        )}
+                    </div>
+                  )}
+
+                  {formError && requirements.requiresOptions && (
+                    <div className='mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700'>
+                      {formError}
+                    </div>
                   )}
                 </div>
               )}
@@ -1424,6 +1518,9 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                   <>
                     <li>• Question statement is required</li>
                     <li>• Answer options are required</li>
+                    <li>
+                      • Mark the correct answer before saving the question
+                    </li>
                   </>
                 )}
                 {requirements.requiresWordCount && (
@@ -1466,7 +1563,8 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                 loading ||
                 uploadingAudio ||
                 transcribingAudio ||
-                extractingAnswers
+                extractingAnswers ||
+                hasInvalidCorrectAnswerSelection
               }
               className='px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium'
             >

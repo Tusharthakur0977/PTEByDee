@@ -14,7 +14,7 @@ export interface Data {
 }
 
 export interface Evaluation {
-  score: number;
+  score: { scored: number; max: number };
   isCorrect: boolean;
   feedback: string;
   detailedAnalysis: DetailedAnalysis;
@@ -22,13 +22,10 @@ export interface Evaluation {
 }
 
 export interface DetailedAnalysis {
-  overallScore: number;
-  evaluationMethod: string;
-  transcribedText: string;
-  correctAnswers: string[];
   scores: Scores;
   errorAnalysis: ErrorAnalysis;
   userText: string;
+  correctAnswer?: string;
 }
 
 export interface Scores {

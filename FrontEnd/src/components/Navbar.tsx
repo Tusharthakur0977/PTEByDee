@@ -1,21 +1,103 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Moon, Sun, Menu, X, BookOpen, User, LogOut } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+import { getQuestionTypes } from '../services/portal';
+import { PteQuestionTypeName } from '../types/pte';
+import { getPracticePagePath } from '../utils/questionTypeToSlug';
 
 const Navbar: React.FC = () => {
   const { isDarkMode, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isPortalMenuOpen, setIsPortalMenuOpen] = useState(false);
+  const [groupedQuestionTypes, setGroupedQuestionTypes] = useState<
+    Record<
+      string,
+      {
+        section: { id: string; name: string; description?: string };
+        questionTypes: Array<{ id: string; name: string }>;
+      }
+    >
+  >({});
 
   const isActive = (path: string) => location.pathname === path;
+
+  useEffect(() => {
+    const loadQuestionTypes = async () => {
+      try {
+        const data = await getQuestionTypes();
+        setGroupedQuestionTypes(data.groupedBySection || {});
+      } catch (error) {
+        console.error('Failed to load question types for navigation:', error);
+      }
+    };
+
+    if (user) {
+      loadQuestionTypes();
+    }
+  }, [user]);
+
+  const sectionOrder = ['Speaking', 'Writing', 'Reading', 'Listening'];
+
+  const questionTypeLabelMap: Partial<Record<PteQuestionTypeName, string>> = {
+    READ_ALOUD: 'Read Aloud',
+    REPEAT_SENTENCE: 'Repeat Sentence',
+    DESCRIBE_IMAGE: 'Describe Image',
+    RE_TELL_LECTURE: 'Retell Lecture',
+    ANSWER_SHORT_QUESTION: 'Answer Short Question',
+    SUMMARIZE_GROUP_DISCUSSION: 'Summarize Group Discussion',
+    RESPOND_TO_A_SITUATION: 'Respond to a Situation',
+
+    SUMMARIZE_WRITTEN_TEXT: 'Summarize Written Text',
+    WRITE_ESSAY: 'Write Essay',
+
+    FILL_IN_THE_BLANKS_DRAG_AND_DROP: 'Fill in the Blanks (Drag and Drop)',
+    MULTIPLE_CHOICE_MULTIPLE_ANSWERS_READING: 'Multiple Choice (Multiple)',
+    RE_ORDER_PARAGRAPHS: 'Reorder Paragraph',
+    READING_FILL_IN_THE_BLANKS: 'Fill in the Blanks (Dropdown)',
+    MULTIPLE_CHOICE_SINGLE_ANSWER_READING: 'Multiple Choice (Single)',
+
+    SUMMARIZE_SPOKEN_TEXT: 'Summarize Spoken Text',
+    MULTIPLE_CHOICE_MULTIPLE_ANSWERS_LISTENING: 'Multiple Choice (Multiple)',
+    LISTENING_FILL_IN_THE_BLANKS: 'Fill in the Blanks',
+    HIGHLIGHT_CORRECT_SUMMARY: 'Highlight Correct Summary',
+    MULTIPLE_CHOICE_SINGLE_ANSWER_LISTENING: 'Multiple Choice (Single)',
+    SELECT_MISSING_WORD: 'Select Missing Word',
+    HIGHLIGHT_INCORRECT_WORDS: 'Highlight Incorrect Words',
+    WRITE_FROM_DICTATION: 'Write from Dictation',
+  };
+
+  const orderedSections = useMemo(() => {
+    const sectionEntries = Object.entries(groupedQuestionTypes || {});
+
+    return sectionOrder
+      .map((sectionName) =>
+        sectionEntries.find(([name]) =>
+          name.toLowerCase().includes(sectionName.toLowerCase()),
+        ),
+      )
+      .filter(Boolean) as Array<
+      [
+        string,
+        {
+          section: { id: string; name: string; description?: string };
+          questionTypes: Array<{ id: string; name: string }>;
+        },
+      ]
+    >;
+  }, [groupedQuestionTypes]);
 
   const handleLogout = () => {
     logout();
     setIsMenuOpen(false);
   };
+
+  useEffect(() => {
+    setIsPortalMenuOpen(false);
+  }, [location.pathname]);
 
   return (
     <nav className='bg-white dark:bg-gray-900 shadow-lg sticky top-0 z-50 transition-colors duration-300'>
@@ -63,16 +145,70 @@ const Navbar: React.FC = () => {
               About
             </Link>
             {user && (
-              <Link
-                to='/portal'
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
-                  isActive('/portal')
-                    ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                    : 'text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
-                }`}
+              <div
+                className='relative'
+                onMouseEnter={() => setIsPortalMenuOpen(true)}
+                onMouseLeave={() => setIsPortalMenuOpen(false)}
               >
-                Portal
-              </Link>
+                <Link
+                  to='/portal'
+                  onClick={() => setIsPortalMenuOpen(false)}
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
+                    isActive('/portal')
+                      ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                      : 'text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
+                  }`}
+                >
+                  Portal
+                </Link>
+
+                {orderedSections.length > 0 && (
+                  <div
+                    className={`absolute top-full left-1/2 -translate-x-1/2 mt-2 w-[840px] max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl transition-all duration-150 z-50 ${
+                      isPortalMenuOpen
+                        ? 'opacity-100 visible'
+                        : 'opacity-0 invisible'
+                    }`}
+                  >
+                    <div className='grid grid-cols-4 gap-6 p-5'>
+                      {orderedSections.map(([sectionName, sectionData]) => (
+                        <div key={sectionName}>
+                          <h4 className='text-lg font-semibold text-gray-900 dark:text-white mb-2'>
+                            {sectionName}
+                          </h4>
+                          <div className='h-0.5 w-12 bg-cyan-500 mb-3'></div>
+                          <ul className='space-y-1.5'>
+                            {sectionData.questionTypes.map((questionType) => {
+                              const typeName =
+                                questionType.name as PteQuestionTypeName;
+                              const label =
+                                questionTypeLabelMap[typeName] ||
+                                questionType.name
+                                  .toLowerCase()
+                                  .replace(/_/g, ' ')
+                                  .replace(/\b\w/g, (char) =>
+                                    char.toUpperCase(),
+                                  );
+
+                              return (
+                                <li key={questionType.id}>
+                                  <Link
+                                    to={getPracticePagePath(typeName)}
+                                    onClick={() => setIsPortalMenuOpen(false)}
+                                    className='text-sm leading-snug text-gray-700 dark:text-gray-300 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors'
+                                  >
+                                    {label}
+                                  </Link>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
             {user && user.role === 'ADMIN' && (
               <div className='relative group'>

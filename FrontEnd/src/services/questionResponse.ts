@@ -20,7 +20,7 @@ export interface QuestionResponseData {
 }
 
 export interface QuestionEvaluation {
-  score: number; // 0-100
+  score: { scored: number; max: number };
   isCorrect: boolean;
   feedback: string;
   detailedAnalysis: any;

@@ -144,87 +144,84 @@ export const submitQuestionResponse = asyncHandler(
         timeTakenSeconds
       );
 
-      // Store the response and evaluation
-      const responseRecord = await prisma.$transaction(async (tx) => {
-        // Create user response record
-        const userResponseRecord = await tx.userResponse.create({
+      // Find or create today's practice session OUTSIDE the transaction
+      // so we don't hold a transaction open during slow network reads.
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      let practiceSession = await prisma.practiceSession.findFirst({
+        where: { userId, sessionDate: today },
+      });
+
+      if (!practiceSession) {
+        practiceSession = await prisma.practiceSession.create({
           data: {
             userId,
-            questionId,
-            textResponse: transcribedText || userResponse.textResponse || null,
-            audioResponseUrl: userResponse.audioResponseUrl || null,
-            selectedOptions: userResponse.selectedOptions || [],
-            orderedItems: userResponse.orderedItems || [],
-            highlightedWords: userResponse.highlightedWords || [],
-            questionScore: evaluation.score,
-            isCorrect: evaluation.isCorrect,
-            aiFeedback:
-              typeof evaluation.feedback === 'string'
-                ? evaluation.feedback
-                : JSON.stringify(
-                    evaluation.feedback || 'Response evaluated successfully.'
-                  ),
-            detailedAnalysis: evaluation.detailedAnalysis || null,
-            timeTakenSeconds: timeTakenSeconds || 0,
-          },
-        });
-
-        // Update practice session for standalone question practice
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        let practiceSession = await tx.practiceSession.findFirst({
-          where: {
-            userId,
             sessionDate: today,
+            totalQuestions: 0,
+            correctAnswers: 0,
+            totalTimeSpent: 0,
           },
         });
+      }
 
-        if (!practiceSession) {
-          practiceSession = await tx.practiceSession.create({
-            data: {
-              userId,
-              sessionDate: today,
-              totalQuestions: 0,
-              correctAnswers: 0,
-              totalTimeSpent: 0,
-            },
-          });
-        }
-
-        // Create practice response record
-        // Only create practice response if we have a valid practice session
-        if (practiceSession) {
-          await tx.practiceResponse.create({
+      // Store the response and evaluation — only fast writes inside the transaction.
+      const responseRecord = await prisma.$transaction(
+        async (tx) => {
+          // Create user response record
+          const userResponseRecord = await tx.userResponse.create({
             data: {
               userId,
               questionId,
-              practiceSessionId: practiceSession.id,
-              questionType: question.questionType.name,
-              userResponse: userResponse,
-              timeTakenSeconds: timeTakenSeconds || 0,
+              textResponse:
+                transcribedText || userResponse.textResponse || null,
+              audioResponseUrl: userResponse.audioResponseUrl || null,
+              selectedOptions: userResponse.selectedOptions || [],
+              orderedItems: userResponse.orderedItems || [],
+              highlightedWords: userResponse.highlightedWords || [],
+              questionScore: evaluation.score.scored,
               isCorrect: evaluation.isCorrect,
-              score: evaluation.score,
+              aiFeedback:
+                typeof evaluation.feedback === 'string'
+                  ? evaluation.feedback
+                  : JSON.stringify(
+                      evaluation.feedback || 'Response evaluated successfully.'
+                    ),
+              detailedAnalysis: (evaluation.detailedAnalysis as any) || null,
+              timeTakenSeconds: timeTakenSeconds || 0,
             },
           });
-        }
 
-        // Update practice session stats
-        if (practiceSession) {
-          await tx.practiceSession.update({
-            where: { id: practiceSession.id },
-            data: {
-              totalQuestions: { increment: 1 },
-              correctAnswers: evaluation.isCorrect
-                ? { increment: 1 }
-                : undefined,
-              totalTimeSpent: { increment: timeTakenSeconds || 0 },
-            },
-          });
-        }
+          if (practiceSession) {
+            await tx.practiceResponse.create({
+              data: {
+                userId,
+                questionId,
+                practiceSessionId: practiceSession.id,
+                questionType: question.questionType.name,
+                userResponse: userResponse,
+                timeTakenSeconds: timeTakenSeconds || 0,
+                isCorrect: evaluation.isCorrect,
+                score: evaluation.score.scored,
+              },
+            });
 
-        return userResponseRecord;
-      });
+            await tx.practiceSession.update({
+              where: { id: practiceSession.id },
+              data: {
+                totalQuestions: { increment: 1 },
+                correctAnswers: evaluation.isCorrect
+                  ? { increment: 1 }
+                  : undefined,
+                totalTimeSpent: { increment: timeTakenSeconds || 0 },
+              },
+            });
+          }
+
+          return userResponseRecord;
+        },
+        { timeout: 15000 }
+      );
 
       return sendResponse(
         res,

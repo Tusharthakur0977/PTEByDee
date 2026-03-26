@@ -1,13 +1,133 @@
 /**
- * Standardized Evaluation Response Schema
- * This ensures consistent evaluation structure across all PTE question types
+ * Unified Evaluation Response Types
+ * Single consistent shape returned by every question evaluation function.
  */
 
+export interface ErrorItem {
+  text: string;
+  type: string;
+  position: { start: number; end: number };
+  correction: string;
+  explanation: string;
+}
+
+export interface ScoreItem {
+  score: number;
+  max: number;
+}
+
+export interface WordItem {
+  word: string;
+  status: "correct" | "mispronounced" | "omitted" | "inserted";
+}
+
+export interface EvaluationDetail {
+  /**
+   * Per-component scores. Keys depend on question type:
+   * - Speaking:  { content, pronunciation, oralFluency }
+   * - Writing:   { content, form, grammar, vocabulary, spelling }
+   * - MCQ/FiB:   { reading } or { listening }
+   */
+  scores: Record<string, ScoreItem>;
+
+  feedback: {
+    content?: string;
+    grammar?: string;
+    vocabulary?: string;
+    spelling?: string;
+    form?: string;
+    pronunciation?: string;
+    oralFluency?: string;
+    [key: string]: string | undefined;
+  };
+
+  timeTaken: number;
+
+  /** Written answer text or transcribed speech */
+  userText?: string;
+  /** The expected correct answer (AnswerShortQuestion and similar types) */
+  correctAnswer?: string;
+  /** Word count for writing tasks */
+  wordCount?: number;
+
+  /** ReadAloud and RepeatSentence only */
+  wordByWordAnalysis?: WordItem[];
+
+  /** Speaking and writing questions */
+  errorAnalysis?: {
+    grammarErrors?: ErrorItem[];
+    spellingErrors?: ErrorItem[];
+    vocabularyIssues?: ErrorItem[];
+    pronunciationErrors?: ErrorItem[];
+    fluencyErrors?: ErrorItem[];
+    contentErrors?: ErrorItem[];
+  };
+
+  /** MCQ single/multiple, HighlightCorrectSummary, SelectMissingWord */
+  choiceResult?: {
+    selectedTexts: string[];
+    correctTexts: string[];
+    incorrectlySelectedTexts: string[];
+    missedCorrectTexts: string[];
+    explanation?: string;
+  };
+
+  /** FillInBlanks (all variants) and WriteFromDictation */
+  itemResults?: Record<
+    string,
+    {
+      userAnswer: string;
+      correctAnswer: string;
+      isCorrect: boolean;
+    }
+  >;
+
+  /** ReorderParagraphs only */
+  reorderResult?: {
+    userOrderText: string[];
+    correctOrderText: string[];
+    correctPairs: number;
+    maxPairs: number;
+    explanation?: string;
+  };
+
+  /** HighlightIncorrectWords only */
+  highlightResult?: {
+    highlightedWords: string[];
+    incorrectWords: string[];
+    cleanedHighlighted: string[];
+    cleanedIncorrect: string[];
+    correctHighlights: number;
+    incorrectHighlights: number;
+    wordMapping: Array<{
+      correct: string;
+      incorrect: string;
+      wasHighlighted: boolean;
+    }>;
+  };
+  explanation?: string;
+}
+
+/** Top-level shape returned by evaluateQuestionResponse and sent to the frontend */
+export interface QuestionEvaluationResult {
+  score: {
+    scored: number; // points the user actually got
+    max: number; // total possible points for this question
+  };
+  isCorrect: boolean;
+  /** Always equals detailedAnalysis.feedback.summary */
+  feedback: string;
+  suggestions: string[];
+  detailedAnalysis: EvaluationDetail;
+}
+
+// ─── Legacy types below kept only so old imports don't break during migration ───
+
+/** @deprecated Use QuestionEvaluationResult instead */
 export interface StandardizedEvaluationResponse {
-  // Core evaluation data (always present)
-  score: number; // Overall score (0-100 scale for consistency)
-  isCorrect: boolean; // Whether the response meets passing criteria
-  feedback: string; // Main feedback message (always a string)
+  score: number;
+  isCorrect?: boolean;
+  feedback?: string;
 
   // Detailed scoring breakdown
   scoring: {
@@ -63,7 +183,7 @@ export interface StandardizedEvaluationResponse {
       wordByWordAnalysis?: Array<{
         word: string;
         isCorrect: boolean;
-        pronunciation: 'correct' | 'incorrect' | 'unclear';
+        pronunciation: "correct" | "incorrect" | "unclear";
         timing: number;
       }>;
     };
@@ -126,7 +246,7 @@ export interface StandardizedEvaluationResponse {
 
   // Additional metadata
   metadata: {
-    evaluationMethod: 'ai' | 'rule-based' | 'hybrid';
+    evaluationMethod: "ai" | "rule-based" | "hybrid";
     evaluationTimestamp: string;
     modelVersion?: string; // For AI evaluations
     confidence?: number; // AI confidence score (0-1)
@@ -138,14 +258,13 @@ export interface StandardizedEvaluationResponse {
  * These extend the base structure with type-specific requirements
  */
 
-export interface AudioQuestionEvaluation
-  extends StandardizedEvaluationResponse {
-  analysis: StandardizedEvaluationResponse['analysis'] & {
+export interface AudioQuestionEvaluation extends StandardizedEvaluationResponse {
+  analysis: StandardizedEvaluationResponse["analysis"] & {
     audioAnalysis: NonNullable<
-      StandardizedEvaluationResponse['analysis']['audioAnalysis']
+      StandardizedEvaluationResponse["analysis"]["audioAnalysis"]
     >;
   };
-  scoring: StandardizedEvaluationResponse['scoring'] & {
+  scoring: StandardizedEvaluationResponse["scoring"] & {
     components: {
       content: {
         score: number;
@@ -172,15 +291,14 @@ export interface AudioQuestionEvaluation
   };
 }
 
-export interface WritingQuestionEvaluation
-  extends StandardizedEvaluationResponse {
-  analysis: StandardizedEvaluationResponse['analysis'] & {
+export interface WritingQuestionEvaluation extends StandardizedEvaluationResponse {
+  analysis: StandardizedEvaluationResponse["analysis"] & {
     textAnalysis: NonNullable<
-      StandardizedEvaluationResponse['analysis']['textAnalysis']
+      StandardizedEvaluationResponse["analysis"]["textAnalysis"]
     >;
     wordCount: number;
   };
-  scoring: StandardizedEvaluationResponse['scoring'] & {
+  scoring: StandardizedEvaluationResponse["scoring"] & {
     components: {
       content: {
         score: number;
@@ -221,29 +339,27 @@ export interface WritingQuestionEvaluation
   };
 }
 
-export interface ReadingQuestionEvaluation
-  extends StandardizedEvaluationResponse {
-  analysis: StandardizedEvaluationResponse['analysis'] & {
+export interface ReadingQuestionEvaluation extends StandardizedEvaluationResponse {
+  analysis: StandardizedEvaluationResponse["analysis"] & {
     choiceAnalysis?: NonNullable<
-      StandardizedEvaluationResponse['analysis']['choiceAnalysis']
+      StandardizedEvaluationResponse["analysis"]["choiceAnalysis"]
     >;
     itemAnalysis?: NonNullable<
-      StandardizedEvaluationResponse['scoring']['itemAnalysis']
+      StandardizedEvaluationResponse["scoring"]["itemAnalysis"]
     >;
   };
 }
 
-export interface ListeningQuestionEvaluation
-  extends StandardizedEvaluationResponse {
-  analysis: StandardizedEvaluationResponse['analysis'] & {
+export interface ListeningQuestionEvaluation extends StandardizedEvaluationResponse {
+  analysis: StandardizedEvaluationResponse["analysis"] & {
     choiceAnalysis?: NonNullable<
-      StandardizedEvaluationResponse['analysis']['choiceAnalysis']
+      StandardizedEvaluationResponse["analysis"]["choiceAnalysis"]
     >;
     itemAnalysis?: NonNullable<
-      StandardizedEvaluationResponse['scoring']['itemAnalysis']
+      StandardizedEvaluationResponse["scoring"]["itemAnalysis"]
     >;
     textAnalysis?: NonNullable<
-      StandardizedEvaluationResponse['analysis']['textAnalysis']
+      StandardizedEvaluationResponse["analysis"]["textAnalysis"]
     >;
   };
 }
@@ -260,10 +376,10 @@ export function createStandardizedResponse(
     questionType: string;
     timeTaken: number;
   },
-  scoring: StandardizedEvaluationResponse['scoring'],
-  analysis: Partial<StandardizedEvaluationResponse['analysis']>,
+  scoring: StandardizedEvaluationResponse["scoring"],
+  analysis: Partial<StandardizedEvaluationResponse["analysis"]>,
   suggestions: string[] = [],
-  metadata: Partial<StandardizedEvaluationResponse['metadata']> = {}
+  metadata: Partial<StandardizedEvaluationResponse["metadata"]> = {},
 ): StandardizedEvaluationResponse {
   return {
     score: baseData.score,
@@ -277,7 +393,7 @@ export function createStandardizedResponse(
     },
     suggestions,
     metadata: {
-      evaluationMethod: 'ai',
+      evaluationMethod: "ai",
       evaluationTimestamp: new Date().toISOString(),
       ...metadata,
     },
@@ -288,7 +404,7 @@ export function createComponentScore(
   score: number,
   maxScore: number,
   weight: number,
-  description: string
+  description: string,
 ) {
   return {
     score,
@@ -302,11 +418,11 @@ export function createComponentScore(
 export function createItemAnalysis(
   totalItems: number,
   correctItems: number,
-  itemDetails?: StandardizedEvaluationResponse['scoring']['itemAnalysis'] extends {
+  itemDetails?: StandardizedEvaluationResponse["scoring"]["itemAnalysis"] extends {
     itemDetails: infer T;
   }
     ? T
-    : never
+    : never,
 ) {
   return {
     totalItems,

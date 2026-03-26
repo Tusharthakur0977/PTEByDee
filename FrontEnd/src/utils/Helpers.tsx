@@ -48,6 +48,30 @@ export const formatScoringText = (text: string) => {
   }
 };
 
+const normalizeErrorItem = (error: any, fallbackType: string) => ({
+  ...error,
+  text:
+    typeof error?.text === 'string'
+      ? error.text
+      : typeof error?.error === 'string'
+      ? error.error
+      : '',
+  type:
+    fallbackType === 'grammar'
+      ? error?.type === 'unnecessary_word'
+        ? 'unnecessary_word'
+        : 'grammar'
+      : fallbackType === 'spelling'
+      ? error?.type === 'spelling_error'
+        ? 'spelling_error'
+        : 'spelling'
+      : fallbackType === 'vocabulary'
+      ? error?.type === 'missing_word'
+        ? 'missing_word'
+        : 'vocabulary'
+      : fallbackType,
+});
+
 // Function to render text with error highlighting
 // Handles omitted words, inserted words, and other corrections
 export const renderHighlightedText = (
@@ -59,42 +83,36 @@ export const renderHighlightedText = (
 
   const allErrors = [
     // Writing question errors
-    ...(errorAnalysis.grammarErrors || []).map((error: any) => ({
-      ...error,
-      type: error.type === 'unnecessary_word' ? 'unnecessary_word' : 'grammar',
-    })),
-    ...(errorAnalysis.spellingErrors || []).map((error: any) => ({
-      ...error,
-      type: error.type === 'spelling_error' ? 'spelling_error' : 'spelling',
-    })),
-    ...(errorAnalysis.vocabularyIssues || []).map((error: any) => ({
-      ...error,
-      type: error.type === 'missing_word' ? 'missing_word' : 'vocabulary',
-    })),
+    ...(errorAnalysis.grammarErrors || []).map((error: any) =>
+      normalizeErrorItem(error, 'grammar')
+    ),
+    ...(errorAnalysis.spellingErrors || []).map((error: any) =>
+      normalizeErrorItem(error, 'spelling')
+    ),
+    ...(errorAnalysis.vocabularyIssues || []).map((error: any) =>
+      normalizeErrorItem(error, 'vocabulary')
+    ),
     // Speaking question errors
-    ...(errorAnalysis.pronunciationErrors || []).map((error: any) => ({
-      ...error,
-      type: 'pronunciation',
-    })),
-    ...(errorAnalysis.fluencyErrors || []).map((error: any) => ({
-      ...error,
-      type: 'fluency',
-    })),
-    ...(errorAnalysis.contentErrors || []).map((error: any) => ({
-        ...error,
-      type: 'content',
-    })),
+    ...(errorAnalysis.pronunciationErrors || []).map((error: any) =>
+      normalizeErrorItem(error, 'pronunciation')
+    ),
+    ...(errorAnalysis.fluencyErrors || []).map((error: any) =>
+      normalizeErrorItem(error, 'fluency')
+    ),
+    ...(errorAnalysis.contentErrors || []).map((error: any) =>
+      normalizeErrorItem(error, 'content')
+    ),
   ];
-
-console.log(allErrors, 'OPPO');
-
+  const validErrors = allErrors.filter(
+    (error: any) => typeof error.text === 'string' && error.text.trim().length > 0
+  );
 
   // Convert text to lowercase for matching but keep original for display
   const lowerText = text.toLowerCase();
   const result: React.ReactNode[] = [];
 
   // Sort errors by position in text (longest first to avoid partial matches)
-  const sortedErrors = [...allErrors].sort((a, b) => {
+  const sortedErrors = [...validErrors].sort((a, b) => {
     const aPos = lowerText.indexOf(a.text.toLowerCase());
     const bPos = lowerText.indexOf(b.text.toLowerCase());
     return b.text.length - a.text.length || aPos - bPos;
@@ -252,31 +270,25 @@ export const renderHighlightedTextByWords = (
   // Collect all errors
   const allErrors = [
     // Writing question errors
-    ...(errorAnalysis.grammarErrors || []).map((error: any) => ({
-      ...error,
-      type: error.type === 'unnecessary_word' ? 'unnecessary_word' : 'grammar',
-    })),
-    ...(errorAnalysis.spellingErrors || []).map((error: any) => ({
-      ...error,
-      type: error.type === 'spelling_error' ? 'spelling_error' : 'spelling',
-    })),
-    ...(errorAnalysis.vocabularyIssues || []).map((error: any) => ({
-      ...error,
-      type: error.type === 'missing_word' ? 'missing_word' : 'vocabulary',
-    })),
+    ...(errorAnalysis.grammarErrors || []).map((error: any) =>
+      normalizeErrorItem(error, 'grammar')
+    ),
+    ...(errorAnalysis.spellingErrors || []).map((error: any) =>
+      normalizeErrorItem(error, 'spelling')
+    ),
+    ...(errorAnalysis.vocabularyIssues || []).map((error: any) =>
+      normalizeErrorItem(error, 'vocabulary')
+    ),
     // Speaking question errors
-    ...(errorAnalysis.pronunciationErrors || []).map((error: any) => ({
-      ...error,
-      type: 'pronunciation',
-    })),
-    ...(errorAnalysis.fluencyErrors || []).map((error: any) => ({
-      ...error,
-      type: 'fluency',
-    })),
-    ...(errorAnalysis.contentErrors || []).map((error: any) => ({
-      ...error,
-      type: 'content',
-    })),
+    ...(errorAnalysis.pronunciationErrors || []).map((error: any) =>
+      normalizeErrorItem(error, 'pronunciation')
+    ),
+    ...(errorAnalysis.fluencyErrors || []).map((error: any) =>
+      normalizeErrorItem(error, 'fluency')
+    ),
+    ...(errorAnalysis.contentErrors || []).map((error: any) =>
+      normalizeErrorItem(error, 'content')
+    ),
   ];
 
   // Filter and sort errors by word position

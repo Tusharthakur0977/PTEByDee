@@ -5,6 +5,19 @@ import { STATUS_CODES } from '../../utils/constants';
 import { sendResponse } from '../../utils/helpers';
 import { CustomRequest } from '../../types';
 
+const getCorrectOptionTexts = (options: any): string[] => {
+  if (!Array.isArray(options)) return [];
+
+  return options
+    .filter(
+      (option: any) =>
+        option?.isCorrect === true &&
+        typeof option?.text === 'string' &&
+        option.text.trim().length > 0
+    )
+    .map((option: any) => option.text.trim());
+};
+
 /**
  * @desc    Update a PTE question
  * @route   PUT /api/admin/questions/:id
@@ -61,6 +74,28 @@ export const updateQuestion = asyncHandler(
           null,
           'Question not found.'
         );
+      }
+
+      let effectiveQuestionTypeName = existingQuestion.questionType.name;
+
+      if (
+        questionTypeId &&
+        questionTypeId !== existingQuestion.questionTypeId
+      ) {
+        const nextQuestionType = await prisma.questionType.findUnique({
+          where: { id: questionTypeId },
+        });
+
+        if (!nextQuestionType) {
+          return sendResponse(
+            res,
+            STATUS_CODES.BAD_REQUEST,
+            null,
+            'Question type not found.'
+          );
+        }
+
+        effectiveQuestionTypeName = nextQuestionType.name;
       }
 
       // Check if question code is being changed and if it conflicts
@@ -137,7 +172,58 @@ export const updateQuestion = asyncHandler(
         updateData.options = options || null;
       }
 
-      if (correctAnswers !== undefined)
+      const effectiveOptions =
+        options !== undefined ? options : existingQuestion.options;
+      const effectiveCorrectAnswers =
+        correctAnswers !== undefined
+          ? correctAnswers
+          : existingQuestion.correctAnswers;
+
+      if (effectiveQuestionTypeName.includes('MULTIPLE_CHOICE')) {
+        const selectedCorrectOptions = getCorrectOptionTexts(effectiveOptions);
+        const isSingleAnswerQuestion = effectiveQuestionTypeName.includes(
+          'MULTIPLE_CHOICE_SINGLE_ANSWER'
+        );
+
+        if (isSingleAnswerQuestion && selectedCorrectOptions.length !== 1) {
+          return sendResponse(
+            res,
+            STATUS_CODES.BAD_REQUEST,
+            null,
+            'Single-answer multiple choice questions must have exactly one correct option selected.'
+          );
+        }
+
+        if (!isSingleAnswerQuestion && selectedCorrectOptions.length === 0) {
+          return sendResponse(
+            res,
+            STATUS_CODES.BAD_REQUEST,
+            null,
+            'Multiple-answer multiple choice questions must have at least one correct option selected.'
+          );
+        }
+
+        updateData.correctAnswers = selectedCorrectOptions;
+
+        if (
+          correctAnswers !== undefined &&
+          Array.isArray(effectiveCorrectAnswers) &&
+          isSingleAnswerQuestion &&
+          effectiveCorrectAnswers.length !== 1
+        ) {
+          return sendResponse(
+            res,
+            STATUS_CODES.BAD_REQUEST,
+            null,
+            'Single-answer multiple choice questions must store exactly one correct answer.'
+          );
+        }
+      }
+
+      if (
+        correctAnswers !== undefined &&
+        !effectiveQuestionTypeName.includes('MULTIPLE_CHOICE')
+      )
         updateData.correctAnswers = correctAnswers || null;
       if (wordCountMin !== undefined)
         updateData.wordCountMin = wordCountMin || null;

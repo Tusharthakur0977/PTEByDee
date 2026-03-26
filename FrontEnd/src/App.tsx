@@ -1,55 +1,65 @@
-import { Elements } from '@stripe/react-stripe-js';
-import { loadStripe } from '@stripe/stripe-js';
-import { Route, BrowserRouter as Router, Routes } from 'react-router-dom';
-import Footer from './components/Footer';
-import Navbar from './components/Navbar';
-import ProtectedRoute from './components/ProtectedRoute';
-import ScrollToTop from './components/ScrollToTop';
-import UploadProgressIndicator from './components/UploadProgressIndicator';
-import { AuthProvider } from './contexts/AuthContext';
-import { ThemeProvider } from './contexts/ThemeContext';
-import { UploadProvider } from './contexts/UploadContext';
-import About from './pages/About';
-import CourseDetail from './pages/CourseDetail';
-import Courses from './pages/Courses';
-import Dashboard from './pages/Dashboard';
-import Home from './pages/Home';
-import Login from './pages/Login';
-import Payment from './pages/Payment';
-import PaymentCancel from './pages/PaymentCancel';
-import PaymentHistory from './pages/PaymentHistory';
-import PaymentSuccess from './pages/PaymentSuccess';
-import Portal from './pages/Portal';
-import Register from './pages/Register';
-import TestInstructions from './pages/TestInstructions';
-import TestQuestion from './pages/TestQuestion';
-import TestResults from './pages/TestResults';
-import AdminDashboard from './pages/admin/AdminDashboard';
-import CategoryManagement from './pages/admin/CategoryManagement';
-import AdminCourseDetail from './pages/admin/CourseDetail';
-import CourseManagement from './pages/admin/CourseManagement';
-import CreateCourse from './pages/admin/CreateCourse';
-import EditCourse from './pages/admin/EditCourse';
-import PaymentManagement from './pages/admin/PaymentManagement';
-import QuestionManagement from './pages/admin/QuestionManagement';
-import UserManagement from './pages/admin/UserManagement';
+import { Elements } from "@stripe/react-stripe-js";
+import { loadStripe } from "@stripe/stripe-js";
+import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
+import Footer from "./components/Footer";
+import Navbar from "./components/Navbar";
+import ProtectedRoute from "./components/ProtectedRoute";
+import ScrollToTop from "./components/ScrollToTop";
+import UploadProgressIndicator from "./components/UploadProgressIndicator";
+import { AuthProvider } from "./contexts/AuthContext";
+import { ThemeProvider } from "./contexts/ThemeContext";
+import { UploadProvider } from "./contexts/UploadContext";
+import About from "./pages/About";
+import CourseDetail from "./pages/CourseDetail";
+import Courses from "./pages/Courses";
+import Dashboard from "./pages/Dashboard";
+import Home from "./pages/Home";
+import Login from "./pages/Login";
+import Payment from "./pages/Payment";
+import PaymentCancel from "./pages/PaymentCancel";
+import PaymentHistory from "./pages/PaymentHistory";
+import PaymentSuccess from "./pages/PaymentSuccess";
+import Portal from "./pages/Portal";
+import Register from "./pages/Register";
+import TestInstructions from "./pages/TestInstructions";
+import TestQuestion from "./pages/TestQuestion";
+import TestResults from "./pages/TestResults";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import CategoryManagement from "./pages/admin/CategoryManagement";
+import AdminCourseDetail from "./pages/admin/CourseDetail";
+import CourseManagement from "./pages/admin/CourseManagement";
+import CreateCourse from "./pages/admin/CreateCourse";
+import EditCourse from "./pages/admin/EditCourse";
+import PaymentManagement from "./pages/admin/PaymentManagement";
+import QuestionManagement from "./pages/admin/QuestionManagement";
+import UserManagement from "./pages/admin/UserManagement";
 // Practice pages
-import PracticeAnswerShortQuestion from './pages/practice/PracticeAnswerShortQuestion';
-import PracticeDescribeImage from './pages/practice/PracticeDescribeImage';
-import PracticeFillInTheBlanksDragDrop from './pages/practice/PracticeFillInTheBlanksDragDrop';
-import PracticeReTellLecture from './pages/practice/PracticeReTellLecture';
-import PracticeReadAloud from './pages/practice/PracticeReadAloud';
-import PracticeReadingFillInTheBlanks from './pages/practice/PracticeReadingFillInTheBlanks';
-import PracticeRepeatSentence from './pages/practice/PracticeRepeatSentence';
-import PracticeRespondToASituation from './pages/practice/PracticeRespondToASituation';
-import PracticeSummarizeGroupDiscussion from './pages/practice/PracticeSummarizeGroupDiscussion';
-import PracticeSummarizeWrittenText from './pages/practice/PracticeSummarizeWrittenText';
-import PracticeWriteEssay from './pages/practice/PracticeWriteEssay';
-import PracticeReOrderParagraphs from './pages/practice/PracticeReOrderParagraphs';
+import PracticeAnswerShortQuestion from "./pages/practice/PracticeAnswerShortQuestion";
+import PracticeDescribeImage from "./pages/practice/PracticeDescribeImage";
+import PracticeFillInTheBlanksDragDrop from "./pages/practice/PracticeFillInTheBlanksDragDrop";
+import PracticeHighlightCorrectSummary from "./pages/practice/PracticeHighlightCorrectSummary";
+import PracticeHighlightIncorrectWords from "./pages/practice/PracticeHighlightIncorrectWords";
+import PracticeListeningFillInTheBlanks from "./pages/practice/PracticeListeningFillInTheBlanks";
+import PracticeMultipleChoiceMultipleAnswersListening from "./pages/practice/PracticeMultipleChoiceMultipleAnswersListening";
+import PracticeMultipleChoiceMultipleAnswersReading from "./pages/practice/PracticeMultipleChoiceMultipleAnswersReading";
+import PracticeMultipleChoiceSingleAnswer from "./pages/practice/PracticeMultipleChoiceSingleAnswer";
+import PracticeMultipleChoiceSingleAnswerListening from "./pages/practice/PracticeMultipleChoiceSingleAnswerListening";
+import PracticeReOrderParagraphs from "./pages/practice/PracticeReOrderParagraphs";
+import PracticeReTellLecture from "./pages/practice/PracticeReTellLecture";
+import PracticeReadAloud from "./pages/practice/PracticeReadAloud";
+import PracticeRepeatSentence from "./pages/practice/PracticeRepeatSentence";
+import PracticeRespondToASituation from "./pages/practice/PracticeRespondToASituation";
+import PracticeSelectMissingWord from "./pages/practice/PracticeSelectMissingWord";
+import PracticeSummarizeGroupDiscussion from "./pages/practice/PracticeSummarizeGroupDiscussion";
+import PracticeSummarizeSpokenText from "./pages/practice/PracticeSummarizeSpokenText";
+import PracticeSummarizeWrittenText from "./pages/practice/PracticeSummarizeWrittenText";
+import PracticeWriteEssay from "./pages/practice/PracticeWriteEssay";
+import PracticeWriteFromDictation from "./pages/practice/PracticeWriteFromDictation";
+import PracticeFillInTheBlanksDropdown from "./pages/practice/PracticeFillInTheBlanksDropdown";
 
 // Initialize Stripe
 const stripePromise = loadStripe(
-  import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '',
+  import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || "",
 );
 
 function App() {
@@ -59,31 +69,19 @@ function App() {
         <UploadProvider>
           <Elements stripe={stripePromise}>
             <Router>
-              <div className='min-h-screen bg-white dark:bg-gray-900 transition-colors duration-300'>
+              <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors duration-300">
                 <Navbar />
                 <main>
                   <ScrollToTop />
                   <Routes>
-                    <Route
-                      path='/'
-                      element={<Home />}
-                    />
-                    <Route
-                      path='/courses'
-                      element={<Courses />}
-                    />
-                    <Route
-                      path='/courses/:id'
-                      element={<CourseDetail />}
-                    />
-                    <Route
-                      path='/about'
-                      element={<About />}
-                    />
+                    <Route path="/" element={<Home />} />
+                    <Route path="/courses" element={<Courses />} />
+                    <Route path="/courses/:id" element={<CourseDetail />} />
+                    <Route path="/about" element={<About />} />
 
                     {/* Auth routes - redirect to dashboard if already logged in */}
                     <Route
-                      path='/login'
+                      path="/login"
                       element={
                         <ProtectedRoute requireAuth={false}>
                           <Login />
@@ -91,7 +89,7 @@ function App() {
                       }
                     />
                     <Route
-                      path='/register'
+                      path="/register"
                       element={
                         <ProtectedRoute requireAuth={false}>
                           <Register />
@@ -101,7 +99,7 @@ function App() {
 
                     {/* Payment routes - require authentication */}
                     <Route
-                      path='/payment/:courseId'
+                      path="/payment/:courseId"
                       element={
                         <ProtectedRoute>
                           <Payment />
@@ -109,7 +107,7 @@ function App() {
                       }
                     />
                     <Route
-                      path='/payment/success'
+                      path="/payment/success"
                       element={
                         <ProtectedRoute>
                           <PaymentSuccess />
@@ -117,7 +115,7 @@ function App() {
                       }
                     />
                     <Route
-                      path='/payment/cancel'
+                      path="/payment/cancel"
                       element={
                         <ProtectedRoute>
                           <PaymentCancel />
@@ -125,7 +123,7 @@ function App() {
                       }
                     />
                     <Route
-                      path='/payment/history'
+                      path="/payment/history"
                       element={
                         <ProtectedRoute>
                           <PaymentHistory />
@@ -135,7 +133,7 @@ function App() {
 
                     {/* Protected routes - require authentication */}
                     <Route
-                      path='/dashboard'
+                      path="/dashboard"
                       element={
                         <ProtectedRoute>
                           <Dashboard />
@@ -145,7 +143,7 @@ function App() {
 
                     {/* Portal routes - require authentication */}
                     <Route
-                      path='/portal'
+                      path="/portal"
                       element={
                         <ProtectedRoute>
                           <Portal />
@@ -153,7 +151,7 @@ function App() {
                       }
                     />
                     <Route
-                      path='/portal/test/:testId/instructions'
+                      path="/portal/test/:testId/instructions"
                       element={
                         <ProtectedRoute>
                           <TestInstructions />
@@ -161,7 +159,7 @@ function App() {
                       }
                     />
                     <Route
-                      path='/portal/test/:testId/question/:questionNumber'
+                      path="/portal/test/:testId/question/:questionNumber"
                       element={
                         <ProtectedRoute>
                           <TestQuestion />
@@ -169,7 +167,7 @@ function App() {
                       }
                     />
                     <Route
-                      path='/portal/test/:testId/results'
+                      path="/portal/test/:testId/results"
                       element={
                         <ProtectedRoute>
                           <TestResults />
@@ -180,7 +178,7 @@ function App() {
                     {/* Practice routes - require authentication */}
                     {/* SPEAKING */}
                     <Route
-                      path='/practice/answer-short-question'
+                      path="/practice/answer-short-question"
                       element={
                         <ProtectedRoute>
                           <PracticeAnswerShortQuestion />
@@ -188,7 +186,7 @@ function App() {
                       }
                     />
                     <Route
-                      path='/practice/describe-image'
+                      path="/practice/describe-image"
                       element={
                         <ProtectedRoute>
                           <PracticeDescribeImage />
@@ -196,7 +194,7 @@ function App() {
                       }
                     />
                     <Route
-                      path='/practice/read-aloud'
+                      path="/practice/read-aloud"
                       element={
                         <ProtectedRoute>
                           <PracticeReadAloud />
@@ -204,7 +202,7 @@ function App() {
                       }
                     />
                     <Route
-                      path='/practice/repeat-sentence'
+                      path="/practice/repeat-sentence"
                       element={
                         <ProtectedRoute>
                           <PracticeRepeatSentence />
@@ -212,7 +210,7 @@ function App() {
                       }
                     />
                     <Route
-                      path='/practice/respond-to-a-situation'
+                      path="/practice/respond-to-a-situation"
                       element={
                         <ProtectedRoute>
                           <PracticeRespondToASituation />
@@ -220,7 +218,7 @@ function App() {
                       }
                     />
                     <Route
-                      path='/practice/re-tell-lecture'
+                      path="/practice/re-tell-lecture"
                       element={
                         <ProtectedRoute>
                           <PracticeReTellLecture />
@@ -228,7 +226,7 @@ function App() {
                       }
                     />
                     <Route
-                      path='/practice/summarize-group-discussion'
+                      path="/practice/summarize-group-discussion"
                       element={
                         <ProtectedRoute>
                           <PracticeSummarizeGroupDiscussion />
@@ -237,7 +235,7 @@ function App() {
                     />
 
                     <Route
-                      path='/practice/summarize-written-text'
+                      path="/practice/summarize-written-text"
                       element={
                         <ProtectedRoute>
                           <PracticeSummarizeWrittenText />
@@ -245,7 +243,7 @@ function App() {
                       }
                     />
                     <Route
-                      path='/practice/write-essay'
+                      path="/practice/write-essay"
                       element={
                         <ProtectedRoute>
                           <PracticeWriteEssay />
@@ -253,7 +251,7 @@ function App() {
                       }
                     />
                     <Route
-                      path='/practice/fill-in-the-blanks-drag-and-drop'
+                      path="/practice/fill-in-the-blanks-drag-and-drop"
                       element={
                         <ProtectedRoute>
                           <PracticeFillInTheBlanksDragDrop />
@@ -261,90 +259,50 @@ function App() {
                       }
                     />
                     <Route
-                      path='/practice/reading-fill-in-the-blanks'
+                      path="/practice/reading-fill-in-the-blanks"
                       element={
                         <ProtectedRoute>
-                          <PracticeReadingFillInTheBlanks />
+                          <PracticeFillInTheBlanksDropdown />
                         </ProtectedRoute>
                       }
                     />
                     <Route
-                      path='/practice/re-order-paragraphs'
+                      path="/practice/re-order-paragraphs"
                       element={
                         <ProtectedRoute>
                           <PracticeReOrderParagraphs />
                         </ProtectedRoute>
                       }
                     />
-                    {/*
                     <Route
-                      path='/practice/multiple-choice-multiple-answers-reading'
+                      path="/practice/multiple-choice-multiple-answers-reading"
                       element={
                         <ProtectedRoute>
                           <PracticeMultipleChoiceMultipleAnswersReading />
                         </ProtectedRoute>
                       }
-                      />
-
+                    />
 
                     <Route
-                      path='/practice/multiple-choice-single-answer-reading'
+                      path="/practice/multiple-choice-single-answer-reading"
                       element={
                         <ProtectedRoute>
                           <PracticeMultipleChoiceSingleAnswer />
                         </ProtectedRoute>
                       }
                     />
+
                     <Route
-                      path='/practice/summarize-spoken-text'
-                      element={
-                        <ProtectedRoute>
-                          <PracticeSummarizeSpokenText />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path='/practice/multiple-choice-multiple-answers-listening'
-                      element={
-                        <ProtectedRoute>
-                          <PracticeMultipleChoiceMultipleAnswersListening />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path='/practice/listening-fill-in-the-blanks'
-                      element={
-                        <ProtectedRoute>
-                          <PracticeListeningFillInTheBlanks />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path='/practice/highlight-correct-summary'
+                      path="/practice/highlight-correct-summary"
                       element={
                         <ProtectedRoute>
                           <PracticeHighlightCorrectSummary />
                         </ProtectedRoute>
                       }
                     />
+
                     <Route
-                      path='/practice/multiple-choice-single-answer-listening'
-                      element={
-                        <ProtectedRoute>
-                          <PracticeMultipleChoiceSingleAnswerListening />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path='/practice/select-missing-word'
-                      element={
-                        <ProtectedRoute>
-                          <PracticeSelectMissingWord />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path='/practice/highlight-incorrect-words'
+                      path="/practice/highlight-incorrect-words"
                       element={
                         <ProtectedRoute>
                           <PracticeHighlightIncorrectWords />
@@ -352,17 +310,60 @@ function App() {
                       }
                     />
                     <Route
-                      path='/practice/write-from-dictation'
+                      path="/practice/listening-fill-in-the-blanks"
+                      element={
+                        <ProtectedRoute>
+                          <PracticeListeningFillInTheBlanks />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/practice/multiple-choice-multiple-answers-listening"
+                      element={
+                        <ProtectedRoute>
+                          <PracticeMultipleChoiceMultipleAnswersListening />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    <Route
+                      path="/practice/multiple-choice-single-answer-listening"
+                      element={
+                        <ProtectedRoute>
+                          <PracticeMultipleChoiceSingleAnswerListening />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    <Route
+                      path="/practice/select-missing-word"
+                      element={
+                        <ProtectedRoute>
+                          <PracticeSelectMissingWord />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/practice/write-from-dictation"
                       element={
                         <ProtectedRoute>
                           <PracticeWriteFromDictation />
                         </ProtectedRoute>
                       }
-                    /> */}
+                    />
+
+                    <Route
+                      path="/practice/summarize-spoken-text"
+                      element={
+                        <ProtectedRoute>
+                          <PracticeSummarizeSpokenText />
+                        </ProtectedRoute>
+                      }
+                    />
 
                     {/* Admin routes - require authentication and admin role */}
                     <Route
-                      path='/admin'
+                      path="/admin"
                       element={
                         <ProtectedRoute>
                           <AdminDashboard />
@@ -370,7 +371,7 @@ function App() {
                       }
                     />
                     <Route
-                      path='/admin/courses'
+                      path="/admin/courses"
                       element={
                         <ProtectedRoute>
                           <CourseManagement />
@@ -378,7 +379,7 @@ function App() {
                       }
                     />
                     <Route
-                      path='/admin/courses/create'
+                      path="/admin/courses/create"
                       element={
                         <ProtectedRoute>
                           <CreateCourse />
@@ -386,7 +387,7 @@ function App() {
                       }
                     />
                     <Route
-                      path='/admin/courses/:id'
+                      path="/admin/courses/:id"
                       element={
                         <ProtectedRoute>
                           <AdminCourseDetail />
@@ -394,7 +395,7 @@ function App() {
                       }
                     />
                     <Route
-                      path='/admin/courses/:id/edit'
+                      path="/admin/courses/:id/edit"
                       element={
                         <ProtectedRoute>
                           <EditCourse />
@@ -402,7 +403,7 @@ function App() {
                       }
                     />
                     <Route
-                      path='/admin/users'
+                      path="/admin/users"
                       element={
                         <ProtectedRoute>
                           <UserManagement />
@@ -410,7 +411,7 @@ function App() {
                       }
                     />
                     <Route
-                      path='/admin/categories'
+                      path="/admin/categories"
                       element={
                         <ProtectedRoute>
                           <CategoryManagement />
@@ -418,7 +419,7 @@ function App() {
                       }
                     />
                     <Route
-                      path='/admin/payments'
+                      path="/admin/payments"
                       element={
                         <ProtectedRoute>
                           <PaymentManagement />
@@ -426,7 +427,7 @@ function App() {
                       }
                     />
                     <Route
-                      path='/admin/questions'
+                      path="/admin/questions"
                       element={
                         <ProtectedRoute>
                           <QuestionManagement />

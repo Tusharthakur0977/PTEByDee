@@ -1,14 +1,13 @@
 import {
   AlertCircle,
-  Loader,
   Pause,
   Play,
   RotateCcw,
   Volume2,
   VolumeX,
   X,
-} from 'lucide-react';
-import React, { useEffect, useRef, useState } from 'react';
+} from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
 
 interface AudioPlayerProps {
   src: string;
@@ -22,7 +21,7 @@ interface AudioPlayerProps {
   className?: string;
   compact?: boolean;
   questionId: string;
-  questionAudioText: string;
+  questionAudioText?: string;
 }
 
 const AudioPlayer = React.forwardRef<
@@ -31,16 +30,12 @@ const AudioPlayer = React.forwardRef<
 >((props, ref) => {
   const {
     src,
-    title,
     autoPlay = false,
     autoPlayDelay = 0,
-    showControls = true,
     onEnded,
     onPlay,
     onPause,
-    className = '',
-    compact = false,
-    questionId,
+    className = "",
     questionAudioText,
   } = props;
 
@@ -53,9 +48,6 @@ const AudioPlayer = React.forwardRef<
   const [error, setError] = useState<string | null>(null);
   const [hasStarted, setHasStarted] = useState(false);
   const [showAudioTranscript, setShowAudioTranscript] = useState(false);
-  const [expandedTranscripts, setExpandedTranscripts] = useState<Set<string>>(
-    new Set(),
-  );
 
   const audioRef = useRef<HTMLAudioElement>(null);
 
@@ -90,24 +82,24 @@ const AudioPlayer = React.forwardRef<
       }
     };
 
-    audio.addEventListener('loadedmetadata', loaded);
-    audio.addEventListener('timeupdate', () =>
+    audio.addEventListener("loadedmetadata", loaded);
+    audio.addEventListener("timeupdate", () =>
       setCurrentTime(audio.currentTime),
     );
-    audio.addEventListener('ended', () => {
+    audio.addEventListener("ended", () => {
       setIsPlaying(false);
       setCurrentTime(0);
       onEnded?.();
     });
-    audio.addEventListener('error', () => setError('Failed to load audio'));
+    audio.addEventListener("error", () => setError("Failed to load audio"));
 
-    return () => audio.removeEventListener('loadedmetadata', loaded);
+    return () => audio.removeEventListener("loadedmetadata", loaded);
   }, [src, autoPlay, autoPlayDelay, hasStarted]);
 
   const formatTime = (t: number) =>
     `${Math.floor(t / 60)}:${Math.floor(t % 60)
       .toString()
-      .padStart(2, '0')}`;
+      .padStart(2, "0")}`;
 
   const handlePlay = async () => {
     try {
@@ -115,7 +107,7 @@ const AudioPlayer = React.forwardRef<
       setIsPlaying(true);
       onPlay?.();
     } catch {
-      setError('Failed to play audio');
+      setError("Failed to play audio");
     }
   };
 
@@ -153,28 +145,18 @@ const AudioPlayer = React.forwardRef<
     setIsMuted(newVolume === 0);
   };
 
-  const MAX_CHARS = 300;
-  const isExpanded = expandedTranscripts.has(questionId);
-  const displayText = isExpanded
-    ? questionAudioText
-    : questionAudioText.slice(0, MAX_CHARS);
-
   if (error) {
     return (
-      <div className='flex items-center gap-2 p-3 text-red-600 bg-red-50 rounded-md'>
-        <AlertCircle className='w-4 h-4' />
-        <span className='text-sm'>{error}</span>
+      <div className="flex items-center gap-2 p-3 text-red-600 bg-red-50 rounded-md">
+        <AlertCircle className="w-4 h-4" />
+        <span className="text-sm">{error}</span>
       </div>
     );
   }
 
   return (
     <>
-      <audio
-        ref={audioRef}
-        src={src}
-        preload='metadata'
-      />
+      <audio ref={audioRef} src={src} preload="metadata" />
 
       <div
         className={`flex items-center gap-3 w-full px-4 py-3
@@ -184,59 +166,59 @@ const AudioPlayer = React.forwardRef<
         {/* Play */}
         <button
           onClick={isPlaying ? handlePause : handlePlay}
-          className='w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center'
+          className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center"
         >
           {isPlaying ? (
-            <Pause className='w-4 h-4' />
+            <Pause className="w-4 h-4" />
           ) : (
-            <Play className='w-4 h-4 ml-0.5' />
+            <Play className="w-4 h-4 ml-0.5" />
           )}
         </button>
 
         {/* Restart */}
         <button
           onClick={handleRestart}
-          className='p-1.5 rounded-full text-gray-600 hover:bg-gray-100'
+          className="p-1.5 rounded-full text-gray-600 hover:bg-gray-100"
         >
-          <RotateCcw className='w-4 h-4' />
+          <RotateCcw className="w-4 h-4" />
         </button>
 
         {/* Progress */}
         <input
-          type='range'
+          type="range"
           min={0}
           max={duration || 0}
           value={currentTime}
           onChange={handleSeek}
-          className='flex-1 h-1.5 bg-gray-200 rounded-lg cursor-pointer'
+          className="flex-1 h-1.5 bg-gray-200 rounded-lg cursor-pointer"
         />
 
         {/* Time */}
-        <span className='text-xs text-gray-500 w-14 text-right'>
+        <span className="text-xs text-gray-500 w-14 text-right">
           {formatTime(currentTime)}
         </span>
 
         {/* Volume */}
 
-        <div className='flex items-center space-x-3'>
+        <div className="flex items-center space-x-3">
           <button
             onClick={handleMute}
-            className='p-1.5 rounded-full text-gray-600 hover:bg-gray-100'
+            className="p-1.5 rounded-full text-gray-600 hover:bg-gray-100"
           >
             {isMuted ? (
-              <VolumeX className='w-4 h-4' />
+              <VolumeX className="w-4 h-4" />
             ) : (
-              <Volume2 className='w-4 h-4' />
+              <Volume2 className="w-4 h-4" />
             )}
-          </button>{' '}
+          </button>{" "}
           <input
-            type='range'
-            min='0'
-            max='1'
-            step='0.1'
+            type="range"
+            min="0"
+            max="1"
+            step="0.1"
             value={isMuted ? 0 : volume}
             onChange={handleVolumeChange}
-            className='w-20 h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer slider'
+            className="w-20 h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
           />
         </div>
 
@@ -244,7 +226,7 @@ const AudioPlayer = React.forwardRef<
         {questionAudioText && (
           <button
             onClick={() => setShowAudioTranscript(true)}
-            className='text-xs font-medium text-blue-600'
+            className="text-xs font-medium text-blue-600"
           >
             Transcript
           </button>
@@ -253,15 +235,17 @@ const AudioPlayer = React.forwardRef<
 
       {/* Transcript Modal (unchanged logic) */}
       {showAudioTranscript && (
-        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40'>
-          <div className='bg-white rounded-lg max-w-3xl w-full p-6'>
-            <div className='flex justify-between mb-4'>
-              <h3 className='font-semibold'>Audio Transcript</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-lg max-w-3xl w-full mx-4 max-h-[80vh]flex flex-col ">
+            <div className="flex justify-between mb-4 p-6 border-b">
+              <h3 className="font-semibold">Audio Transcript</h3>
               <button onClick={() => setShowAudioTranscript(false)}>
-                <X className='w-4 h-4' />
+                <X className="w-4 h-4" />
               </button>
             </div>
-            <p className='text-sm whitespace-pre-wrap'>{displayText}</p>
+            <p className="text-sm  whitespace-pre-wrap px-5 pt-2 pb-5">
+              {questionAudioText}
+            </p>
           </div>
         </div>
       )}
@@ -269,6 +253,6 @@ const AudioPlayer = React.forwardRef<
   );
 });
 
-AudioPlayer.displayName = 'AudioPlayer';
+AudioPlayer.displayName = "AudioPlayer";
 
 export default AudioPlayer;
