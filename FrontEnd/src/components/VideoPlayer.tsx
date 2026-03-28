@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Lock, Eye, Loader } from 'lucide-react';
+import { Play, Lock, Eye, Loader, Video } from 'lucide-react';
 import { getSecureVideoUrl } from '../services/courses';
 
 interface VideoPlayerProps {
@@ -35,76 +35,44 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   const canPlay = isPreview || isEnrolled;
 
-  // Load secure video URL when needed
   useEffect(() => {
-    console.log('VideoPlayer - Props:', {
-      videoUrl,
-      videoKey,
-      courseId,
-      isEnrolled,
-      isPreview,
-    });
     if (videoKey && courseId && isEnrolled && !isPreview) {
-      console.log('VideoPlayer - Loading secure URL for videoKey:', videoKey);
       loadSecureVideoUrl();
     }
   }, [videoKey, courseId, isEnrolled, isPreview]);
 
   const loadSecureVideoUrl = async () => {
     if (!videoKey || !courseId) {
-      console.log('VideoPlayer - Missing videoKey or courseId:', {
-        videoKey,
-        courseId,
-      });
       return;
     }
 
     try {
-      console.log('VideoPlayer - Starting secure URL load for:', {
-        videoKey,
-        courseId,
-      });
       setIsLoadingVideo(true);
       setVideoError(null);
       const response = await getSecureVideoUrl(videoKey, courseId);
-      console.log('VideoPlayer - Secure URL response:', response);
-      console.log('VideoPlayer - Setting secure URL:', response.secureUrl);
       setSecureVideoUrl(response.secureUrl);
-      console.log('VideoPlayer - Secure URL state should be updated');
     } catch (error: any) {
-      console.error('VideoPlayer - Failed to load secure video URL:', error);
+      console.error('Failed to load secure video URL:', error);
       setVideoError('Failed to load video. Please try again.');
     } finally {
       setIsLoadingVideo(false);
     }
   };
 
-  // Determine which video URL to use
   const getVideoUrl = () => {
-    // For enrolled users with videoKey, use secure URL if available
     if (isEnrolled && videoKey && secureVideoUrl) {
-      console.log('VideoPlayer - Using secure URL:', secureVideoUrl);
       return secureVideoUrl;
     }
-    // Fallback to direct URL for preview, legacy videos, or if secure URL failed
     if (videoUrl) {
-      console.log('VideoPlayer - Using direct URL:', videoUrl);
       return videoUrl;
     }
-    console.log('VideoPlayer - No video URL available');
     return null;
   };
 
   const handlePlay = async () => {
     const currentVideoUrl = getVideoUrl();
 
-    console.log(
-      'VideoPlayer - handlePlay called, currentVideoUrl:',
-      currentVideoUrl
-    );
-
     if (canPlay && currentVideoUrl) {
-      console.log('VideoPlayer - Playing video with URL:', currentVideoUrl);
       setIsPlaying(true);
       onPlay?.();
     } else if (
@@ -115,44 +83,26 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       !secureVideoUrl &&
       !isLoadingVideo
     ) {
-      // Try to load secure URL if not already loaded
-      console.log('VideoPlayer - Attempting to load secure URL');
       try {
         setIsLoadingVideo(true);
         const response = await getSecureVideoUrl(videoKey, courseId);
-        console.log('VideoPlayer - Got secure URL response:', response);
         setSecureVideoUrl(response.secureUrl);
 
-        // Now play with the new URL
         if (response.secureUrl) {
-          console.log(
-            'VideoPlayer - Playing video with new secure URL:',
-            response.secureUrl
-          );
           setIsPlaying(true);
           onPlay?.();
         }
       } catch (error) {
-        console.error('VideoPlayer - Error loading secure URL:', error);
+        console.error('Error loading secure URL:', error);
         setVideoError('Failed to load video. Please try again.');
       } finally {
         setIsLoadingVideo(false);
       }
-    } else {
-      console.log('VideoPlayer - Cannot play video:', {
-        canPlay,
-        currentVideoUrl,
-        videoKey,
-        courseId,
-        isEnrolled,
-      });
     }
   };
 
   const getEmbedUrl = (url: string) => {
-    // Handle different video URL formats
     if (url.includes('youtube.com') || url.includes('youtu.be')) {
-      // Convert YouTube URLs to embed format
       let videoId = '';
       if (url.includes('youtube.com/watch?v=')) {
         videoId = url.split('v=')[1].split('&')[0];
@@ -163,12 +113,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
 
     if (url.includes('vimeo.com')) {
-      // Convert Vimeo URLs to embed format
       const videoId = url.split('/').pop();
       return `https://player.vimeo.com/video/${videoId}`;
     }
 
-    // For direct video files or other formats
     return url;
   };
 
@@ -177,16 +125,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   if (isPlaying && currentVideoUrl && canPlay) {
     return (
       <div
-        className={`relative w-full bg-gray-900 rounded-lg overflow-hidden ${className}`}
+        className={`overflow-hidden rounded-2xl border border-slate-200 bg-slate-950 shadow-sm dark:border-slate-800 ${className}`}
       >
         {currentVideoUrl.includes('youtube.com') ||
         currentVideoUrl.includes('youtu.be') ||
         currentVideoUrl.includes('vimeo.com') ? (
           <div className='relative w-full h-0 pb-[56.25%]'>
-            {/* 16:9 aspect ratio */}
             <iframe
               src={getEmbedUrl(currentVideoUrl)}
-              className='absolute top-0 left-0 w-full h-full'
+              className='absolute left-0 top-0 h-full w-full'
               style={{ border: 0 }}
               allowFullScreen
               title={title}
@@ -194,60 +141,51 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             />
           </div>
         ) : (
-          <div>
-            <video
-              src={currentVideoUrl}
-              controls
-              className='w-full h-auto'
-              title={title}
-              onLoadStart={() => console.log('Video loading started')}
-              onError={(e) => console.error('Video error:', e)}
-              onCanPlay={() => console.log('Video can play')}
-              onPlay={() => console.log('Video started playing')}
-              onTimeUpdate={(e) => {
-                const video = e.target as HTMLVideoElement;
-                const currentTime = Math.floor(video.currentTime);
+          <video
+            src={currentVideoUrl}
+            controls
+            className='w-full h-auto bg-black'
+            title={title}
+            onTimeUpdate={(e) => {
+              const video = e.target as HTMLVideoElement;
+              const currentTime = Math.floor(video.currentTime);
 
-                // Update progress every 10 seconds to avoid too many API calls
-                if (currentTime > 0 && currentTime - lastProgressUpdate >= 10) {
-                  setLastProgressUpdate(currentTime);
-                  onProgress?.(currentTime);
-                }
-              }}
-            >
-              Your browser does not support the video tag.
-            </video>
-          </div>
+              if (currentTime > 0 && currentTime - lastProgressUpdate >= 10) {
+                setLastProgressUpdate(currentTime);
+                onProgress?.(currentTime);
+              }
+            }}
+          >
+            Your browser does not support the video tag.
+          </video>
         )}
       </div>
     );
   }
 
-  // Show loading state for secure video URL
   if (isLoadingVideo && canPlay) {
     return (
       <div
-        className={`relative w-full h-64 bg-gray-800 rounded-lg overflow-hidden flex items-center justify-center ${className}`}
+        className={`flex h-72 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-950 ${className}`}
       >
         <div className='text-center text-white'>
-          <Loader className='h-8 w-8 animate-spin mx-auto mb-2' />
-          <p className='text-sm'>Loading video...</p>
+          <Loader className='mx-auto mb-3 h-8 w-8 animate-spin' />
+          <p className='text-sm text-slate-300'>Loading video...</p>
         </div>
       </div>
     );
   }
 
-  // Show error state
   if (videoError && canPlay) {
     return (
       <div
-        className={`relative w-full h-64 bg-red-900/20 border border-red-600 rounded-lg overflow-hidden flex items-center justify-center ${className}`}
+        className={`flex h-72 items-center justify-center overflow-hidden rounded-2xl border border-red-200 bg-red-50 dark:border-red-900/40 dark:bg-red-950/20 ${className}`}
       >
-        <div className='text-center text-red-400'>
-          <p className='text-sm mb-2'>{videoError}</p>
+        <div className='text-center'>
+          <p className='text-sm text-red-600 dark:text-red-300'>{videoError}</p>
           <button
             onClick={loadSecureVideoUrl}
-            className='text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded transition-colors'
+            className='mt-3 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200'
           >
             Retry
           </button>
@@ -258,60 +196,49 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   return (
     <div
-      className={`relative w-full h-64 bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg overflow-hidden group cursor-pointer ${className}`}
+      className={`group relative overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 shadow-sm dark:border-slate-800 ${className}`}
     >
-      {/* Background Pattern */}
-      <div className='absolute inset-0 opacity-10'>
-        <div className='w-full h-full bg-gradient-to-r from-blue-600 to-purple-600'></div>
-      </div>
+      <div className='absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(96,165,250,0.28),transparent_35%),radial-gradient(circle_at_bottom_left,rgba(16,185,129,0.18),transparent_30%)]' />
 
-      {/* Content */}
-      <div className='relative h-full flex items-center justify-center'>
-        <div className='text-center text-white'>
-          {/* Play Button */}
-          <div
-            className={`mx-auto mb-4 w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300 ${
-              canPlay
-                ? 'bg-blue-600 hover:bg-blue-700 hover:scale-110 cursor-pointer'
-                : 'bg-gray-600 cursor-not-allowed'
-            }`}
-            onClick={handlePlay}
-          >
-            {canPlay ? (
-              <Play className='h-8 w-8 text-white ml-1' />
-            ) : (
-              <Lock className='h-8 w-8 text-gray-300' />
-            )}
-          </div>
+      <div className='relative flex min-h-[320px] flex-col items-center justify-center px-6 py-8 text-center text-white'>
+        <div className='mb-5 inline-flex rounded-2xl bg-white/10 p-3 text-slate-200 backdrop-blur-sm'>
+          <Video className='h-6 w-6' />
+        </div>
 
-          {/* Title */}
-          <h3 className='text-lg font-semibold mb-2 px-4'>{title}</h3>
+        <button
+          type='button'
+          className={`mb-5 inline-flex h-16 w-16 items-center justify-center rounded-full transition-all duration-300 ${
+            canPlay
+              ? 'bg-white text-slate-900 shadow-lg hover:scale-105 hover:bg-slate-100'
+              : 'bg-white/15 text-slate-300 cursor-not-allowed'
+          }`}
+          onClick={handlePlay}
+        >
+          {canPlay ? (
+            <Play className='ml-1 h-7 w-7' />
+          ) : (
+            <Lock className='h-7 w-7' />
+          )}
+        </button>
 
-          {/* Duration */}
-          {duration && <p className='text-sm text-gray-300 mb-2'>{duration}</p>}
+        <h3 className='max-w-2xl text-lg font-semibold'>{title}</h3>
+        {duration && <p className='mt-2 text-sm text-slate-300'>{duration}</p>}
 
-          {/* Status */}
-          <div className='flex items-center justify-center space-x-2'>
-            {isPreview && (
-              <span className='flex items-center space-x-1 text-xs bg-green-600 px-2 py-1 rounded-full'>
-                <Eye className='h-3 w-3' />
-                <span>Preview</span>
-              </span>
-            )}
-            {!canPlay && (
-              <span className='flex items-center space-x-1 text-xs bg-gray-600 px-2 py-1 rounded-full'>
-                <Lock className='h-3 w-3' />
-                <span>Enroll to Access</span>
-              </span>
-            )}
-          </div>
+        <div className='mt-4 flex flex-wrap items-center justify-center gap-2'>
+          {isPreview && (
+            <span className='inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2.5 py-1 text-xs font-medium text-emerald-200 ring-1 ring-emerald-400/20'>
+              <Eye className='h-3.5 w-3.5' />
+              <span>Preview</span>
+            </span>
+          )}
+          {!canPlay && (
+            <span className='inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-xs font-medium text-slate-200 ring-1 ring-white/10'>
+              <Lock className='h-3.5 w-3.5' />
+              <span>Enroll to Access</span>
+            </span>
+          )}
         </div>
       </div>
-
-      {/* Hover Effect */}
-      {canPlay && (
-        <div className='absolute inset-0 bg-black bg-opacity-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none'></div>
-      )}
     </div>
   );
 };

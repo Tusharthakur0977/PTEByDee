@@ -84,3 +84,11 @@ export const generalRateLimiter = createRateLimiter({
   max: 200, // 100 requests per 15 minutes
   message: 'Too many requests from this IP',
 });
+
+export const supportRateLimiter = createRateLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: 'Support request limit exceeded',
+  keyGenerator: (req: Request) =>
+    `support:${req.ip}:${req.body.email || 'unknown'}`,
+});

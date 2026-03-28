@@ -52,6 +52,11 @@ import { getTests } from '../controllers/Admin/getTests.controller';
 import { uploadQuestionAudio } from '../controllers/Admin/uploadQuestionAudio.controller';
 import { getQuestionById } from '../controllers/Admin/getQuestionById.controller';
 import { getNextQuestionCode } from '../controllers/Admin/getNextQuestionCode.controller';
+import {
+  getAllSupportTickets,
+  getSupportTicketById,
+  updateSupportTicketStatus,
+} from '../controllers/Admin/supportTicketManagement.controller';
 
 import { protect } from '../middlewares/authenticate.middleware';
 import { isAdmin } from '../middlewares/isAdmin.middleware';
@@ -152,6 +157,22 @@ router.post(
   protect,
   isAdmin,
   refundTransaction
+);
+
+// Support ticket management routes
+router.get('/support-tickets', protect, isAdmin, getAllSupportTickets);
+router.get('/support-tickets/:id', protect, isAdmin, getSupportTicketById);
+router.put(
+  '/support-tickets/:id/status',
+  protect,
+  isAdmin,
+  updateSupportTicketStatus
+);
+router.patch(
+  '/support-tickets/:id/status',
+  protect,
+  isAdmin,
+  updateSupportTicketStatus
 );
 
 // Question management routes

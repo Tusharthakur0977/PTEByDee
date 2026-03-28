@@ -6,20 +6,18 @@ export interface PracticeResponse {
   questionId: string;
   questionCode: string;
   questionType: PteQuestionTypeName;
-  questionTypeName: string;
+  questionTypeLabel: string;
   sectionName: string;
-  userResponse: any;
-  correctAnswer: any;
+  difficultyLevel: 'EASY' | 'MEDIUM' | 'HARD';
+  promptPreview: string;
+  hasAudio: boolean;
+  hasImage: boolean;
   isCorrect: boolean;
   score: number;
+  marksObtained: number;
+  totalMarks: number;
   timeTakenSeconds: number;
   createdAt: string;
-  sessionDate: string;
-  questionPreview: {
-    textContent?: string;
-    hasAudio: boolean;
-    hasImage: boolean;
-  };
 }
 
 export interface PracticeSession {
@@ -71,6 +69,7 @@ export interface PracticeStats {
 export interface PracticeHistoryFilters {
   page?: number;
   limit?: number;
+  search?: string;
   questionType?: PteQuestionTypeName;
   dateFrom?: string;
   dateTo?: string;
@@ -89,6 +88,7 @@ export interface PracticeHistoryResponse {
     limit: number;
   };
   filters: {
+    search: string;
     questionType: string;
     dateFrom: string;
     dateTo: string;

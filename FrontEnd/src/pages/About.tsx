@@ -1,154 +1,140 @@
 import React from 'react';
 import {
   Award,
-  Users,
-  Target,
-  Heart,
   BookOpen,
-  Trophy,
+  CheckCircle2,
+  GraduationCap,
+  Heart,
   Star,
-  CheckCircle,
+  Target,
+  TrendingUp,
+  Trophy,
+  Users,
 } from 'lucide-react';
+
+const storySteps = [
+  {
+    title: 'The Struggle Began',
+    description:
+      "Like many international students, I faced the challenge of proving my English proficiency through standardized tests. My first PTE attempt was humbling. I scored well below my target even though I felt confident in my English skills. That experience taught me that knowing English and performing well in PTE are two very different things.",
+    icon: Target,
+  },
+  {
+    title: 'The Learning Phase',
+    description:
+      "Determined to improve, I immersed myself in the PTE format. I studied question patterns, timing strategies, and scoring behaviour. I documented mistakes, refined systems for each task type, and learned that success in PTE depends on strategy, timing, and understanding how the exam works.",
+    icon: BookOpen,
+  },
+  {
+    title: 'Breakthrough and Beyond',
+    description:
+      "That persistence paid off when I achieved a perfect score of 90 in all four skills. More importantly, I had built a system that could be repeated. When friends and colleagues began asking for help, I realised I could turn that experience into a method that supports others on the same journey.",
+    icon: Trophy,
+  },
+  {
+    title: 'Empowering Others',
+    description:
+      "Today, after helping thousands of students work toward their target scores, I remain driven by the same motivation that shaped my own journey. Every student carries real goals behind this exam, and my aim is to offer both technical expertise and genuine support along the way.",
+    icon: Heart,
+  },
+];
+
+const achievements = [
+  { value: '10,000+', label: 'Students Trained', icon: Users },
+  { value: '95%', label: 'Success Rate', icon: TrendingUp },
+  { value: '4.9/5', label: 'Student Rating', icon: Star },
+  { value: '8+', label: 'Years Experience', icon: Award },
+];
+
+const certifications = [
+  'Certified PTE Academic Trainer',
+  'TESOL Certification (120 hours)',
+  'Cambridge CELTA Qualified',
+  "Master's in Applied Linguistics",
+];
+
+const recognitions = [
+  'Excellence in Language Training Award 2023',
+  'Top PTE Trainer - International Recognition',
+  'Educational Innovation Award 2022',
+  'Student Choice Award (5 consecutive years)',
+];
 
 const About: React.FC = () => {
   return (
-    <div className='min-h-screen'>
-      {/* Hero Section */}
-      <section className='bg-gradient-to-br from-blue-600 via-purple-600 to-blue-800 text-white py-20'>
-        <div className='container mx-auto px-4'>
-          <div className='grid grid-cols-1 lg:grid-cols-2 gap-12 items-center'>
-            <div className='space-y-8'>
-              <h1 className='text-5xl font-bold leading-tight'>
-                My Journey to Becoming a
-                <span className='block text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-orange-300'>
-                  PTE Expert
-                </span>
+    <div className='min-h-screen bg-slate-50 dark:bg-slate-950'>
+      <section className='relative overflow-hidden bg-slate-950 text-white'>
+        <div className='absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(34,197,94,0.18),_transparent_32%),radial-gradient(circle_at_80%_15%,_rgba(59,130,246,0.2),_transparent_28%),linear-gradient(135deg,_#0f172a_0%,_#111827_55%,_#1e293b_100%)]' />
+        <div className='relative container mx-auto px-4 py-14 sm:py-16 lg:py-20'>
+          <div className='grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center'>
+            <div className='max-w-3xl'>
+              <div className='inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/8 px-4 py-2 text-sm text-slate-200'>
+                <GraduationCap className='h-4 w-4 text-emerald-300' />
+                <span>The story behind PTEbyDee</span>
+              </div>
+
+              <h1 className='mt-5 text-4xl font-semibold leading-tight sm:text-5xl lg:text-[3.8rem]'>
+                My journey to becoming a PTE trainer started with the same struggle many students face.
               </h1>
-              <p className='text-xl text-blue-100 leading-relaxed'>
-                From struggling student to certified trainer - discover how I
-                transformed my challenges into expertise and now help thousands
-                achieve their PTE dreams.
-              </p>
-            </div>
-            <div className='relative'>
-              <img
-                src='https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=600'
-                alt='PTE Trainer'
-                className='rounded-2xl shadow-2xl'
-              />
-              {/* <div className='absolute -bottom-6 -right-6 bg-white text-gray-900 p-6 rounded-xl shadow-xl'>
-                <div className='flex items-center space-x-2 mb-2'>
-                  <Award className='h-6 w-6 text-blue-600' />
-                  <span className='font-bold text-lg'>Certified Trainer</span>
-                </div>
-                <p className='text-gray-600'>8+ Years Experience</p>
-              </div> */}
-            </div>
-          </div>
-        </div>
-      </section>
 
-      {/* My Story */}
-      <section className='py-20 bg-white dark:bg-gray-900'>
-        <div className='container mx-auto px-4'>
-          <div className='max-w-4xl mx-auto'>
-            <div className='text-center mb-16'>
-              <h2 className='text-4xl font-bold text-gray-900 dark:text-white mb-6'>
-                My Story
-              </h2>
-              <p className='text-xl text-gray-600 dark:text-gray-300'>
-                Every expert was once a beginner. Here's how my journey
-                unfolded.
+              <p className='mt-5 max-w-2xl text-lg leading-8 text-slate-300'>
+                From uncertainty and low scores to a perfect 90 in all four
+                skills, this journey shaped the teaching approach behind
+                PTEbyDee. The goal has always been simple: help learners prepare
+                with more clarity, strategy, and confidence.
               </p>
             </div>
 
-            <div className='space-y-12'>
-              {/* Challenge */}
-              <div className='flex items-start space-x-6'>
-                <div className='bg-red-100 dark:bg-red-900/30 p-4 rounded-full'>
-                  <Target className='h-8 w-8 text-red-600 dark:text-red-400' />
+            <div className='rounded-[30px] border border-white/10 bg-white/8 p-4 shadow-2xl'>
+              <div className='rounded-[24px] border border-white/10 bg-slate-900/90 p-6'>
+                <div className='flex items-center justify-between border-b border-white/10 pb-4'>
+                  <div>
+                    <p className='text-sm uppercase tracking-[0.22em] text-slate-400'>
+                      PTEbyDee
+                    </p>
+                    <h2 className='mt-2 text-2xl font-semibold text-white'>
+                      From student struggle to structured support
+                    </h2>
+                  </div>
+                  <div className='rounded-2xl bg-emerald-400/15 px-3 py-2 text-sm font-medium text-emerald-300'>
+                    90 in all skills
+                  </div>
                 </div>
-                <div>
-                  <h3 className='text-2xl font-bold text-gray-900 dark:text-white mb-4'>
-                    The Struggle Began
-                  </h3>
-                  <p className='text-gray-700 dark:text-gray-300 leading-relaxed text-lg'>
-                    Like many international students, I faced the daunting
-                    challenge of proving my English proficiency through
-                    standardized tests. My first PTE attempt was a humbling
-                    experience - I scored well below my target despite feeling
-                    confident in my English skills. The test format was
-                    completely different from what I expected, and I realized
-                    that knowing English and performing well on PTE were two
-                    different things entirely.
-                  </p>
-                </div>
-              </div>
 
-              {/* Discovery */}
-              <div className='flex items-start space-x-6'>
-                <div className='bg-yellow-100 dark:bg-yellow-900/30 p-4 rounded-full'>
-                  <BookOpen className='h-8 w-8 text-yellow-600 dark:text-yellow-400' />
+                <div className='mt-5 space-y-4'>
+                  {[
+                    'Real exam experience shaped the teaching method',
+                    'Practical strategy built from repeated preparation',
+                    'A student-first approach with clear guidance',
+                  ].map((item) => (
+                    <div
+                      key={item}
+                      className='flex items-center gap-3 rounded-2xl border border-white/10 bg-slate-800/80 px-4 py-4'
+                    >
+                      <CheckCircle2 className='h-5 w-5 text-emerald-300' />
+                      <span className='text-sm text-slate-200'>{item}</span>
+                    </div>
+                  ))}
                 </div>
-                <div>
-                  <h3 className='text-2xl font-bold text-gray-900 dark:text-white mb-4'>
-                    The Learning Phase
-                  </h3>
-                  <p className='text-gray-700 dark:text-gray-300 leading-relaxed text-lg'>
-                    Determined to succeed, I immersed myself in understanding
-                    the PTE format. I spent months analyzing question patterns,
-                    timing strategies, and scoring algorithms. I practiced
-                    religiously, documented every mistake, and developed
-                    systematic approaches for each question type. This intensive
-                    self-study period taught me that PTE success isn't just
-                    about English proficiency - it's about test strategy, time
-                    management, and understanding the AI scoring system.
-                  </p>
-                </div>
-              </div>
 
-              {/* Success */}
-              <div className='flex items-start space-x-6'>
-                <div className='bg-green-100 dark:bg-green-900/30 p-4 rounded-full'>
-                  <Trophy className='h-8 w-8 text-green-600 dark:text-green-400' />
-                </div>
-                <div>
-                  <h3 className='text-2xl font-bold text-gray-900 dark:text-white mb-4'>
-                    Breakthrough & Beyond
-                  </h3>
-                  <p className='text-gray-700 dark:text-gray-300 leading-relaxed text-lg'>
-                    My persistence paid off when I achieved a perfect score of
-                    90 in all four skills. But more importantly, I had developed
-                    a systematic methodology that could be replicated. Friends
-                    and colleagues started asking for help, and I realized I had
-                    a gift for breaking down complex strategies into simple,
-                    actionable steps. This led me to pursue formal certification
-                    and eventually establish PTEbyDee to help others avoid the
-                    struggles I faced.
-                  </p>
-                </div>
-              </div>
-
-              {/* Mission */}
-              <div className='flex items-start space-x-6'>
-                <div className='bg-blue-100 dark:bg-blue-900/30 p-4 rounded-full'>
-                  <Heart className='h-8 w-8 text-blue-600 dark:text-blue-400' />
-                </div>
-                <div>
-                  <h3 className='text-2xl font-bold text-gray-900 dark:text-white mb-4'>
-                    Empowering Others
-                  </h3>
-                  <p className='text-gray-700 dark:text-gray-300 leading-relaxed text-lg'>
-                    Today, having helped over 10,000 students achieve their PTE
-                    goals, I'm driven by the same passion that fueled my own
-                    journey. Every student's success reminds me why I started
-                    this mission. Whether it's a nurse trying to work abroad, a
-                    student pursuing higher education, or a professional seeking
-                    better opportunities, I understand the stakes involved. My
-                    approach combines technical expertise with emotional support
-                    because I know firsthand how challenging this journey can
-                    be.
-                  </p>
+                <div className='mt-6 rounded-2xl border border-white/10 bg-slate-800/70 p-5'>
+                  <p className='text-sm text-slate-400'>What students receive</p>
+                  <div className='mt-3 grid grid-cols-2 gap-3'>
+                    {[
+                      ['Speaking', 'Fluency and confidence'],
+                      ['Writing', 'Structure and strategy'],
+                      ['Reading', 'Accuracy and speed'],
+                      ['Listening', 'Focus and control'],
+                    ].map(([label, value]) => (
+                      <div
+                        key={label}
+                        className='rounded-xl border border-white/10 bg-slate-900/70 px-4 py-3'
+                      >
+                        <div className='text-sm font-medium text-white'>{label}</div>
+                        <div className='mt-1 text-xs text-slate-400'>{value}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -156,161 +142,136 @@ const About: React.FC = () => {
         </div>
       </section>
 
-      {/* Achievements */}
-      <section className='py-20 bg-gray-50 dark:bg-gray-800'>
+      <section className='border-y border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'>
+        <div className='container mx-auto px-4 py-10'>
+          <div className='grid grid-cols-2 gap-6 md:grid-cols-4'>
+            {achievements.map((item) => {
+              const Icon = item.icon;
+
+              return (
+                <div
+                  key={item.label}
+                  className='rounded-2xl border border-slate-200 bg-slate-50 px-5 py-6 text-center dark:border-slate-800 dark:bg-slate-950'
+                >
+                  <div className='mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-white dark:bg-white dark:text-slate-900'>
+                    <Icon className='h-5 w-5' />
+                  </div>
+                  <div className='text-2xl font-semibold text-slate-900 dark:text-white sm:text-3xl'>
+                    {item.value}
+                  </div>
+                  <div className='mt-2 text-sm text-slate-600 dark:text-slate-300'>
+                    {item.label}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      <section className='bg-slate-50 py-20 dark:bg-slate-950'>
         <div className='container mx-auto px-4'>
-          <div className='text-center mb-16'>
-            <h2 className='text-4xl font-bold text-gray-900 dark:text-white mb-6'>
-              Achievements & Credentials
+          <div className='mx-auto max-w-3xl text-center'>
+            <div className='inline-flex items-center gap-2 rounded-full bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 dark:bg-blue-400/10 dark:text-blue-300'>
+              <Target className='h-4 w-4' />
+              <span>My story</span>
+            </div>
+            <h2 className='mt-5 text-3xl font-semibold text-slate-900 dark:text-white sm:text-4xl'>
+              Every expert starts somewhere. This is how the journey unfolded.
             </h2>
-            <p className='text-xl text-gray-600 dark:text-gray-300'>
-              Recognition and results that speak for themselves
-            </p>
           </div>
 
-          <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-16'>
-            <div className='bg-white dark:bg-gray-900 p-8 rounded-xl shadow-lg text-center'>
-              <div className='bg-blue-100 dark:bg-blue-900/30 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4'>
-                <Users className='h-8 w-8 text-blue-600 dark:text-blue-400' />
-              </div>
-              <h3 className='text-3xl font-bold text-gray-900 dark:text-white mb-2'>
-                10,000+
-              </h3>
-              <p className='text-gray-600 dark:text-gray-300'>
-                Students Trained
-              </p>
-            </div>
+          <div className='mx-auto mt-12 grid max-w-5xl gap-5'>
+            {storySteps.map((step) => {
+              const Icon = step.icon;
 
-            <div className='bg-white dark:bg-gray-900 p-8 rounded-xl shadow-lg text-center'>
-              <div className='bg-green-100 dark:bg-green-900/30 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4'>
-                <Trophy className='h-8 w-8 text-green-600 dark:text-green-400' />
-              </div>
-              <h3 className='text-3xl font-bold text-gray-900 dark:text-white mb-2'>
-                95%
-              </h3>
-              <p className='text-gray-600 dark:text-gray-300'>Success Rate</p>
-            </div>
-
-            <div className='bg-white dark:bg-gray-900 p-8 rounded-xl shadow-lg text-center'>
-              <div className='bg-purple-100 dark:bg-purple-900/30 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4'>
-                <Star className='h-8 w-8 text-purple-600 dark:text-purple-400' />
-              </div>
-              <h3 className='text-3xl font-bold text-gray-900 dark:text-white mb-2'>
-                4.9★
-              </h3>
-              <p className='text-gray-600 dark:text-gray-300'>Student Rating</p>
-            </div>
-
-            <div className='bg-white dark:bg-gray-900 p-8 rounded-xl shadow-lg text-center'>
-              <div className='bg-orange-100 dark:bg-orange-900/30 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4'>
-                <Award className='h-8 w-8 text-orange-600 dark:text-orange-400' />
-              </div>
-              <h3 className='text-3xl font-bold text-gray-900 dark:text-white mb-2'>
-                8+
-              </h3>
-              <p className='text-gray-600 dark:text-gray-300'>
-                Years Experience
-              </p>
-            </div>
+              return (
+                <div
+                  key={step.title}
+                  className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900'
+                >
+                  <div className='flex items-start gap-4'>
+                    <div className='flex h-12 w-12 items-center px-4 justify-center rounded-2xl bg-slate-900 text-white dark:bg-white dark:text-slate-900'>
+                      <Icon className='h-5 w-5' />
+                    </div>
+                    <div>
+                      <h3 className='text-2xl font-semibold text-slate-900 dark:text-white'>
+                        {step.title}
+                      </h3>
+                      <p className='mt-4 text-base leading-8 text-slate-600 dark:text-slate-300'>
+                        {step.description}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
+        </div>
+      </section>
 
-          {/* Certifications */}
-          <div className='grid grid-cols-1 lg:grid-cols-2 gap-12'>
-            <div>
-              <h3 className='text-2xl font-bold text-gray-900 dark:text-white mb-6'>
+      <section className='bg-white py-20 dark:bg-slate-900'>
+        <div className='container mx-auto px-4'>
+          <div className='grid gap-8 lg:grid-cols-2'>
+            <div className='rounded-[30px] border border-slate-200 bg-slate-50 p-8 dark:border-slate-800 dark:bg-slate-950'>
+              <h3 className='text-2xl font-semibold text-slate-900 dark:text-white'>
                 Professional Certifications
               </h3>
-              <div className='space-y-4'>
-                <div className='flex items-center space-x-3'>
-                  <CheckCircle className='h-6 w-6 text-green-500' />
-                  <span className='text-gray-700 dark:text-gray-300'>
-                    Certified PTE Academic Trainer
-                  </span>
-                </div>
-                <div className='flex items-center space-x-3'>
-                  <CheckCircle className='h-6 w-6 text-green-500' />
-                  <span className='text-gray-700 dark:text-gray-300'>
-                    TESOL Certification (120 hours)
-                  </span>
-                </div>
-                <div className='flex items-center space-x-3'>
-                  <CheckCircle className='h-6 w-6 text-green-500' />
-                  <span className='text-gray-700 dark:text-gray-300'>
-                    Cambridge CELTA Qualified
-                  </span>
-                </div>
-                <div className='flex items-center space-x-3'>
-                  <CheckCircle className='h-6 w-6 text-green-500' />
-                  <span className='text-gray-700 dark:text-gray-300'>
-                    Master's in Applied Linguistics
-                  </span>
-                </div>
+              <div className='mt-6 space-y-4'>
+                {certifications.map((item) => (
+                  <div
+                    key={item}
+                    className='flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-4 dark:border-slate-800 dark:bg-slate-900'
+                  >
+                    <CheckCircle2 className='h-5 w-5 text-emerald-500' />
+                    <span className='text-sm text-slate-700 dark:text-slate-300'>
+                      {item}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
 
-            <div>
-              <h3 className='text-2xl font-bold text-gray-900 dark:text-white mb-6'>
-                Recognition & Awards
+            <div className='rounded-[30px] border border-slate-200 bg-slate-50 p-8 dark:border-slate-800 dark:bg-slate-950'>
+              <h3 className='text-2xl font-semibold text-slate-900 dark:text-white'>
+                Recognition and Awards
               </h3>
-              <div className='space-y-4'>
-                <div className='flex items-center space-x-3'>
-                  <Award className='h-6 w-6 text-blue-500' />
-                  <span className='text-gray-700 dark:text-gray-300'>
-                    Excellence in Language Training Award 2023
-                  </span>
-                </div>
-                <div className='flex items-center space-x-3'>
-                  <Award className='h-6 w-6 text-blue-500' />
-                  <span className='text-gray-700 dark:text-gray-300'>
-                    Top PTE Trainer - International Recognition
-                  </span>
-                </div>
-                <div className='flex items-center space-x-3'>
-                  <Award className='h-6 w-6 text-blue-500' />
-                  <span className='text-gray-700 dark:text-gray-300'>
-                    Educational Innovation Award 2022
-                  </span>
-                </div>
-                <div className='flex items-center space-x-3'>
-                  <Award className='h-6 w-6 text-blue-500' />
-                  <span className='text-gray-700 dark:text-gray-300'>
-                    Student Choice Award (5 consecutive years)
-                  </span>
-                </div>
+              <div className='mt-6 space-y-4'>
+                {recognitions.map((item) => (
+                  <div
+                    key={item}
+                    className='flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-4 dark:border-slate-800 dark:bg-slate-900'
+                  >
+                    <Award className='h-5 w-5 text-blue-600 dark:text-blue-300' />
+                    <span className='text-sm text-slate-700 dark:text-slate-300'>
+                      {item}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Philosophy */}
-      <section className='py-20 bg-white dark:bg-gray-900'>
+      <section className='bg-slate-100 py-20 dark:bg-slate-950'>
         <div className='container mx-auto px-4'>
-          <div className='max-w-4xl mx-auto text-center'>
-            <h2 className='text-4xl font-bold text-gray-900 dark:text-white mb-8'>
-              My Teaching Philosophy
-            </h2>
-            <div className='bg-blue-50 dark:bg-blue-900/20 p-8 rounded-2xl'>
-              <blockquote className='text-2xl text-gray-700 dark:text-gray-300 italic leading-relaxed mb-6'>
-                "Success in PTE isn't just about knowing English - it's about
-                understanding the test, mastering the strategy, and building the
-                confidence to perform under pressure. My role is to demystify
-                the process and provide you with the tools, techniques, and
-                support you need to achieve your goals."
-              </blockquote>
-              <div className='flex items-center justify-center space-x-4'>
-                <div className='bg-blue-600 text-white w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold'>
-                  S
-                </div>
-                <div className='text-left'>
-                  <p className='font-semibold text-gray-900 dark:text-white'>
-                    Diskha Dwivedi
-                  </p>
-                  <p className='text-gray-600 dark:text-gray-400'>
-                    Founder & Lead Trainer, PTEbyDee
-                  </p>
-                </div>
-              </div>
+          <div className='mx-auto max-w-4xl rounded-[32px] bg-gradient-to-r from-slate-900 via-slate-800 to-blue-950 px-8 py-12 text-white shadow-2xl'>
+            <div className='inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200'>
+              <Heart className='h-4 w-4 text-emerald-300' />
+              <span>Teaching philosophy</span>
+            </div>
+            <blockquote className='mt-6 text-2xl leading-10 text-slate-100'>
+              "Success in PTE is not just about knowing English. It is about
+              understanding the test, mastering strategy, and building the
+              confidence to perform under pressure. My role is to make that
+              journey clearer, simpler, and more achievable."
+            </blockquote>
+            <div className='mt-8 border-t border-white/10 pt-6'>
+              <p className='font-semibold text-white'>Diskha Dwivedi</p>
+              <p className='mt-1 text-sm text-slate-300'>
+                Founder and Lead Trainer, PTEbyDee
+              </p>
             </div>
           </div>
         </div>

@@ -89,7 +89,7 @@ const PaymentCancel: React.FC = () => {
             here to help.
           </p>
           <a
-            href='mailto:support@ptebydee.com'
+            href='mailto:ptebydee@gmail.com'
             className='inline-flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200'
           >
             <span>Contact Support</span>

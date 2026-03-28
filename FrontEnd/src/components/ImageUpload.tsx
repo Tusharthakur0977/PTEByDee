@@ -17,13 +17,11 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   label = 'Course Image',
   required = false,
 }) => {
-  console.log(currentImageUrl, 'XXXX');
-
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(
-    currentImageUrl || null
+    currentImageUrl || null,
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploadFile } = useFileUpload();
@@ -85,7 +83,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       // Upload file
       handleUpload(file);
     },
-    [uploadFile]
+    [uploadFile],
   );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -108,7 +106,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         handleFileSelect(files[0]);
       }
     },
-    [handleFileSelect]
+    [handleFileSelect],
   );
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

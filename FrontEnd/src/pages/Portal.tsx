@@ -4,14 +4,14 @@ import {
   BookOpen,
   CheckCircle,
   Clock,
+  History,
   Play,
-  Zap,
+  Zap
 } from "lucide-react";
 import React from "react";
 import { Link } from "react-router-dom";
 import PracticeHistory from "../components/PracticeHistory";
 import PracticeQuestion from "../components/PracticeQuestions";
-import PracticeStatsOverview from "../components/PracticeStatsOverview";
 import QuestionResponseHistory from "../components/QuestionResponseHistory";
 import QuestionSidebar from "../components/QuestionSidebar";
 import QuestionTypeSelector from "../components/QuestionTypeSelector";
@@ -20,7 +20,6 @@ import {
   getPracticeQuestions,
   getQuestionWithResponses,
 } from "../services/portal";
-import { getPracticeStats } from "../services/practice";
 import { PteQuestionTypeName } from "../types/pte";
 
 // Helper functions for question transformation
@@ -70,7 +69,7 @@ const Portal: React.FC = () => {
     (test: { isFree: boolean }) => !test.isFree,
   );
   const [activeTab, setActiveTab] = React.useState<
-    "overview" | "practice" | "tests" | "history"
+    "practice" | "tests" | "history"
   >("practice");
   const [selectedQuestionType, setSelectedQuestionType] =
     React.useState<PteQuestionTypeName | null>(null);
@@ -78,8 +77,6 @@ const Portal: React.FC = () => {
   const [practiceQuestions, setPracticeQuestions] = React.useState<any[]>([]);
   const [isLoadingQuestions, setIsLoadingQuestions] = React.useState(false);
   const [questionError, setQuestionError] = React.useState<string | null>(null);
-  const [practiceStats, setPracticeStats] = React.useState<any>(null);
-  const [isLoadingStats, setIsLoadingStats] = React.useState(false);
 
   // New state for enhanced features
   const [showQuestionSidebar, setShowQuestionSidebar] = React.useState(false);
@@ -97,12 +94,6 @@ const Portal: React.FC = () => {
   });
 
   React.useEffect(() => {
-    if (activeTab === "overview") {
-      fetchPracticeStats();
-    }
-  }, [activeTab]);
-
-  React.useEffect(() => {
     if (selectedQuestionType) {
       fetchPracticeQuestions();
     }
@@ -113,18 +104,6 @@ const Portal: React.FC = () => {
       fetchPracticeQuestions();
     }
   }, [practiceFilters]);
-
-  const fetchPracticeStats = async () => {
-    try {
-      setIsLoadingStats(true);
-      const stats = await getPracticeStats();
-      setPracticeStats(stats);
-    } catch (error) {
-      console.error("Error fetching practice stats:", error);
-    } finally {
-      setIsLoadingStats(false);
-    }
-  };
 
   const fetchPracticeQuestions = async () => {
     if (!selectedQuestionType) return;
@@ -164,11 +143,6 @@ const Portal: React.FC = () => {
   };
 
   const handleQuestionComplete = (response: any) => {
-    // Refresh stats if we're on overview tab
-    if (activeTab === "overview") {
-      fetchPracticeStats();
-    }
-
     // If we completed a selected question, go back to practice session
     if (selectedQuestionForPractice) {
       setSelectedQuestionForPractice(null);
@@ -436,7 +410,7 @@ const Portal: React.FC = () => {
 
         return (
           <div className="space-y-4">
-            <div className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+            <div className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:flex-row lg:items-center lg:justify-between">
               <button
                 onClick={() => {
                   if (isShowingSelectedQuestion) {
@@ -457,7 +431,7 @@ const Portal: React.FC = () => {
                     : "Back to Question Types"}
                 </span>
               </button>
-              <div className="flex items-center space-x-3">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
                 {/* Filters */}
                 <div className="flex items-center space-x-2">
                   <select
@@ -468,7 +442,7 @@ const Portal: React.FC = () => {
                         practiceStatus: e.target.value as any,
                       })
                     }
-                    className="text-xs px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
                   >
                     <option value="all">All</option>
                     <option value="practiced">Practiced</option>
@@ -482,7 +456,7 @@ const Portal: React.FC = () => {
                         difficultyLevel: e.target.value as any,
                       })
                     }
-                    className="text-xs px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
                   >
                     <option value="all">All Levels</option>
                     <option value="EASY">Easy</option>
@@ -493,13 +467,13 @@ const Portal: React.FC = () => {
 
                 <button
                   onClick={() => setShowQuestionSidebar(true)}
-                  className="flex items-center space-x-1 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium"
+                  className="inline-flex items-center space-x-1 rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
                 >
                   <BarChart3 className="h-4 w-4" />
                   <span>All Questions</span>
                 </button>
 
-                <div className="text-sm text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full">
+                <div className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                   {isShowingSelectedQuestion ? (
                     <span>
                       Selected Question: {questionToShow.questionCode}
@@ -541,13 +515,7 @@ const Portal: React.FC = () => {
         return renderTestsContent();
 
       default:
-        return (
-          <PracticeStatsOverview
-            stats={practiceStats}
-            isLoading={isLoadingStats}
-            onRefresh={fetchPracticeStats}
-          />
-        );
+        return <PracticeHistory />;
     }
   };
 
@@ -556,12 +524,12 @@ const Portal: React.FC = () => {
       {/* Available Tests */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Free Tests */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+        <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+            <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
               Free Practice Tests
             </h2>
-            <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 px-3 py-1 rounded-full text-sm font-medium">
+            <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">
               Free Access
             </span>
           </div>
@@ -569,17 +537,17 @@ const Portal: React.FC = () => {
             {freeTests.map((test) => (
               <div
                 key={test.id}
-                className="border dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow duration-200"
+                className="rounded-2xl border border-slate-200 p-5 transition-colors duration-200 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-950"
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
+                    <h3 className="mb-2 font-semibold text-slate-900 dark:text-white">
                       {test.title}
                     </h3>
-                    <p className="text-gray-600 dark:text-gray-300 text-sm mb-3">
+                    <p className="mb-3 text-sm text-slate-600 dark:text-slate-300">
                       {test.description}
                     </p>
-                    <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
+                    <div className="flex items-center space-x-4 text-sm text-slate-500 dark:text-slate-400">
                       <div className="flex items-center space-x-1">
                         <Clock className="h-4 w-4" />
                         <span>{test.totalDuration} min</span>
@@ -594,14 +562,14 @@ const Portal: React.FC = () => {
                 <div className="flex space-x-2">
                   <Link
                     to={`/portal/test/${test.id}/instructions`}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center space-x-1"
+                    className="flex items-center space-x-1 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100"
                   >
                     <Play className="h-4 w-4" />
                     <span>Start Test</span>
                   </Link>
                   <Link
                     to={`/portal/test/${test.id}/results`}
-                    className="border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
+                    className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors duration-200 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
                   >
                     View Results
                   </Link>
@@ -612,12 +580,12 @@ const Portal: React.FC = () => {
         </div>
 
         {/* Premium Tests */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+        <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+            <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
               Premium Tests
             </h2>
-            <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 px-3 py-1 rounded-full text-sm font-medium">
+            <span className="rounded-full bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700 dark:bg-blue-400/10 dark:text-blue-300">
               Premium Only
             </span>
           </div>
@@ -625,19 +593,19 @@ const Portal: React.FC = () => {
             {premiumTests.map((test) => (
               <div
                 key={test.id}
-                className="border dark:border-gray-700 rounded-lg p-4 relative overflow-hidden"
+                className="relative overflow-hidden rounded-2xl border border-slate-200 p-5 dark:border-slate-800"
               >
-                <div className="absolute top-0 right-0 bg-gradient-to-l from-purple-600 to-transparent w-32 h-full opacity-10"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-slate-900/[0.03] to-blue-500/[0.06] dark:from-white/[0.02] dark:to-blue-400/[0.06]"></div>
                 <div className="relative">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
+                      <h3 className="mb-2 font-semibold text-slate-900 dark:text-white">
                         {test.title}
                       </h3>
-                      <p className="text-gray-600 dark:text-gray-300 text-sm mb-3">
+                      <p className="mb-3 text-sm text-slate-600 dark:text-slate-300">
                         {test.description}
                       </p>
-                      <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
+                      <div className="flex items-center space-x-4 text-sm text-slate-500 dark:text-slate-400">
                         <div className="flex items-center space-x-1">
                           <Clock className="h-4 w-4" />
                           <span>{test.totalDuration} min</span>
@@ -651,12 +619,12 @@ const Portal: React.FC = () => {
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
-                      <CheckCircle className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                      <span className="text-sm text-purple-600 dark:text-purple-400 font-medium">
+                      <CheckCircle className="h-4 w-4 text-blue-600 dark:text-blue-300" />
+                      <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
                         Premium Features
                       </span>
                     </div>
-                    <button className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200">
+                    <button className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100">
                       Upgrade to Access
                     </button>
                   </div>
@@ -665,13 +633,13 @@ const Portal: React.FC = () => {
             ))}
 
             {/* Upgrade Card */}
-            <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg p-4">
+            <div className="rounded-[24px] bg-gradient-to-r from-slate-900 via-slate-800 to-blue-950 p-5 text-white">
               <h3 className="font-semibold mb-2">Unlock Premium Tests</h3>
-              <p className="text-purple-100 text-sm mb-3">
+              <p className="mb-3 text-sm text-slate-300">
                 Get access to advanced practice tests, detailed analytics, and
                 personalized feedback.
               </p>
-              <ul className="space-y-1 text-sm text-purple-100 mb-3">
+              <ul className="mb-3 space-y-1 text-sm text-slate-300">
                 <li className="flex items-center space-x-2">
                   <CheckCircle className="h-3 w-3" />
                   <span>20+ Premium Practice Tests</span>
@@ -685,7 +653,7 @@ const Portal: React.FC = () => {
                   <span>AI-Powered Feedback</span>
                 </li>
               </ul>
-              <button className="bg-white dark:bg-gray-100 text-purple-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-50 dark:hover:bg-gray-200 transition-colors duration-200">
+              <button className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-900 transition-colors duration-200 hover:bg-slate-100">
                 Upgrade Now
               </button>
             </div>
@@ -696,58 +664,60 @@ const Portal: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="container mx-auto px-4 py-6">
-        {/* Compact Navigation Tabs */}
-        {/*   <div className="flex space-x-1 bg-white dark:bg-gray-800 p-1 rounded-lg mb-6 shadow-sm max-w-2xl mx-auto">
-          <button
-            onClick={() => setActiveTab("practice")}
-            className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-md text-sm font-medium transition-colors duration-200 ${
-              activeTab === "practice"
-                ? "bg-blue-600 text-white shadow-sm"
-                : "text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100"
-            }`}
-          >
-            <Zap className="h-4 w-4" />
-            <span>Practice</span>
-          </button>
-         <button
-            onClick={() => setActiveTab('overview')}
-            className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-md text-sm font-medium transition-colors duration-200 ${
-              activeTab === 'overview'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100'
-            }`}
-          >
-            <BarChart3 className='h-4 w-4' />
-            <span>Overview</span>
-          </button>
-          <button
-            onClick={() => setActiveTab("history")}
-            className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-md text-sm font-medium transition-colors duration-200 ${
-              activeTab === "history"
-                ? "bg-blue-600 text-white shadow-sm"
-                : "text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100"
-            }`}
-          >
-            <Clock className="h-4 w-4" />
-            <span>History</span>
-          </button>
-         <button
-            onClick={() => setActiveTab('tests')}
-            className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-md text-sm font-medium transition-colors duration-200 ${
-              activeTab === 'tests'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100'
-            }`}
-          >
-            <BookOpen className='h-4 w-4' />
-            <span>Mock Tests</span>
-          </button> 
-        </div> */}
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+      <section className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
+        <div className="container mx-auto px-4 py-6">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl">
+              <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white sm:text-3xl">
+                Practice, test, and review in one focused portal.
+              </h1>
+              <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300 sm:text-base">
+                Targeted practice, mock tests, and history without distractions.
+              </p>
+            </div>
 
-        {/* Tab Content */}
-        <div className="max-w-7xl mx-auto">{renderTabContent()}</div>
+            <div className="flex flex-wrap gap-3 lg:justify-end">
+              <button
+                onClick={() => setActiveTab("practice")}
+                className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-colors ${
+                  activeTab === "practice"
+                    ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                    : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                }`}
+              >
+                <Zap className="h-4 w-4" />
+                <span>Practice</span>
+              </button>
+              {/* <button
+                onClick={() => setActiveTab("tests")}
+                className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-colors ${
+                  activeTab === "tests"
+                    ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                    : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                }`}
+              >
+                <BookOpen className="h-4 w-4" />
+                <span>Mock Tests</span>
+              </button> */}
+              <button
+                onClick={() => setActiveTab("history")}
+                className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-colors ${
+                  activeTab === "history"
+                    ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                    : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                }`}
+              >
+                <History className="h-4 w-4" />
+                <span>History</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="container mx-auto px-4 py-8">
+        <div className="mx-auto max-w-7xl">{renderTabContent()}</div>
       </div>
 
       {/* Question Sidebar */}

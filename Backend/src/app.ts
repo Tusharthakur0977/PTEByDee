@@ -12,15 +12,19 @@ import favicon from 'serve-favicon';
 dotenv.config();
 
 const app: Application = express();
+const corsOptions = {
+  origin: [
+    'https://www.ptebydee.com.au',
+    'https://ptebydee.com.au',
+    'http://localhost:5173',
+  ],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+};
 
-app.use(
-  cors({
-    origin: ['https://www.ptebydee.com.au', 'http://localhost:5173'], // Your frontend domain
-    methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed HTTP methods
-    allowedHeaders: ['Content-Type', 'Authorization'], // Allowed headers
-    credentials: true, // If you're sending cookies/auth headers
-  })
-);
+app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 
 app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
 
@@ -35,7 +39,7 @@ app.use(
         imgSrc: ["'self'", 'data:', 'https:'],
       },
     },
-  })
+  }),
 );
 
 // Compression middleware

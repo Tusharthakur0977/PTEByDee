@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { CheckCircle, XCircle, AlertTriangle, RefreshCw } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { AlertTriangle, CheckCircle, RefreshCw, XCircle } from 'lucide-react';
 import api from '../services/api';
 
 interface StripeProductStatusProps {
@@ -36,11 +36,7 @@ const StripeProductStatus: React.FC<StripeProductStatusProps> = ({
       setIsSyncing(true);
       setError(null);
       const response = await api.post('/admin/stripe/sync-products');
-
-      // Refresh status after sync
       await fetchStatus();
-
-      // Show success message
       alert(
         `Sync completed! ${response.data.data.synced} courses synced successfully.`
       );
@@ -53,10 +49,12 @@ const StripeProductStatus: React.FC<StripeProductStatusProps> = ({
 
   if (isLoading) {
     return (
-      <div className={`bg-white dark:bg-gray-800 rounded-lg p-4 ${className}`}>
-        <div className='animate-pulse flex items-center space-x-3'>
-          <div className='w-4 h-4 bg-gray-300 dark:bg-gray-600 rounded-full'></div>
-          <div className='h-4 bg-gray-300 dark:bg-gray-600 rounded w-32'></div>
+      <div
+        className={`rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 ${className}`}
+      >
+        <div className='flex animate-pulse items-center space-x-3'>
+          <div className='h-4 w-4 rounded-full bg-slate-300 dark:bg-slate-700' />
+          <div className='h-4 w-32 rounded bg-slate-300 dark:bg-slate-700' />
         </div>
       </div>
     );
@@ -65,11 +63,11 @@ const StripeProductStatus: React.FC<StripeProductStatusProps> = ({
   if (error) {
     return (
       <div
-        className={`bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 ${className}`}
+        className={`rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 ${className}`}
       >
         <div className='flex items-center space-x-3'>
-          <XCircle className='h-5 w-5 text-red-600 dark:text-red-400' />
-          <span className='text-red-700 dark:text-red-400'>{error}</span>
+          <XCircle className='h-5 w-5 text-slate-500 dark:text-slate-400' />
+          <span className='text-slate-700 dark:text-slate-300'>{error}</span>
         </div>
       </div>
     );
@@ -79,24 +77,20 @@ const StripeProductStatus: React.FC<StripeProductStatusProps> = ({
 
   return (
     <div
-      className={`bg-white dark:bg-gray-800 rounded-lg border ${
-        hasIssues
-          ? 'border-yellow-200 dark:border-yellow-800'
-          : 'border-green-200 dark:border-green-800'
-      } p-4 ${className}`}
+      className={`rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 ${className}`}
     >
-      <div className='flex items-center justify-between'>
+      <div className='flex items-center justify-between gap-4'>
         <div className='flex items-center space-x-3'>
           {hasIssues ? (
-            <AlertTriangle className='h-5 w-5 text-yellow-600 dark:text-yellow-400' />
+            <AlertTriangle className='h-5 w-5 text-amber-500 dark:text-amber-400' />
           ) : (
-            <CheckCircle className='h-5 w-5 text-green-600 dark:text-green-400' />
+            <CheckCircle className='h-5 w-5 text-emerald-500 dark:text-emerald-400' />
           )}
           <div>
-            <h4 className='font-medium text-gray-900 dark:text-white'>
+            <h4 className='font-medium text-slate-900 dark:text-slate-100'>
               Stripe Products Status
             </h4>
-            <p className='text-sm text-gray-600 dark:text-gray-300'>
+            <p className='text-sm text-slate-600 dark:text-slate-400'>
               {hasIssues
                 ? `${status.issues.length} courses need Stripe products`
                 : `All ${status.totalPaidCourses} paid courses have Stripe products`}
@@ -108,11 +102,11 @@ const StripeProductStatus: React.FC<StripeProductStatusProps> = ({
           <button
             onClick={handleSync}
             disabled={isSyncing}
-            className='bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center space-x-2 disabled:opacity-50'
+            className='inline-flex items-center space-x-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-slate-800 disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200'
           >
             {isSyncing ? (
               <>
-                <div className='animate-spin rounded-full h-4 w-4 border-b-2 border-white'></div>
+                <div className='h-4 w-4 animate-spin rounded-full border-b-2 border-white dark:border-slate-900' />
                 <span>Syncing...</span>
               </>
             ) : (
@@ -127,20 +121,20 @@ const StripeProductStatus: React.FC<StripeProductStatusProps> = ({
 
       {hasIssues && (
         <div className='mt-4 space-y-2'>
-          <h5 className='text-sm font-medium text-gray-900 dark:text-white'>
+          <h5 className='text-sm font-medium text-slate-900 dark:text-slate-100'>
             Courses needing attention:
           </h5>
           <div className='space-y-1'>
             {status.issues.slice(0, 5).map((issue: any, index: number) => (
               <div
                 key={index}
-                className='text-xs text-gray-600 dark:text-gray-400'
+                className='text-xs text-slate-600 dark:text-slate-400'
               >
-                • {issue.title}: {issue.issue}
+                - {issue.title}: {issue.issue}
               </div>
             ))}
             {status.issues.length > 5 && (
-              <div className='text-xs text-gray-500 dark:text-gray-500'>
+              <div className='text-xs text-slate-500 dark:text-slate-500'>
                 ... and {status.issues.length - 5} more
               </div>
             )}

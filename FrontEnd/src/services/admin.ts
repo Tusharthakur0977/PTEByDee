@@ -95,6 +95,43 @@ export interface UserFilters {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }
+
+export type SupportTicketStatus =
+  | 'OPEN'
+  | 'IN_PROGRESS'
+  | 'RESOLVED'
+  | 'CLOSED';
+
+export interface SupportTicket {
+  id: string;
+  ticketNumber: string;
+  userId?: string | null;
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  status: SupportTicketStatus;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    createdAt?: string;
+  } | null;
+}
+
+export interface SupportTicketFilters {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
 // User Management
 export const getAllUsers = async (filters: UserFilters = {}) => {
   const params = new URLSearchParams();
@@ -242,6 +279,37 @@ export const getTransactionById = async (id: string) => {
 export const refundTransaction = async (id: string, reason?: string) => {
   const response = await api.post(`/admin/payments/transactions/${id}/refund`, {
     reason,
+  });
+  return response.data;
+};
+
+// Support Ticket Management
+export const getAllSupportTickets = async (
+  filters: SupportTicketFilters = {}
+) => {
+  const params = new URLSearchParams();
+
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      params.append(key, value.toString());
+    }
+  });
+
+  const response = await api.get(`/admin/support-tickets?${params.toString()}`);
+  return response.data;
+};
+
+export const getSupportTicketById = async (id: string) => {
+  const response = await api.get(`/admin/support-tickets/${id}`);
+  return response.data;
+};
+
+export const updateSupportTicketStatus = async (
+  id: string,
+  status: SupportTicketStatus
+) => {
+  const response = await api.put(`/admin/support-tickets/${id}/status`, {
+    status,
   });
   return response.data;
 };

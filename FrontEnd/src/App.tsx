@@ -10,9 +10,11 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { UploadProvider } from "./contexts/UploadContext";
 import About from "./pages/About";
+import ContactSupport from "./pages/ContactSupport";
 import CourseDetail from "./pages/CourseDetail";
 import Courses from "./pages/Courses";
 import Dashboard from "./pages/Dashboard";
+import FAQ from "./pages/FAQ";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Payment from "./pages/Payment";
@@ -20,6 +22,7 @@ import PaymentCancel from "./pages/PaymentCancel";
 import PaymentHistory from "./pages/PaymentHistory";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import Portal from "./pages/Portal";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 import Register from "./pages/Register";
 import TestInstructions from "./pages/TestInstructions";
 import TestQuestion from "./pages/TestQuestion";
@@ -32,6 +35,7 @@ import CreateCourse from "./pages/admin/CreateCourse";
 import EditCourse from "./pages/admin/EditCourse";
 import PaymentManagement from "./pages/admin/PaymentManagement";
 import QuestionManagement from "./pages/admin/QuestionManagement";
+import SupportTickets from "./pages/admin/SupportTickets";
 import UserManagement from "./pages/admin/UserManagement";
 // Practice pages
 import PracticeAnswerShortQuestion from "./pages/practice/PracticeAnswerShortQuestion";
@@ -78,6 +82,15 @@ function App() {
                     <Route path="/courses" element={<Courses />} />
                     <Route path="/courses/:id" element={<CourseDetail />} />
                     <Route path="/about" element={<About />} />
+                    <Route
+                      path="/contact-support"
+                      element={<ContactSupport />}
+                    />
+                    <Route path="/faq" element={<FAQ />} />
+                    <Route
+                      path="/privacy-policy"
+                      element={<PrivacyPolicy />}
+                    />
 
                     {/* Auth routes - redirect to dashboard if already logged in */}
                     <Route
@@ -423,6 +436,14 @@ function App() {
                       element={
                         <ProtectedRoute>
                           <PaymentManagement />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/admin/support-tickets"
+                      element={
+                        <ProtectedRoute>
+                          <SupportTickets />
                         </ProtectedRoute>
                       }
                     />

@@ -255,7 +255,7 @@ export const getCourseById = asyncHandler(
               ? 'audio'
               : 'text',
             isPreview: index === 0, // First lesson is always preview
-            duration: '15 min', // Default duration, can be enhanced
+            duration: undefined,
           })),
         })),
 
@@ -271,12 +271,11 @@ export const getCourseById = asyncHandler(
 
         // Mock features (can be enhanced later)
         features: [
-          'Comprehensive course content',
-          'Expert instruction',
-          'Practice materials',
+          'Structured course modules',
+          'Guided lesson flow',
           'Progress tracking',
-          'Certificate of completion',
-          'Lifetime access',
+          'Preview lessons before enrollment',
+          'Exam-focused preparation',
         ],
 
         // Mock curriculum structure for frontend compatibility
@@ -284,7 +283,7 @@ export const getCourseById = asyncHandler(
           title: section.title,
           lessons: section.lessons.map((lesson, lessonIndex) => ({
             title: lesson.title,
-            duration: '15 min',
+            duration: undefined,
             videoUrl: isEnrolled || lessonIndex === 0 ? lesson.videoUrl : null,
             type: lesson.videoUrl
               ? 'video'

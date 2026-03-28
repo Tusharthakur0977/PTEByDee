@@ -1,6 +1,19 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Moon, Sun, Menu, X, BookOpen, User, LogOut } from 'lucide-react';
+import {
+  Moon,
+  Sun,
+  Menu,
+  X,
+  BookOpen,
+  User,
+  LogOut,
+  LayoutDashboard,
+  Users,
+  DollarSign,
+  LifeBuoy,
+  FileText,
+} from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { getQuestionTypes } from '../services/portal';
@@ -13,6 +26,7 @@ const Navbar: React.FC = () => {
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isPortalMenuOpen, setIsPortalMenuOpen] = useState(false);
+  const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
   const [groupedQuestionTypes, setGroupedQuestionTypes] = useState<
     Record<
       string,
@@ -24,6 +38,12 @@ const Navbar: React.FC = () => {
   >({});
 
   const isActive = (path: string) => location.pathname === path;
+  const navLinkClass = (active: boolean) =>
+    `rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 ${
+      active
+        ? 'bg-slate-900 text-white shadow-sm dark:bg-white dark:text-slate-900'
+        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
+    }`;
 
   useEffect(() => {
     const loadQuestionTypes = async () => {
@@ -41,6 +61,44 @@ const Navbar: React.FC = () => {
   }, [user]);
 
   const sectionOrder = ['Speaking', 'Writing', 'Reading', 'Listening'];
+  const adminLinks = [
+    {
+      title: 'Dashboard',
+      description: 'See platform activity and admin shortcuts.',
+      to: '/admin',
+      icon: LayoutDashboard,
+    },
+    {
+      title: 'Courses',
+      description: 'Create, edit, and manage learning content.',
+      to: '/admin/courses',
+      icon: BookOpen,
+    },
+    {
+      title: 'Users',
+      description: 'Review user accounts and permissions.',
+      to: '/admin/users',
+      icon: Users,
+    },
+    {
+      title: 'Payments',
+      description: 'Track transactions and payment activity.',
+      to: '/admin/payments',
+      icon: DollarSign,
+    },
+    {
+      title: 'Support Tickets',
+      description: 'Handle learner questions and ticket updates.',
+      to: '/admin/support-tickets',
+      icon: LifeBuoy,
+    },
+    {
+      title: 'Questions',
+      description: 'Manage practice questions and test items.',
+      to: '/admin/questions',
+      icon: FileText,
+    },
+  ];
 
   const questionTypeLabelMap: Partial<Record<PteQuestionTypeName, string>> = {
     READ_ALOUD: 'Read Aloud',
@@ -97,18 +155,21 @@ const Navbar: React.FC = () => {
 
   useEffect(() => {
     setIsPortalMenuOpen(false);
+    setIsAdminMenuOpen(false);
   }, [location.pathname]);
 
   return (
-    <nav className='bg-white dark:bg-gray-900 shadow-lg sticky top-0 z-50 transition-colors duration-300'>
+    <nav className='sticky top-0 z-50 border-b border-slate-200 bg-white shadow-sm transition-colors duration-300 dark:border-slate-800 dark:bg-slate-950'>
       <div className='container mx-auto px-4'>
         <div className='flex justify-between items-center h-16'>
           {/* Logo */}
           <Link
             to='/'
-            className='flex items-center space-x-2 text-2xl font-bold text-blue-600 dark:text-blue-400'
+            className='flex items-center space-x-3 text-2xl font-semibold text-slate-950 dark:text-white'
           >
-            <BookOpen className='h-8 w-8' />
+            <div className='flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-sm dark:bg-white dark:text-slate-900'>
+              <BookOpen className='h-5 w-5' />
+            </div>
             <span>PTEbyDee</span>
           </Link>
 
@@ -116,31 +177,19 @@ const Navbar: React.FC = () => {
           <div className='hidden lg:flex items-center space-x-8'>
             <Link
               to='/'
-              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
-                isActive('/')
-                  ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                  : 'text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
-              }`}
+              className={navLinkClass(isActive('/'))}
             >
               Home
             </Link>
             <Link
               to='/courses'
-              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
-                isActive('/courses')
-                  ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                  : 'text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
-              }`}
+              className={navLinkClass(isActive('/courses'))}
             >
               Courses
             </Link>
             <Link
               to='/about'
-              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
-                isActive('/about')
-                  ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                  : 'text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
-              }`}
+              className={navLinkClass(isActive('/about'))}
             >
               About
             </Link>
@@ -153,113 +202,108 @@ const Navbar: React.FC = () => {
                 <Link
                   to='/portal'
                   onClick={() => setIsPortalMenuOpen(false)}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
-                    isActive('/portal')
-                      ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                      : 'text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
-                  }`}
+                  className={navLinkClass(isActive('/portal'))}
                 >
                   Portal
                 </Link>
 
                 {orderedSections.length > 0 && (
                   <div
-                    className={`absolute top-full left-1/2 -translate-x-1/2 mt-2 w-[840px] max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl transition-all duration-150 z-50 ${
+                    className={`absolute left-1/2 top-full z-50 w-[840px] max-w-[calc(100vw-2rem)] -translate-x-1/2 pt-3 transition-all duration-150 ${
                       isPortalMenuOpen
-                        ? 'opacity-100 visible'
-                        : 'opacity-0 invisible'
+                        ? 'visible opacity-100 pointer-events-auto'
+                        : 'invisible opacity-0 pointer-events-none'
                     }`}
                   >
-                    <div className='grid grid-cols-4 gap-6 p-5'>
-                      {orderedSections.map(([sectionName, sectionData]) => (
-                        <div key={sectionName}>
-                          <h4 className='text-lg font-semibold text-gray-900 dark:text-white mb-2'>
-                            {sectionName}
-                          </h4>
-                          <div className='h-0.5 w-12 bg-cyan-500 mb-3'></div>
-                          <ul className='space-y-1.5'>
-                            {sectionData.questionTypes.map((questionType) => {
-                              const typeName =
-                                questionType.name as PteQuestionTypeName;
-                              const label =
-                                questionTypeLabelMap[typeName] ||
-                                questionType.name
-                                  .toLowerCase()
-                                  .replace(/_/g, ' ')
-                                  .replace(/\b\w/g, (char) =>
-                                    char.toUpperCase(),
-                                  );
+                    <div className='rounded-3xl border border-slate-200 bg-white shadow-2xl ring-1 ring-slate-950/5 dark:border-slate-800 dark:bg-slate-950 dark:ring-white/10'>
+                      <div className='grid grid-cols-4 gap-6 p-6'>
+                        {orderedSections.map(([sectionName, sectionData]) => (
+                          <div key={sectionName}>
+                            <h4 className='mb-2 text-lg font-semibold text-slate-900 dark:text-white'>
+                              {sectionName}
+                            </h4>
+                            <div className='mb-3 h-0.5 w-12 bg-gradient-to-r from-emerald-400 to-blue-500'></div>
+                            <ul className='space-y-1.5'>
+                              {sectionData.questionTypes.map((questionType) => {
+                                const typeName =
+                                  questionType.name as PteQuestionTypeName;
+                                const label =
+                                  questionTypeLabelMap[typeName] ||
+                                  questionType.name
+                                    .toLowerCase()
+                                    .replace(/_/g, ' ')
+                                    .replace(/\b\w/g, (char) =>
+                                      char.toUpperCase(),
+                                    );
 
-                              return (
-                                <li key={questionType.id}>
-                                  <Link
-                                    to={getPracticePagePath(typeName)}
-                                    onClick={() => setIsPortalMenuOpen(false)}
-                                    className='text-sm leading-snug text-gray-700 dark:text-gray-300 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors'
-                                  >
-                                    {label}
-                                  </Link>
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        </div>
-                      ))}
+                                return (
+                                  <li key={questionType.id}>
+                                    <Link
+                                      to={getPracticePagePath(typeName)}
+                                      onClick={() => setIsPortalMenuOpen(false)}
+                                      className='text-sm leading-snug text-slate-600 transition-colors hover:text-blue-700 dark:text-slate-300 dark:hover:text-emerald-300'
+                                    >
+                                      {label}
+                                    </Link>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}
               </div>
             )}
             {user && user.role === 'ADMIN' && (
-              <div className='relative group'>
+              <div
+                className='relative'
+                onMouseEnter={() => setIsAdminMenuOpen(true)}
+                onMouseLeave={() => setIsAdminMenuOpen(false)}
+              >
                 <Link
                   to='/admin'
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
-                    location.pathname.startsWith('/admin')
-                      ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                      : 'text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
-                  }`}
+                  onClick={() => setIsAdminMenuOpen(false)}
+                  className={navLinkClass(location.pathname.startsWith('/admin'))}
                 >
                   Admin
                 </Link>
-                <div className='absolute top-full left-0 mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50'>
-                  <div className='py-2'>
-                    <Link
-                      to='/admin'
-                      className='block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                    >
-                      Dashboard
-                    </Link>
-                    <Link
-                      to='/admin/courses'
-                      className='block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                    >
-                      Courses
-                    </Link>
-                    <Link
-                      to='/admin/users'
-                      className='block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                    >
-                      Users
-                    </Link>
-                    {/* <Link
-                      to='/admin/categories'
-                      className='block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                    >
-                      Categories
-                    </Link> */}
-                    <Link
-                      to='/admin/payments'
-                      className='block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                    >
-                      Payments
-                    </Link>
-                    <Link
-                      to='/admin/questions'
-                      className='block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                    >
-                      Questions
-                    </Link>
+                <div
+                  className={`absolute left-1/2 top-full z-50 w-[720px] max-w-[calc(100vw-2rem)] -translate-x-1/2 pt-3 transition-all duration-150 ${
+                    isAdminMenuOpen
+                      ? 'visible opacity-100 pointer-events-auto'
+                      : 'invisible opacity-0 pointer-events-none'
+                  }`}
+                >
+                  <div className='rounded-3xl border border-slate-200 bg-white shadow-2xl ring-1 ring-slate-950/5 dark:border-slate-800 dark:bg-slate-950 dark:ring-white/10'>
+                    <div className='grid grid-cols-2 gap-4 p-6'>
+                      {adminLinks.map((link) => {
+                        const Icon = link.icon;
+
+                        return (
+                          <Link
+                            key={link.to}
+                            to={link.to}
+                            onClick={() => setIsAdminMenuOpen(false)}
+                            className='flex items-start gap-4 rounded-2xl border border-slate-200 p-4 transition-colors duration-200 hover:border-blue-200 hover:bg-slate-50 dark:border-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-900'
+                          >
+                            <div className='flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200'>
+                              <Icon className='h-5 w-5' />
+                            </div>
+                            <div>
+                              <h4 className='text-sm font-semibold text-slate-900 dark:text-white'>
+                                {link.title}
+                              </h4>
+                              <p className='mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300'>
+                                {link.description}
+                              </p>
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -270,7 +314,7 @@ const Navbar: React.FC = () => {
           <div className='hidden lg:flex items-center space-x-4'>
             <button
               onClick={toggleTheme}
-              className='p-2 rounded-md text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200'
+              className='rounded-full border border-slate-200 bg-white p-2.5 text-slate-600 transition-colors duration-200 hover:bg-slate-100 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
             >
               {isDarkMode ? (
                 <Sun className='h-5 w-5' />
@@ -283,18 +327,16 @@ const Navbar: React.FC = () => {
               <div className='flex items-center space-x-3'>
                 <Link
                   to='/dashboard'
-                  className={`flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
-                    isActive('/dashboard')
-                      ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                      : 'text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
-                  }`}
+                  className={`flex items-center space-x-1 ${navLinkClass(
+                    isActive('/dashboard'),
+                  )}`}
                 >
                   <User className='h-4 w-4' />
                   <span>Dashboard</span>
                 </Link>
                 <button
                   onClick={handleLogout}
-                  className='flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition-colors duration-200'
+                  className='flex items-center space-x-1 rounded-full px-4 py-2 text-sm font-medium text-slate-600 transition-colors duration-200 hover:bg-rose-50 hover:text-rose-600 dark:text-slate-300 dark:hover:bg-rose-950/30 dark:hover:text-rose-300'
                 >
                   <LogOut className='h-4 w-4' />
                   <span>Logout</span>
@@ -304,13 +346,13 @@ const Navbar: React.FC = () => {
               <div className='flex items-center space-x-3'>
                 <Link
                   to='/login'
-                  className='px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200'
+                  className='rounded-full px-4 py-2 text-sm font-medium text-slate-600 transition-colors duration-200 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
                 >
                   Login
                 </Link>
                 <Link
                   to='/register'
-                  className='px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors duration-200'
+                  className='rounded-full bg-slate-900 px-5 py-2.5 text-sm font-medium text-white transition-colors duration-200 hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100'
                 >
                   Sign Up
                 </Link>
@@ -322,7 +364,7 @@ const Navbar: React.FC = () => {
           <div className='lg:hidden flex items-center space-x-2'>
             <button
               onClick={toggleTheme}
-              className='p-2 rounded-md text-gray-700 dark:text-gray-300'
+              className='rounded-full border border-slate-200 bg-white p-2 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300'
             >
               {isDarkMode ? (
                 <Sun className='h-5 w-5' />
@@ -332,7 +374,7 @@ const Navbar: React.FC = () => {
             </button>
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className='p-2 rounded-md text-gray-700 dark:text-gray-300'
+              className='rounded-full border border-slate-200 bg-white p-2 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300'
             >
               {isMenuOpen ? (
                 <X className='h-6 w-6' />
@@ -346,24 +388,24 @@ const Navbar: React.FC = () => {
         {/* Mobile menu */}
         {isMenuOpen && (
           <div className='lg:hidden'>
-            <div className='px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white dark:bg-gray-900 border-t dark:border-gray-700'>
+            <div className='space-y-1 border-t border-slate-200 bg-white px-2 pb-3 pt-3 sm:px-3 dark:border-slate-800 dark:bg-slate-950'>
               <Link
                 to='/'
-                className='block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
+                className='block rounded-xl px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
                 onClick={() => setIsMenuOpen(false)}
               >
                 Home
               </Link>
               <Link
                 to='/courses'
-                className='block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
+                className='block rounded-xl px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
                 onClick={() => setIsMenuOpen(false)}
               >
                 Courses
               </Link>
               <Link
                 to='/about'
-                className='block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
+                className='block rounded-xl px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
                 onClick={() => setIsMenuOpen(false)}
               >
                 About
@@ -371,7 +413,7 @@ const Navbar: React.FC = () => {
               {user && (
                 <Link
                   to='/portal'
-                  className='block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
+                  className='block rounded-xl px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
                   onClick={() => setIsMenuOpen(false)}
                 >
                   Portal
@@ -381,28 +423,49 @@ const Navbar: React.FC = () => {
                 <>
                   <Link
                     to='/admin'
-                    className='block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
+                    className='block rounded-xl px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
                     onClick={() => setIsMenuOpen(false)}
                   >
                     Admin Dashboard
                   </Link>
                   <Link
                     to='/admin/courses'
-                    className='block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
+                    className='block rounded-xl px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
                     onClick={() => setIsMenuOpen(false)}
                   >
                     Manage Courses
                   </Link>
                   <Link
                     to='/admin/users'
-                    className='block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
+                    className='block rounded-xl px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
                     onClick={() => setIsMenuOpen(false)}
                   >
                     Manage Users
                   </Link>
                   <Link
+                    to='/admin/support-tickets'
+                    className='block rounded-xl px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Support Tickets
+                  </Link>
+                  <Link
+                    to='/admin/payments'
+                    className='block rounded-xl px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Payments
+                  </Link>
+                  <Link
+                    to='/admin/questions'
+                    className='block rounded-xl px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Questions
+                  </Link>
+                  <Link
                     to='/admin/categories'
-                    className='block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
+                    className='block rounded-xl px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
                     onClick={() => setIsMenuOpen(false)}
                   >
                     Manage Categories
@@ -413,14 +476,14 @@ const Navbar: React.FC = () => {
                 <>
                   <Link
                     to='/dashboard'
-                    className='block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
+                    className='block rounded-xl px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
                     onClick={() => setIsMenuOpen(false)}
                   >
                     Dashboard
                   </Link>
                   <button
                     onClick={handleLogout}
-                    className='block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400'
+                    className='block w-full rounded-xl px-3 py-2 text-left text-base font-medium text-slate-700 hover:bg-rose-50 hover:text-rose-600 dark:text-slate-300 dark:hover:bg-rose-950/30 dark:hover:text-rose-300'
                   >
                     Logout
                   </button>
@@ -429,14 +492,14 @@ const Navbar: React.FC = () => {
                 <>
                   <Link
                     to='/login'
-                    className='block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
+                    className='block rounded-xl px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
                     onClick={() => setIsMenuOpen(false)}
                   >
                     Login
                   </Link>
                   <Link
                     to='/register'
-                    className='block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
+                    className='block rounded-xl px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
                     onClick={() => setIsMenuOpen(false)}
                   >
                     Sign Up

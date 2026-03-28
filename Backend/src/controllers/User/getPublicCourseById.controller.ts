@@ -145,7 +145,7 @@ export const getPublicCourseById = asyncHandler(
             audioUrl: null,
             type: 'video', // Default type
             isPreview: index === 0,
-            duration: '15 min',
+            duration: undefined,
           })),
         })),
 
@@ -161,12 +161,11 @@ export const getPublicCourseById = asyncHandler(
 
         // Mock features
         features: [
-          'Comprehensive course content',
-          'Expert instruction',
-          'Practice materials',
+          'Structured course modules',
+          'Guided lesson flow',
           'Progress tracking',
-          'Certificate of completion',
-          'Lifetime access',
+          'Preview lessons before enrollment',
+          'Exam-focused preparation',
         ],
 
         // Mock curriculum structure for frontend compatibility (public view)
@@ -174,7 +173,7 @@ export const getPublicCourseById = asyncHandler(
           title: section.title,
           lessons: section.lessons.map((lesson) => ({
             title: lesson.title,
-            duration: '15 min',
+            duration: undefined,
             videoUrl: null, // No access for public view
             type: 'video',
             isPreview: false, // No previews in public view

@@ -1,23 +1,17 @@
 import {
-  Edit,
-  Pause,
-  Play,
   Plus,
   Search,
-  Trash2,
-  Volume2,
-  FileText,
-  Image as ImageIcon,
-  Clock,
-  Users,
   HelpCircle,
-  X,
-  Save,
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { questionsService } from '../../services/questions';
 import QuestionForm from '../../components/QuestionForm';
 import QuestionPreview from '../../components/QuestionPreview';
+
+const panelClass =
+  'rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900';
+const inputClass =
+  'w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-slate-900 outline-none transition focus:border-slate-300 focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-slate-600 dark:focus:ring-slate-800';
 
 interface Question {
   id: string;
@@ -253,158 +247,119 @@ const QuestionManagement: React.FC = () => {
       .join(' ');
   };
 
-  const getQuestionTypeColor = (typeName: string) => {
-    const colors: { [key: string]: string } = {
-      read_aloud:
-        'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800',
-      repeat_sentence:
-        'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800',
-      describe_image:
-        'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800',
-      re_tell_lecture:
-        'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 border-orange-200 dark:border-orange-800',
-      answer_short_question:
-        'bg-pink-100 dark:bg-pink-900/30 text-pink-800 dark:text-pink-300 border-pink-200 dark:border-pink-800',
-      summarize_written_text:
-        'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800',
-      write_essay:
-        'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800',
-    };
-    return (
-      colors[typeName.toLowerCase()] ||
-      'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-600'
-    );
-  };
-
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
   };
 
   return (
-    <div className='min-h-screen bg-gray-50 dark:bg-gray-900'>
-      {/* Header */}
-      <div className='bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700'>
-        <div className='container mx-auto px-6 py-6'>
-          <div className='flex items-center justify-between'>
-            <div>
-              <h1 className='text-3xl font-bold text-gray-900 dark:text-white'>
-                Question Management
-              </h1>
-              <p className='text-gray-600 dark:text-gray-300 mt-1'>
-                Create and manage PTE practice questions across all sections
-              </p>
-            </div>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className='bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2 transition-colors'
-            >
-              <Plus className='w-5 h-5' />
-              Add Question
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className='container mx-auto px-6 py-8'>
-        {/* Error Message */}
+    <div className='min-h-screen bg-slate-50 dark:bg-slate-950'>
+      <div className='mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8'>
         {error && (
-          <div className='bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg mb-6'>
+          <div className='mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300'>
             {error}
           </div>
         )}
 
-        {/* Filters */}
-        <div className='bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-8'>
-          <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4'>
-            {/* Search */}
-            <div className='relative'>
-              <Search className='absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5' />
-              <input
-                type='text'
-                placeholder='Search questions...'
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className='w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-              />
+        <div className={`${panelClass} overflow-hidden`}>
+          <div className='border-b border-slate-200 p-5 dark:border-slate-800'>
+            <div className='flex flex-col gap-4'>
+              <div className='flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between'>
+                <div>
+                  <h2 className='text-sm font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400'>
+                    Questions
+                  </h2>
+                  <p className='mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100'>
+                    {pagination?.totalQuestions || 0} records
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className='inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200'
+                >
+                  <Plus className='w-4 h-4' />
+                  Add Question
+                </button>
+              </div>
+
+              <div className='grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4'>
+                <div className='relative'>
+                  <Search className='absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400' />
+                  <input
+                    type='text'
+                    placeholder='Search questions...'
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className={`${inputClass} pl-10 pr-4`}
+                  />
+                </div>
+
+                <select
+                  value={selectedSection}
+                  onChange={(e) => setSelectedSection(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value=''>All Sections</option>
+                  {Object.keys(questionTypes).map((sectionName) => (
+                    <option
+                      key={sectionName}
+                      value={questionTypes[sectionName].section?.id}
+                    >
+                      {sectionName}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={selectedQuestionType}
+                  onChange={(e) => setSelectedQuestionType(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value=''>All Question Types</option>
+                  {Object.values(questionTypes).flatMap((section: any) =>
+                    section.questionTypes.map((qt: QuestionType) => (
+                      <option
+                        key={qt.name}
+                        value={qt.name}
+                      >
+                        {formatQuestionTypeName(qt.name)}
+                      </option>
+                    ))
+                  )}
+                </select>
+
+                <select
+                  value={selectedTest}
+                  onChange={(e) => setSelectedTest(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value=''>All Tests</option>
+                  {tests.map((test) => (
+                    <option
+                      key={test.id}
+                      value={test.id}
+                    >
+                      {test.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-
-            {/* PTE Section Filter */}
-            <select
-              value={selectedSection}
-              onChange={(e) => setSelectedSection(e.target.value)}
-              className='w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-            >
-              <option value=''>All Sections</option>
-              {Object.keys(questionTypes).map((sectionName) => (
-                <option
-                  key={sectionName}
-                  value={questionTypes[sectionName].section?.id}
-                >
-                  {sectionName}
-                </option>
-              ))}
-            </select>
-
-            {/* Question Type Filter */}
-            <select
-              value={selectedQuestionType}
-              onChange={(e) => setSelectedQuestionType(e.target.value)}
-              className='w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-            >
-              <option value=''>All Question Types</option>
-              {Object.values(questionTypes).flatMap((section: any) =>
-                section.questionTypes.map((qt: QuestionType) => (
-                  <option
-                    key={qt.name}
-                    value={qt.name}
-                  >
-                    {formatQuestionTypeName(qt.name)}
-                  </option>
-                ))
-              )}
-            </select>
-
-            {/* Test Filter */}
-            <select
-              value={selectedTest}
-              onChange={(e) => setSelectedTest(e.target.value)}
-              className='w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-            >
-              <option value=''>All Tests</option>
-              {tests.map((test) => (
-                <option
-                  key={test.id}
-                  value={test.id}
-                >
-                  {test.title}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Questions List */}
-        <div className='bg-white dark:bg-gray-800 rounded-xl shadow-lg'>
-          <div className='px-6 py-4 border-b dark:border-gray-700'>
-            <h2 className='text-lg font-semibold text-gray-900 dark:text-white'>
-              Questions ({pagination?.totalQuestions || 0})
-            </h2>
           </div>
 
           {loading ? (
-            <div className='p-8 text-center'>
-              <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto'></div>
-              <p className='text-gray-500 dark:text-gray-400 mt-2'>
+            <div className='p-10 text-center'>
+              <div className='mx-auto h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-slate-900 dark:border-slate-700 dark:border-t-slate-100'></div>
+              <p className='mt-3 text-sm text-slate-500 dark:text-slate-400'>
                 Loading questions...
               </p>
             </div>
           ) : questions.length === 0 ? (
-            <div className='p-8 text-center'>
-              <HelpCircle className='h-16 w-16 text-gray-300 dark:text-gray-600 mx-auto mb-4' />
-              <h3 className='text-lg font-semibold text-gray-900 dark:text-white mb-2'>
+            <div className='p-10 text-center'>
+              <HelpCircle className='mx-auto mb-4 h-14 w-14 text-slate-300 dark:text-slate-700' />
+              <h3 className='text-lg font-semibold text-slate-900 dark:text-slate-100'>
                 No questions found
               </h3>
-              <p className='text-gray-500 dark:text-gray-400 mb-4'>
+              <p className='mb-4 mt-2 text-sm text-slate-500 dark:text-slate-400'>
                 {searchTerm ||
                 selectedQuestionType ||
                 selectedTest ||
@@ -414,13 +369,13 @@ const QuestionManagement: React.FC = () => {
               </p>
               <button
                 onClick={() => setShowCreateModal(true)}
-                className='bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200'
+                className='rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200'
               >
                 Create First Question
               </button>
             </div>
           ) : (
-            <div className='divide-y divide-gray-200 dark:divide-gray-700'>
+            <div className='divide-y divide-slate-200 dark:divide-slate-800'>
               {questions.map((question) => (
                 <QuestionPreview
                   key={question.id}
@@ -437,9 +392,9 @@ const QuestionManagement: React.FC = () => {
 
           {/* Pagination */}
           {pagination && pagination.totalPages > 1 && (
-            <div className='px-6 py-4 border-t dark:border-gray-700'>
-              <div className='flex items-center justify-between'>
-                <div className='text-sm text-gray-700 dark:text-gray-300'>
+            <div className='border-t border-slate-200 px-6 py-4 dark:border-slate-800'>
+              <div className='flex flex-col items-center justify-between gap-4 sm:flex-row'>
+                <div className='text-sm text-slate-500 dark:text-slate-400'>
                   Showing {(pagination.currentPage - 1) * pagination.limit + 1}{' '}
                   to{' '}
                   {Math.min(
@@ -448,21 +403,21 @@ const QuestionManagement: React.FC = () => {
                   )}{' '}
                   of {pagination.totalQuestions} results
                 </div>
-                <div className='flex items-center space-x-2'>
+                <div className='flex items-center gap-2'>
                   <button
                     onClick={() => handlePageChange(pagination.currentPage - 1)}
                     disabled={!pagination.hasPrevPage}
-                    className='px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
+                    className='rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800'
                   >
                     Previous
                   </button>
-                  <span className='px-4 py-2 text-gray-600 dark:text-gray-300'>
+                  <span className='px-2 py-2 text-sm text-slate-500 dark:text-slate-400'>
                     Page {pagination.currentPage} of {pagination.totalPages}
                   </span>
                   <button
                     onClick={() => handlePageChange(pagination.currentPage + 1)}
                     disabled={!pagination.hasNextPage}
-                    className='px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
+                    className='rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800'
                   >
                     Next
                   </button>
@@ -496,28 +451,28 @@ const QuestionManagement: React.FC = () => {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && questionToDelete && (
-        <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4'>
-          <div className='bg-white dark:bg-gray-800 rounded-xl p-6 max-w-md w-full'>
-            <h3 className='text-lg font-bold text-gray-900 dark:text-white mb-4'>
-              Confirm Delete
+        <div className='fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm'>
+          <div className='w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900'>
+            <h3 className='text-lg font-semibold text-slate-900 dark:text-slate-100'>
+              Delete question
             </h3>
-            <p className='text-gray-600 dark:text-gray-300 mb-6'>
+            <p className='mb-6 mt-3 text-sm leading-6 text-slate-600 dark:text-slate-400'>
               Are you sure you want to delete question "
               {questionToDelete.questionCode}"? This action cannot be undone.
             </p>
-            <div className='flex items-center justify-end space-x-3'>
+            <div className='flex items-center justify-end gap-3'>
               <button
                 onClick={() => {
                   setShowDeleteModal(false);
                   setQuestionToDelete(null);
                 }}
-                className='px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100'
+                className='rounded-xl px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100'
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteQuestion}
-                className='bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200'
+                className='rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700'
               >
                 Delete Question
               </button>

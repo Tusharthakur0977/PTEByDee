@@ -86,25 +86,16 @@ const AdminCourseDetail: React.FC = () => {
 
   return (
     <div className='min-h-screen bg-gray-50 dark:bg-gray-900'>
-      {/* Header */}
       <div className='bg-white dark:bg-gray-800 shadow-sm border-b dark:border-gray-700'>
-        <div className='container mx-auto px-4 py-6'>
+        <div className='container mx-auto px-4 py-4'>
           <div className='flex items-center justify-between'>
-            <div className='flex items-center space-x-4'>
+            <div className='flex items-center space-x-3'>
               <button
                 onClick={() => navigate('/admin/courses')}
                 className='p-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100'
               >
                 <ArrowLeft className='h-5 w-5' />
               </button>
-              <div>
-                <h1 className='text-3xl font-bold text-gray-900 dark:text-white'>
-                  {course.title}
-                </h1>
-                <p className='text-gray-600 dark:text-gray-300 mt-1'>
-                  Course Details & Management
-                </p>
-              </div>
             </div>
             <div className='flex items-center space-x-3'>
               <Link
@@ -133,7 +124,7 @@ const AdminCourseDetail: React.FC = () => {
         </div>
       </div>
 
-      <div className='container mx-auto px-4 py-8'>
+      <div className='container mx-auto px-4 py-6'>
         <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
           {/* Main Content */}
           <div className='lg:col-span-2 space-y-8'>

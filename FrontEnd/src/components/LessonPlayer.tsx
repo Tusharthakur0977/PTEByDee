@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Play,
   Video,
@@ -6,6 +6,7 @@ import {
   Headphones,
   Clock,
   CheckCircle,
+  ChevronRight,
 } from 'lucide-react';
 import VideoPlayer from './VideoPlayer';
 import { useProgress } from '../hooks/useProgress';
@@ -42,17 +43,25 @@ const LessonPlayer: React.FC<LessonPlayerProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isCompleted, setIsCompleted] = useState(initialCompleted);
+  const [actionLoading, setActionLoading] = useState<
+    'complete' | 'incomplete' | null
+  >(null);
   const { updateProgress } = useProgress();
 
-  console.log(lesson);
+  useEffect(() => {
+    setIsCompleted(initialCompleted);
+  }, [initialCompleted]);
 
   const handleComplete = async () => {
     try {
+      setActionLoading('complete');
       await updateProgress(lesson.id, { isCompleted: true });
       setIsCompleted(true);
       onComplete?.(lesson.id);
     } catch (error) {
       console.error('Failed to mark lesson as completed:', error);
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -66,98 +75,117 @@ const LessonPlayer: React.FC<LessonPlayerProps> = ({
 
   const handleMarkIncomplete = async () => {
     try {
+      setActionLoading('incomplete');
       await updateProgress(lesson.id, { isCompleted: false });
       setIsCompleted(false);
     } catch (error) {
       console.error('Failed to mark lesson as incomplete:', error);
+    } finally {
+      setActionLoading(null);
     }
   };
 
   const getTypeIcon = () => {
     switch (lesson.type) {
       case 'video':
-        return <Video className='h-5 w-5 text-blue-600 dark:text-blue-400' />;
+        return <Video className='h-4 w-4' />;
       case 'audio':
-        return (
-          <Headphones className='h-5 w-5 text-purple-600 dark:text-purple-400' />
-        );
+        return <Headphones className='h-4 w-4' />;
       case 'text':
-        return (
-          <FileText className='h-5 w-5 text-green-600 dark:text-green-400' />
-        );
+        return <FileText className='h-4 w-4' />;
       default:
-        return (
-          <FileText className='h-5 w-5 text-gray-600 dark:text-gray-400' />
-        );
+        return <FileText className='h-4 w-4' />;
     }
   };
 
-  const getTypeColor = () => {
+  const getTypeTone = () => {
     switch (lesson.type) {
       case 'video':
-        return 'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20';
+        return 'bg-blue-50 text-blue-700 ring-1 ring-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-500/20';
       case 'audio':
-        return 'border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/20';
+        return 'bg-amber-50 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/20';
       case 'text':
-        return 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20';
+        return 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/20';
       default:
-        return 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800';
+        return 'bg-slate-100 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700';
     }
   };
+
+  const hasContent =
+    (lesson.type === 'video' && (lesson.videoUrl || lesson.videoKey)) ||
+    (lesson.type === 'audio' && lesson.audioUrl) ||
+    (lesson.type === 'text' && lesson.textContent);
+
+  const lessonStatus = isCompleted ? 'Completed' : 'Pending';
+  const lessonStatusClass = isCompleted
+    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/20'
+    : 'bg-slate-100 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700';
 
   return (
     <div
-      className={`border rounded-lg overflow-hidden ${getTypeColor()} ${className}`}
+      className={`overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950 ${className}`}
     >
-      {/* Lesson Header */}
-      <div
-        className='p-4 cursor-pointer hover:bg-opacity-80 transition-all duration-200'
+      <button
+        type='button'
+        className='w-full px-5 py-4 text-left transition-colors hover:bg-white/70 dark:hover:bg-slate-900/70'
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <div className='flex items-center justify-between'>
-          <div className='flex items-center space-x-3'>
-            <div className='flex-shrink-0'>{getTypeIcon()}</div>
-            <div className='flex-1'>
-              <h4 className='font-medium text-gray-900 dark:text-white'>
+        <div className='flex items-start justify-between gap-4'>
+          <div className='flex min-w-0 flex-1 items-start gap-3'>
+            <div className={`mt-0.5 rounded-xl p-2 ${getTypeTone()}`}>
+              {getTypeIcon()}
+            </div>
+            <div className='min-w-0'>
+              <div className='flex flex-wrap items-center gap-2'>
+                <span className='text-xs font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500'>
+                  Lesson {lesson.order}
+                </span>
+                <span className='rounded-full bg-white px-2 py-1 text-[11px] font-medium text-slate-600 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-700'>
+                  {lesson.type}
+                </span>
+                <span
+                  className={`rounded-full px-2 py-1 text-[11px] font-medium ${lessonStatusClass}`}
+                >
+                  {lessonStatus}
+                </span>
+              </div>
+              <h4 className='mt-2 text-base font-semibold text-slate-900 dark:text-slate-100'>
                 {lesson.title}
               </h4>
               {lesson.description && (
-                <p className='text-sm text-gray-600 dark:text-gray-300 mt-1'>
+                <p className='mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400'>
                   {lesson.description}
                 </p>
               )}
-              <div className='flex items-center space-x-4 mt-2'>
-                <span className='text-xs text-gray-500 dark:text-gray-400 capitalize'>
-                  {lesson.type}
-                </span>
+              <div className='mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400'>
                 {lesson.duration && (
-                  <div className='flex items-center space-x-1 text-xs text-gray-500 dark:text-gray-400'>
-                    <Clock className='h-3 w-3' />
+                  <span className='inline-flex items-center gap-1'>
+                    <Clock className='h-3.5 w-3.5' />
                     <span>{lesson.duration}</span>
-                  </div>
+                  </span>
                 )}
               </div>
             </div>
           </div>
-          <div className='flex items-center space-x-2'>
-            {isCompleted && (
-              <CheckCircle className='h-5 w-5 text-green-600 dark:text-green-400' />
+          <div className='flex shrink-0 items-center gap-3'>
+            {hasContent && (
+              <span className='hidden shrink-0 rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-medium text-white dark:bg-slate-100 dark:text-slate-900 sm:inline-flex'>
+                Open lesson
+              </span>
             )}
-            <Play
-              className={`h-5 w-5 transition-transform duration-200 ${
+            <ChevronRight
+              className={`h-5 w-5 shrink-0 text-slate-400 transition-transform duration-200 ${
                 isExpanded ? 'rotate-90' : ''
-              } text-gray-400`}
+              }`}
             />
           </div>
         </div>
-      </div>
+      </button>
 
-      {/* Lesson Content */}
       {isExpanded && (
-        <div className='border-t border-gray-200 dark:border-gray-700'>
-          {/* Video Content */}
+        <div className='border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'>
           {lesson.type === 'video' && (lesson.videoUrl || lesson.videoKey) && (
-            <div className='p-6'>
+            <div className='p-5'>
               <VideoPlayer
                 videoUrl={lesson.videoUrl}
                 videoKey={lesson.videoKey}
@@ -172,10 +200,9 @@ const LessonPlayer: React.FC<LessonPlayerProps> = ({
             </div>
           )}
 
-          {/* Audio Content */}
           {lesson.type === 'audio' && lesson.audioUrl && (
-            <div className='p-6'>
-              <div className='bg-gray-100 dark:bg-gray-800 rounded-lg p-4'>
+            <div className='p-5'>
+              <div className='rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950'>
                 <audio
                   controls
                   className='w-full'
@@ -188,60 +215,64 @@ const LessonPlayer: React.FC<LessonPlayerProps> = ({
             </div>
           )}
 
-          {/* Text Content */}
           {lesson.type === 'text' && lesson.textContent && (
-            <div className='p-6'>
-              <div className='prose dark:prose-invert max-w-none'>
-                <div
-                  dangerouslySetInnerHTML={{ __html: lesson.textContent }}
-                  className='text-gray-700 dark:text-gray-300'
-                />
+            <div className='p-5'>
+              <div className='prose max-w-none rounded-2xl border border-slate-200 bg-slate-50 p-5 text-slate-700 dark:prose-invert dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300'>
+                <div dangerouslySetInnerHTML={{ __html: lesson.textContent }} />
               </div>
             </div>
           )}
 
-          {/* No Content Available */}
-          {!(
-            (lesson.type === 'video' && (lesson.videoUrl || lesson.videoKey)) ||
-            (lesson.type === 'audio' && lesson.audioUrl) ||
-            (lesson.type === 'text' && lesson.textContent)
-          ) && (
-            <div className='p-6 text-center'>
-              <p className='text-gray-500 dark:text-gray-400'>
+          {!hasContent && (
+            <div className='p-5 text-center'>
+              <div className='rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400'>
                 Content for this lesson is not yet available.
-              </p>
+              </div>
             </div>
           )}
 
-          {/* Lesson Actions */}
-          <div className='p-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700'>
-            <div className='flex items-center justify-between'>
-              <div className='text-sm text-gray-600 dark:text-gray-300'>
-                Lesson {lesson.order}
-              </div>
-              <div className='flex items-center space-x-2'>
-                {isCompleted ? (
-                  <>
-                    <div className='flex items-center space-x-1 text-green-600 dark:text-green-400 text-sm'>
-                      <CheckCircle className='h-4 w-4' />
-                      <span>Completed</span>
-                    </div>
-                    <button
-                      onClick={handleMarkIncomplete}
-                      className='bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-xs font-medium transition-colors duration-200'
-                    >
-                      Mark Incomplete
-                    </button>
-                  </>
-                ) : (
+          <div className='flex flex-col gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800 dark:bg-slate-950'>
+            <div className='text-sm text-slate-500 dark:text-slate-400'>
+              Track completion as you finish this lesson.
+            </div>
+            <div className='flex flex-wrap items-center gap-3 sm:flex-nowrap'>
+              {isCompleted ? (
+                <>
+                  <div className='inline-flex items-center gap-1 text-sm font-medium text-emerald-600 dark:text-emerald-400'>
+                    <CheckCircle className='h-4 w-4' />
+                    <span>Completed</span>
+                  </div>
                   <button
-                    onClick={handleComplete}
-                    className='bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200'
+                    onClick={handleMarkIncomplete}
+                    disabled={actionLoading !== null}
+                    className='inline-flex min-w-[150px] items-center justify-center rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-70 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900'
                   >
-                    Mark as Complete
+                    {actionLoading === 'incomplete' ? (
+                      <span className='flex items-center gap-2'>
+                        <span className='h-4 w-4 animate-spin rounded-full border-2 border-slate-400/30 border-t-slate-700 dark:border-slate-500/30 dark:border-t-slate-200'></span>
+                        <span>Saving...</span>
+                      </span>
+                    ) : (
+                      'Mark Incomplete'
+                    )}
                   </button>
-                )}
-              </div>
+                </>
+              ) : (
+                <button
+                  onClick={handleComplete}
+                  disabled={actionLoading !== null}
+                  className='inline-flex min-w-[160px] items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200'
+                >
+                  {actionLoading === 'complete' ? (
+                    <span className='flex items-center gap-2'>
+                      <span className='h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white dark:border-slate-400/30 dark:border-t-slate-900'></span>
+                      <span>Saving...</span>
+                    </span>
+                  ) : (
+                    'Mark as Complete'
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </div>

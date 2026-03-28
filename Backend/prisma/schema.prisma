@@ -46,6 +46,7 @@ model User {
     UserLessonProgress  UserLessonProgress[]
     UserSectionProgress UserSectionProgress[]
     userResponses       UserResponse[]
+    supportTickets      SupportTicket[]
 }
 
 // Practice session model for tracking daily practice
@@ -507,6 +508,27 @@ model Notification {
     @@index([createdAt])
 }
 
+model SupportTicket {
+    id           String              @id @default(auto()) @map("_id") @db.ObjectId
+    ticketNumber String              @unique
+    userId       String?             @db.ObjectId
+    user         User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+    name         String
+    email        String
+    subject      String
+    message      String
+    status       SupportTicketStatus @default(OPEN)
+    ipAddress    String?
+    userAgent    String?
+    createdAt    DateTime            @default(now())
+    updatedAt    DateTime            @updatedAt
+
+    @@index([email])
+    @@index([status])
+    @@index([createdAt])
+    @@index([userId])
+}
+
 // Enums for better type safety and clarity
 enum UserRole {
     USER
@@ -576,4 +598,11 @@ enum DifficultyLevel {
     EASY
     MEDIUM
     HARD
+}
+
+enum SupportTicketStatus {
+    OPEN
+    IN_PROGRESS
+    RESOLVED
+    CLOSED
 }

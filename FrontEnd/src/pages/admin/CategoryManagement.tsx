@@ -194,44 +194,30 @@ const CategoryManagement: React.FC = () => {
 
   return (
     <div className='min-h-screen bg-gray-50 dark:bg-gray-900'>
-      {/* Header */}
-      <div className='bg-white dark:bg-gray-800 shadow-sm border-b dark:border-gray-700'>
-        <div className='container mx-auto px-4 py-6'>
-          <div className='flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4'>
-            <div>
-              <h1 className='text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white'>
-                Category Management
-              </h1>
-              <p className='text-gray-600 dark:text-gray-300 mt-1'>
-                Organize and manage course categories
-              </p>
+      <div className='container mx-auto px-4 py-6'>
+        {/* Search */}
+        <div className='bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 mb-6'>
+          <div className='flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between'>
+            <div className='relative flex-1'>
+              <Search className='absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5' />
+              <input
+                type='text'
+                placeholder='Search categories...'
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className='w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+              />
             </div>
             <button
               onClick={() => {
                 setFormData({ name: '', slug: '', description: '' });
                 setShowCreateModal(true);
               }}
-              className='bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2'
+              className='bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-2'
             >
               <Plus className='h-4 w-4' />
               <span>Create Category</span>
             </button>
-          </div>
-        </div>
-      </div>
-
-      <div className='container mx-auto px-4 py-8'>
-        {/* Search */}
-        <div className='bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 mb-6'>
-          <div className='relative'>
-            <Search className='absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5' />
-            <input
-              type='text'
-              placeholder='Search categories...'
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className='w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-            />
           </div>
         </div>
 

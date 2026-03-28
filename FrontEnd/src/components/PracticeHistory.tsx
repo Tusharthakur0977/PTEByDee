@@ -1,12 +1,15 @@
 import {
   BarChart3,
   Calendar,
-  CheckCircle,
   ChevronLeft,
   ChevronRight,
   Clock,
-  FileText,
+  Eye,
+  Headphones,
   Image as ImageIcon,
+  Layers3,
+  Mic,
+  PenTool,
   Search,
   Volume2,
   XCircle,
@@ -18,7 +21,6 @@ import type {
 } from '../services/practice';
 import { getPracticeHistory } from '../services/practice';
 import { PteQuestionTypeName } from '../types/pte';
-
 const PracticeHistory: React.FC = () => {
   const [responses, setResponses] = useState<PracticeResponse[]>([]);
   const [pagination, setPagination] = useState<any>(null);
@@ -28,6 +30,7 @@ const PracticeHistory: React.FC = () => {
   const [filters, setFilters] = useState<PracticeHistoryFilters>({
     page: 1,
     limit: 15,
+    search: '',
     sortBy: 'createdAt',
     sortOrder: 'desc',
   });
@@ -69,17 +72,12 @@ const PracticeHistory: React.FC = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const getScoreColor = (score: number) => {
-    if (score >= 0.8) return 'text-green-600 dark:text-green-400';
-    if (score >= 0.6) return 'text-yellow-600 dark:text-yellow-400';
-    return 'text-red-600 dark:text-red-400';
-  };
-
-  const getQuestionTypeIcon = (questionType: PteQuestionTypeName) => {
-    if (questionType.includes('READING')) return FileText;
-    if (questionType.includes('LISTENING')) return Volume2;
-    if (questionType === 'DESCRIBE_IMAGE') return ImageIcon;
-    return FileText;
+  const getSectionIcon = (sectionName: string) => {
+    if (sectionName === 'Speaking') return Mic;
+    if (sectionName === 'Writing') return PenTool;
+    if (sectionName === 'Reading') return Eye;
+    if (sectionName === 'Listening') return Headphones;
+    return Layers3;
   };
 
   if (error) {
@@ -122,6 +120,10 @@ const PracticeHistory: React.FC = () => {
             <input
               type='text'
               placeholder='Search...'
+              value={filters.search || ''}
+              onChange={(e) =>
+                handleFilterChange('search', e.target.value || undefined)
+              }
               className='w-full pl-9 pr-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
             />
           </div>
@@ -207,9 +209,7 @@ const PracticeHistory: React.FC = () => {
           <>
             <div className='divide-y divide-gray-200 dark:divide-gray-700'>
               {responses.map((response) => {
-                const IconComponent = getQuestionTypeIcon(
-                  response.questionType
-                );
+                const IconComponent = getSectionIcon(response.sectionName);
                 return (
                   <div
                     key={response.id}
@@ -217,20 +217,8 @@ const PracticeHistory: React.FC = () => {
                   >
                     <div className='flex items-start justify-between'>
                       <div className='flex items-start space-x-3'>
-                        <div
-                          className={`p-2 rounded-lg ${
-                            response.isCorrect
-                              ? 'bg-green-100 dark:bg-green-900/30'
-                              : 'bg-red-100 dark:bg-red-900/30'
-                          }`}
-                        >
-                          <IconComponent
-                            className={`h-4 w-4 ${
-                              response.isCorrect
-                                ? 'text-green-600 dark:text-green-400'
-                                : 'text-red-600 dark:text-red-400'
-                            }`}
-                          />
+                        <div className='p-2 rounded-lg bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'>
+                          <IconComponent className='h-4 w-4' />
                         </div>
                         <div className='flex-1'>
                           <div className='flex items-center space-x-2 mb-1'>
@@ -238,17 +226,22 @@ const PracticeHistory: React.FC = () => {
                               {response.questionCode}
                             </h4>
                             <span className='px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs font-medium rounded-full'>
-                              {response.questionTypeName}
+                              {response.questionTypeLabel}
+                            </span>
+                            <span className='px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-medium rounded-full'>
+                              {response.difficultyLevel}
                             </span>
                           </div>
 
-                          {response.questionPreview.textContent && (
-                            <p className='text-xs text-gray-600 dark:text-gray-400 mb-2 line-clamp-1'>
-                              {response.questionPreview.textContent}
-                            </p>
-                          )}
+                          <p className='text-xs text-gray-600 dark:text-gray-400 mb-2 line-clamp-2'>
+                            {response.promptPreview}
+                          </p>
 
                           <div className='flex items-center space-x-3 text-xs text-gray-500 dark:text-gray-400'>
+                            <div className='flex items-center space-x-1'>
+                              <Layers3 className='h-3 w-3' />
+                              <span>{response.sectionName}</span>
+                            </div>
                             {response.timeTakenSeconds > 0 && (
                               <div className='flex items-center space-x-1'>
                                 <Clock className='h-3 w-3' />
@@ -265,13 +258,13 @@ const PracticeHistory: React.FC = () => {
                                 ).toLocaleDateString()}
                               </span>
                             </div>
-                            {response.questionPreview.hasAudio && (
+                            {response.hasAudio && (
                               <div className='flex items-center space-x-1'>
                                 <Volume2 className='h-3 w-3' />
                                 <span>Audio</span>
                               </div>
                             )}
-                            {response.questionPreview.hasImage && (
+                            {response.hasImage && (
                               <div className='flex items-center space-x-1'>
                                 <ImageIcon className='h-3 w-3' />
                                 <span>Image</span>
@@ -282,22 +275,13 @@ const PracticeHistory: React.FC = () => {
                       </div>
 
                       <div className='text-right'>
-                        <div className='flex items-center space-x-2 mb-1'>
-                          {response.isCorrect ? (
-                            <CheckCircle className='h-4 w-4 text-green-600 dark:text-green-400' />
-                          ) : (
-                            <XCircle className='h-4 w-4 text-red-600 dark:text-red-400' />
-                          )}
-                          <span
-                            className={`font-semibold text-sm ${getScoreColor(
-                              response.score
-                            )}`}
-                          >
-                            {Math.round(response.score * 100)}%
+                        <div className='mb-1'>
+                          <span className='font-semibold text-sm text-slate-900 dark:text-slate-100'>
+                            {response.marksObtained} / {response.totalMarks}
                           </span>
                         </div>
                         <div className='text-xs text-gray-500 dark:text-gray-400'>
-                          {response.isCorrect ? 'Correct' : 'Incorrect'}
+                          Marks earned
                         </div>
                       </div>
                     </div>
