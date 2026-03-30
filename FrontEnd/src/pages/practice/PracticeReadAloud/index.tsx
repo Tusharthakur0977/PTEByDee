@@ -15,15 +15,15 @@ import { useNavigate } from "react-router-dom";
 import AudioRecorder from "../../../components/AudioRecorder";
 import PreviousResponses from "../../../components/PreviousResponses";
 import QuestionSidebar from "../../../components/QuestionSidebar";
-import ResponseDetailModal from "./ResponseDetailModal";
 import api from "../../../services/api";
 import { getPracticeQuestions } from "../../../services/portal";
 import { PteQuestionTypeName } from "../../../types/pte";
 import {
   formatScoringText,
   playBeep,
-  renderHighlightedText,
+  renderSpeakingWordAnalysisInline,
 } from "../../../utils/Helpers";
+import ResponseDetailModal from "./ResponseDetailModal";
 
 export interface QuestionsData {
   id: string;
@@ -126,7 +126,7 @@ const PracticeReadAloud: React.FC = () => {
 
     // Reset Preparation Time
     clearPrepTimer();
-    const prepDuration = 40;
+    const prepDuration = 35;
     setPrepTimeLeft(prepDuration);
 
     prepTimerRef.current = setInterval(() => {
@@ -226,7 +226,7 @@ const PracticeReadAloud: React.FC = () => {
     setResetKey((prev) => prev + 1);
     setError(null);
     clearPrepTimer();
-    const prepDuration = 40;
+    const prepDuration = 35;
     setPrepTimeLeft(prepDuration);
 
     prepTimerRef.current = setInterval(() => {
@@ -587,7 +587,7 @@ const PracticeReadAloud: React.FC = () => {
                           </h4>
                           <div className="flex flex-wrap items-center gap-4 text-sm">
                             {/* Speaking error types */}
-                            <div className="flex items-center space-x-2">
+                            {/* <div className="flex items-center space-x-2">
                               <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
                               <span className="text-gray-600 dark:text-gray-400">
                                 Pronunciation
@@ -614,17 +614,33 @@ const PracticeReadAloud: React.FC = () => {
 
                             <span className="text-gray-500 dark:text-gray-400 text-xs">
                               * Click colored words for explanation
+                            </span> */}
+                            <span className="flex items-center gap-1">
+                              <span className="h-2 w-2 rounded-full bg-red-300 border border-red-200 dark:bg-red-900/20 dark:border-red-800" />
+                              Missing word
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <span className="h-2 w-2 rounded-full bg-orange-300 border border-orange-200 dark:bg-orange-900/20 dark:border-orange-800" />
+                              Mispronounced
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <span className="h-2 w-2 rounded-full bg-blue-300 border border-blue-200 dark:bg-blue-900/20 dark:border-blue-800" />
+                              Extra word
                             </span>
                           </div>
                         </div>
                         <div className="p-6 text-base leading-relaxed text-gray-700 dark:text-gray-300 italic">
-                          {renderHighlightedText(
-                            evaluationResult.evaluation.detailedAnalysis
-                              .userText,
-                            evaluationResult.evaluation.detailedAnalysis
-                              .errorAnalysis,
-                            (err: any) => setSelectedError(err),
-                          )}
+                          <p className="leading-relaxed">
+                            {evaluationResult.evaluation.detailedAnalysis
+                              ?.wordByWordAnalysis?.length > 0 && (
+                              <>
+                                {renderSpeakingWordAnalysisInline(
+                                  evaluationResult.evaluation.detailedAnalysis
+                                    .wordByWordAnalysis as any,
+                                )}{" "}
+                              </>
+                            )}
+                          </p>
                         </div>
                       </div>
                     )}

@@ -648,48 +648,31 @@ const PracticeSummarizeWrittenText: React.FC = () => {
                     {/* Error Highlight Area */}
                     {evaluationResult.evaluation.detailedAnalysis?.userText && (
                       <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
-                        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center flex-col lg:flex-row">
-                          <h4 className="font-bold text-gray-800 dark:text-gray-200">
-                            Your Response
-                          </h4>
+                        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex flex-col gap-3">
                           <div className="flex flex-wrap items-center gap-4 text-sm">
-                            {/* Speaking error types */}
+                            <h4 className="font-bold text-gray-800 dark:text-gray-200">
+                              Your Response
+                            </h4>
                             <div className="flex items-center space-x-2">
-                              <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                              <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
                               <span className="text-gray-600 dark:text-gray-400">
-                                Pronunciation
+                                Vocabulary
                               </span>
                             </div>
-                            <div className="flex items-center space-x-2">
-                              <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                              <span className="text-gray-600 dark:text-gray-400">
-                                Fluency
-                              </span>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <div className="w-3 h-3 bg-pink-500 rounded-full"></div>
-                              <span className="text-gray-600 dark:text-gray-400">
-                                Content
-                              </span>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                              <span className="text-gray-600 dark:text-gray-400">
-                                Grammar
-                              </span>
-                            </div>
-
-                            <span className="text-gray-500 dark:text-gray-400 text-xs">
-                              * Click colored words for explanation
-                            </span>
                           </div>
+                          <span className="text-gray-500 dark:text-gray-400 text-xs">
+                            * Click colored words for explanation
+                          </span>
                         </div>
                         <div className="p-6 text-base leading-relaxed text-gray-700 dark:text-gray-300 italic">
                           {renderHighlightedTextByWords(
                             evaluationResult.evaluation.detailedAnalysis
                               .userText,
-                            evaluationResult.evaluation.detailedAnalysis
-                              .errorAnalysis,
+                            {
+                              ...evaluationResult.evaluation.detailedAnalysis
+                                .errorAnalysis,
+                              grammarErrors: [],
+                            },
                             (err: any) => setSelectedError(err),
                           )}
                         </div>

@@ -348,6 +348,7 @@ const PracticeSelectMissingWord: React.FC = () => {
                   src={currentQuestion.content.audioUrl}
                   questionId={currentQuestion.id}
                   autoPlay={true}
+                  autoPlayDelay={2000}
                   compact={false}
                 />
               </div>

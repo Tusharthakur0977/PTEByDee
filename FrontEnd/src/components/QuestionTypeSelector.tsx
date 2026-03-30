@@ -20,6 +20,7 @@ import { useNavigate } from "react-router-dom";
 import { getQuestionTypes } from "../services/portal";
 import { PteQuestionTypeName } from "../types/pte";
 import { getPracticePagePath } from "../utils/questionTypeToSlug";
+import { questionTypeOrder, sectionOrder } from "../utils/questionOrdering";
 
 interface QuestionTypeSelectorProps {
   selectedType: PteQuestionTypeName | null;
@@ -28,8 +29,6 @@ interface QuestionTypeSelectorProps {
 }
 
 const QuestionTypeSelector: React.FC<QuestionTypeSelectorProps> = ({
-  selectedType,
-  onTypeSelect,
   className = "",
 }) => {
   const navigate = useNavigate();
@@ -87,8 +86,26 @@ const QuestionTypeSelector: React.FC<QuestionTypeSelectorProps> = ({
   }
 
   const questionCategories = [
-    ...Object.entries(questionTypes).map(
-      ([sectionName, sectionData]: [string, any]) => {
+    ...Object.entries(questionTypes)
+      .sort(([sectionNameA], [sectionNameB]) => {
+        const sectionAIndex = sectionOrder.indexOf(sectionNameA);
+        const sectionBIndex = sectionOrder.indexOf(sectionNameB);
+
+        if (sectionAIndex === -1 && sectionBIndex === -1) {
+          return sectionNameA.localeCompare(sectionNameB);
+        }
+
+        if (sectionAIndex === -1) {
+          return 1;
+        }
+
+        if (sectionBIndex === -1) {
+          return -1;
+        }
+
+        return sectionAIndex - sectionBIndex;
+      })
+      .map(([sectionName, sectionData]: [string, any]) => {
         const getSectionIcon = (name: string) => {
           if (name.includes("Speaking")) return Mic;
           if (name.includes("Writing")) return PenTool;
@@ -137,6 +154,21 @@ const QuestionTypeSelector: React.FC<QuestionTypeSelectorProps> = ({
           return `${Math.floor(expectedTime / 60)}m`;
         };
 
+        const sortedQuestionTypes = [...sectionData.questionTypes].sort(
+          (questionTypeA: any, questionTypeB: any) => {
+            const questionTypeAOrder =
+              questionTypeOrder[questionTypeA.name.toLowerCase()] ?? 999;
+            const questionTypeBOrder =
+              questionTypeOrder[questionTypeB.name.toLowerCase()] ?? 999;
+
+            if (questionTypeAOrder !== questionTypeBOrder) {
+              return questionTypeAOrder - questionTypeBOrder;
+            }
+
+            return questionTypeA.name.localeCompare(questionTypeB.name);
+          },
+        );
+
         return {
           id: sectionName.toLowerCase().replace(/\s+/g, "-"),
           title: sectionName,
@@ -145,7 +177,7 @@ const QuestionTypeSelector: React.FC<QuestionTypeSelectorProps> = ({
           description:
             sectionData.section.description ||
             `Practice ${sectionName.toLowerCase()} tasks`,
-          types: sectionData.questionTypes.map((qt: any) => ({
+          types: sortedQuestionTypes.map((qt: any) => ({
             type: qt.name as PteQuestionTypeName,
             title: qt.name
               .split("_")
@@ -162,8 +194,7 @@ const QuestionTypeSelector: React.FC<QuestionTypeSelectorProps> = ({
             questionCount: qt.questionCount,
           })),
         };
-      },
-    ),
+      }),
   ];
 
   const getColorClasses = (
@@ -201,8 +232,6 @@ const QuestionTypeSelector: React.FC<QuestionTypeSelectorProps> = ({
 
   return (
     <div className={`space-y-6 ${className}`}>
-     
-
       {/* Question Categories */}
       <div className="space-y-8">
         {questionCategories.map((category) => {

@@ -1,14 +1,12 @@
 import {
   AlertCircle,
-  CheckCircle,
   CheckSquare,
   Clock3,
   HelpCircle,
   ListChecks,
   Target,
   TrendingUp,
-  X,
-  XCircle,
+  X
 } from "lucide-react";
 import React, { useEffect } from "react";
 import { PreviousResponse } from "../../../services/questionResponse";
@@ -357,44 +355,6 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
                   </div>
                   <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
                     {response.timeTakenSeconds ?? analysis.timeTaken ?? 0}s
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-5 dark:border-emerald-500/20 dark:bg-emerald-500/5">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-emerald-500" />
-                    <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
-                      Correct Selections
-                    </h4>
-                  </div>
-                  <p className="mt-2 text-3xl font-bold text-emerald-600 dark:text-emerald-400">
-                    {selectedCorrectCount}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-rose-200 bg-rose-50/80 p-5 dark:border-rose-500/20 dark:bg-rose-500/5">
-                  <div className="flex items-center gap-2">
-                    <XCircle className="h-5 w-5 text-rose-500" />
-                    <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
-                      Incorrect Selections
-                    </h4>
-                  </div>
-                  <p className="mt-2 text-3xl font-bold text-rose-600 dark:text-rose-400">
-                    {incorrectlySelectedTexts.length}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-5 dark:border-amber-500/20 dark:bg-amber-500/5">
-                  <div className="flex items-center gap-2">
-                    <Target className="h-5 w-5 text-amber-500" />
-                    <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
-                      Missed Correct Answers
-                    </h4>
-                  </div>
-                  <p className="mt-2 text-3xl font-bold text-amber-600 dark:text-amber-400">
-                    {missedCorrectTexts.length}
                   </p>
                 </div>
               </div>

@@ -31,7 +31,7 @@ async function main() {
 
     if (verification.issues.length > 0) {
       console.log('🔧 Issues found:');
-      verification.issues.forEach((issue) => {
+      verification.issues.forEach((issue: any) => {
         console.log(`  - ${issue.title}: ${issue.issue}`);
       });
       console.log('');

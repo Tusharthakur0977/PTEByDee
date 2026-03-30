@@ -556,9 +556,8 @@ const PracticeMultipleChoiceMultipleAnswersReading: React.FC = () => {
                 )}
 
                 {/* Answer Analysis - Show Correct vs Selected Options */}
-                {evaluationResult?.evaluation?.detailedAnalysis && (
+                {/* {evaluationResult?.evaluation?.detailedAnalysis && (
                   <div className="space-y-4">
-                    {/* Correct Answers */}
                     {evaluationResult.evaluation.detailedAnalysis.choiceResult
                       ?.correctTexts && (
                       <div className="bg-white dark:bg-gray-800 rounded-lg border border-green-200 dark:border-green-800 overflow-hidden">
@@ -601,7 +600,6 @@ const PracticeMultipleChoiceMultipleAnswersReading: React.FC = () => {
                       </div>
                     )}
 
-                    {/* Incorrectly Selected */}
                     {evaluationResult.evaluation.detailedAnalysis.choiceResult
                       ?.incorrectlySelectedTexts &&
                       evaluationResult.evaluation.detailedAnalysis.choiceResult
@@ -649,7 +647,6 @@ const PracticeMultipleChoiceMultipleAnswersReading: React.FC = () => {
                         </div>
                       )}
 
-                    {/* Missed Correct Answers */}
                     {evaluationResult.evaluation.detailedAnalysis.choiceResult
                       ?.missedCorrectTexts &&
                       evaluationResult.evaluation.detailedAnalysis.choiceResult
@@ -699,7 +696,7 @@ const PracticeMultipleChoiceMultipleAnswersReading: React.FC = () => {
                         </div>
                       )}
                   </div>
-                )}
+                )} */}
               </div>
             )}
           </div>

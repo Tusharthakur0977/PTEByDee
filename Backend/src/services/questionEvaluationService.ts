@@ -172,6 +172,29 @@ function correctAudioErrorPositions(errorAnalysis: any, userText: string): any {
   const normalize = (text: string): string =>
     text.toLowerCase().replace(/[.,!?;:\-()[\]{}""'']/g, "");
 
+  // Omitted/missing words do not exist in the user's transcript. If we attach a
+  // word index for an omitted item, the frontend will highlight the wrong word
+  // in userText (especially when the same word appears multiple times).
+  // Instead, we keep the error but strip its position so it is not highlighted.
+  const isOmissionLikeContentError = (error: any): boolean => {
+    const text = typeof error?.text === "string" ? error.text : "";
+    const correction =
+      typeof error?.correction === "string" ? error.correction : "";
+
+    const normText = normalize(text);
+    const normCorrection = normalize(correction);
+    if (!normText || !normCorrection) return false;
+
+    // Most omission objects coming from the model use identical text/correction.
+    if (normText !== normCorrection) return false;
+
+    // Extra signal when provided (not required).
+    const explanation =
+      typeof error?.explanation === "string" ? error.explanation : "";
+    if (!explanation) return true;
+    return /\bomitted\b|\bmissing\b|\bleft out\b/i.test(explanation);
+  };
+
   // Helper function to find the correct position of an error word using context
   const findWordPosition = (
     errorText: string,
@@ -318,6 +341,14 @@ function correctAudioErrorPositions(errorAnalysis: any, userText: string): any {
   // Function to correct positions in an error array
   const correctErrorArray = (errors: any[]): any[] => {
     return errors.map((error: any) => {
+      if (isOmissionLikeContentError(error)) {
+        return {
+          ...error,
+          // Prevent misleading highlight; UI can show omissions via word analysis.
+          position: undefined,
+        };
+      }
+
       const correctedPosition = findWordPosition(
         error.text,
         error.position,

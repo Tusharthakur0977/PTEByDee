@@ -648,32 +648,24 @@ const PracticeWriteEssay: React.FC = () => {
                           Your Response
                         </h4>
                         <div className="flex flex-wrap items-center gap-4 text-sm">
-                          {/* Speaking error types */}
-                          <div className="flex items-center space-x-2">
-                            <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-                            <span className="text-gray-600 dark:text-gray-400">
-                              Pronunciation
-                            </span>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                            <span className="text-gray-600 dark:text-gray-400">
-                              Fluency
-                            </span>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <div className="w-3 h-3 bg-pink-500 rounded-full"></div>
-                            <span className="text-gray-600 dark:text-gray-400">
-                              Content
-                            </span>
-                          </div>
                           <div className="flex items-center space-x-2">
                             <div className="w-3 h-3 bg-red-500 rounded-full"></div>
                             <span className="text-gray-600 dark:text-gray-400">
                               Grammar
                             </span>
                           </div>
-
+                          <div className="flex items-center space-x-2">
+                            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                            <span className="text-gray-600 dark:text-gray-400">
+                              Spelling
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+                            <span className="text-gray-600 dark:text-gray-400">
+                              Vocabulary
+                            </span>
+                          </div>
                           <span className="text-gray-500 dark:text-gray-400 text-xs">
                             * Click colored words for explanation
                           </span>

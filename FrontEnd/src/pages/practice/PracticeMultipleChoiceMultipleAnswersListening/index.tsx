@@ -344,6 +344,7 @@ const PracticeMultipleChoiceMultipleAnswersListening: React.FC = () => {
                     currentQuestion.content.text || "Audio Recording"
                   }
                   autoPlay={true}
+                  autoPlayDelay={2000}
                   compact={false}
                 />
               </div>

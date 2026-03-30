@@ -152,7 +152,9 @@ const PracticeReOrderParagraphs: React.FC = () => {
   }, [currentQuestion?.id, isCompleted, isLoading]);
 
   const handleReset = () => {
-    setResponse({ orderedParagraphs: [] });
+    setResponse({
+      orderedParagraphs: paragraphs.map((p: any) => p.id),
+    });
     setElapsedSeconds(0);
     setIsCompleted(false);
     setEvaluationResult(null);

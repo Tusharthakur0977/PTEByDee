@@ -634,6 +634,7 @@ const PracticeWriteFromDictation: React.FC = () => {
                   src={currentQuestion.content.audioUrl}
                   questionId={currentQuestion.id}
                   autoPlay={true}
+                  autoPlayDelay={2000}
                   compact={false}
                   questionAudioText={currentQuestion.content.text}
                 />

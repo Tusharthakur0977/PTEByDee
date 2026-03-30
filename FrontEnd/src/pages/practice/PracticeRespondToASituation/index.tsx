@@ -426,6 +426,17 @@ const PracticeRespondToASituation = () => {
               </div>
             )}
             <div className="max-w-4xl mx-auto space-y-6">
+              {currentQuestion?.content?.text && (
+                <div className="relative flex-[0.7] flex-col h-auto rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-2 flex items-center justify-center overflow-hidden shadow-sm">
+                  {/* Preparation Timer UI */}
+
+                  <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-600">
+                    <p className="text-md leading-relaxed text-gray-900 dark:text-white">
+                      {currentQuestion?.content?.text}
+                    </p>
+                  </div>
+                </div>
+              )}
               {/* Audio Player */}
               {currentQuestion?.content?.audioUrl && (
                 <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-4">
@@ -434,11 +445,10 @@ const PracticeRespondToASituation = () => {
                     src={currentQuestion.content.audioUrl}
                     title="Listen to the question"
                     autoPlay
-                    autoPlayDelay={1000}
+                    autoPlayDelay={2000}
                     onEnded={() => setIsAudioFinished(true)}
                     key={`audio-${currentQuestion.id}-${resetKey}`}
                     questionId={currentQuestion.id}
-                    questionAudioText={currentQuestion.content.text || ""}
                   />
                 </div>
               )}

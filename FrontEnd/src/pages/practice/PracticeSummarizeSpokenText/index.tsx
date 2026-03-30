@@ -14,15 +14,14 @@ import { useNavigate } from "react-router-dom";
 import MiniAudioPlayer from "../../../components/MiniAudioPlayer";
 import PreviousResponses from "../../../components/PreviousResponses";
 import QuestionSidebar from "../../../components/QuestionSidebar";
-import ResponseDetailModal from "./ResponseDetailModal";
 import api from "../../../services/api";
 import { getPracticeQuestions } from "../../../services/portal";
 import { PteQuestionTypeName } from "../../../types/pte";
 import {
   formatScoringText,
-  renderHighlightedText,
-  renderHighlightedTextByWords,
+  renderHighlightedText
 } from "../../../utils/Helpers";
+import ResponseDetailModal from "./ResponseDetailModal";
 
 export interface QuestionsData {
   id: string;
@@ -255,6 +254,7 @@ const PracticeSummarizeSpokenText: React.FC = () => {
   };
 
   const handleViewResponse = (response: any) => {
+    setShowPreviousResponses(false);
     setSelectedResponse(response);
     setShowResponseModal(true);
   };
@@ -454,6 +454,7 @@ const PracticeSummarizeSpokenText: React.FC = () => {
                   src={currentQuestion.content.audioUrl}
                   questionId={currentQuestion.id}
                   autoPlay={true}
+                  autoPlayDelay={2000}
                   compact={false}
                   questionAudioText={currentQuestion.content.text}
                 />

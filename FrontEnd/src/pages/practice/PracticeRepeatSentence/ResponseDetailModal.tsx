@@ -1,7 +1,6 @@
 import {
   AlertCircle,
   CheckCircle,
-  Clock3,
   FileText,
   Mic,
   TrendingUp,
@@ -21,7 +20,7 @@ import {
 import { PreviousResponse } from "../../../services/questionResponse";
 import {
   formatScoringText,
-  renderHighlightedText,
+  renderSpeakingWordAnalysisInline,
 } from "../../../utils/Helpers";
 
 interface ResponseDetailModalProps {
@@ -288,7 +287,6 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
                   </span>
                 )}
                 <span>{formatDate(response.createdAt)}</span>
-                
               </div>
             </div>
 
@@ -353,30 +351,27 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
 
                     {isNonEmptyString(analysis.userText) ? (
                       <div className="space-y-3">
-                        <div className="flex flex-wrap items-center gap-4 text-xs">
-                          <span className="inline-flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                            <span className="h-3 w-3 rounded-full bg-orange-500" />
-                            Pronunciation
+                        <div className="flex flex-wrap items-center gap-4 mb-2 text-xs">
+                          <span className="flex items-center gap-1">
+                            <span className="h-2 w-2 rounded-full bg-red-100 border border-red-200 dark:bg-red-900/20 dark:border-red-800" />
+                            Missing word
                           </span>
-                          <span className="inline-flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                            <span className="h-3 w-3 rounded-full bg-yellow-500" />
-                            Fluency
+                          <span className="flex items-center gap-1">
+                            <span className="h-2 w-2 rounded-full bg-orange-100 border border-orange-200 dark:bg-orange-900/20 dark:border-orange-800" />
+                            Mispronounced
                           </span>
-                          <span className="inline-flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                            <span className="h-3 w-3 rounded-full bg-pink-500" />
-                            Content
-                          </span>
-                          <span className="text-gray-500 dark:text-gray-400">
-                            Click colored words for explanation
+                          <span className="flex items-center gap-1">
+                            <span className="h-2 w-2 rounded-full bg-blue-100 border border-blue-200 dark:bg-blue-900/20 dark:border-blue-800" />
+                            Extra word
                           </span>
                         </div>
 
                         <div className="text-sm leading-7 text-gray-700 dark:text-gray-300">
-                          {renderHighlightedText(
-                            analysis.userText,
-                            errorAnalysis,
-                            (error: any) => setSelectedError(error),
-                          )}
+                          <p className="leading-relaxed">
+                            {renderSpeakingWordAnalysisInline(
+                              analysis.wordByWordAnalysis,
+                            )}
+                          </p>
                         </div>
                       </div>
                     ) : (

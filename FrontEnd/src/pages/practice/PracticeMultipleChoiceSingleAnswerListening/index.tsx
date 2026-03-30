@@ -343,6 +343,7 @@ const PracticeMultipleChoiceSingleAnswerListening: React.FC = () => {
                     currentQuestion.content.text || "Audio Recording"
                   }
                   autoPlay={true}
+                  autoPlayDelay={2000}
                   compact={false}
                 />
               </div>
@@ -355,8 +356,8 @@ const PracticeMultipleChoiceSingleAnswerListening: React.FC = () => {
               </h4>
               {currentQuestion?.content?.options?.map((option) => {
                 const isCorrectAnswer =
-                  evaluationResult?.evaluation?.detailedAnalysis
-                    ?.choiceResult?.correctTexts?.[0] === option.text;
+                  evaluationResult?.evaluation?.detailedAnalysis?.choiceResult
+                    ?.correctTexts?.[0] === option.text;
                 const isSelected = response.selectedOption === option.id;
 
                 let optionClass =
@@ -537,8 +538,8 @@ const PracticeMultipleChoiceSingleAnswerListening: React.FC = () => {
                 </div>
 
                 {/* Explanation */}
-                {evaluationResult?.evaluation?.detailedAnalysis
-                  ?.choiceResult?.explanation && (
+                {evaluationResult?.evaluation?.detailedAnalysis?.choiceResult
+                  ?.explanation && (
                   <div className="bg-white dark:bg-gray-800 rounded-2xl border border-blue-200 dark:border-blue-800 shadow-sm overflow-hidden">
                     {/* Header */}
                     <div className="px-6 py-4 border-b border-blue-100 dark:border-blue-800 flex items-center gap-2">
@@ -550,7 +551,10 @@ const PracticeMultipleChoiceSingleAnswerListening: React.FC = () => {
 
                     {/* Content */}
                     <div className="p-6 text-sm leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-line">
-                      {evaluationResult.evaluation.detailedAnalysis.choiceResult?.explanation}
+                      {
+                        evaluationResult.evaluation.detailedAnalysis
+                          .choiceResult?.explanation
+                      }
                     </div>
                   </div>
                 )}

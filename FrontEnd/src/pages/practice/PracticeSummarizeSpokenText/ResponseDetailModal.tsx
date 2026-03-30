@@ -1,12 +1,11 @@
 import {
   AlertCircle,
   CheckCircle,
-  Clock3,
   FileText,
   TrendingUp,
   Volume2,
   X,
-  XCircle,
+  XCircle
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import {
@@ -447,7 +446,7 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
             <div className="max-h-[70vh] space-y-6 overflow-y-auto overscroll-contain pr-1">
               {renderScoringChart()}
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className=" gap-4 md:grid-cols-3">
                 <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
                   <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
                     Your Score:{" "}
@@ -460,27 +459,6 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
                       </span>
                     )}
                   </h4>
-                </div>
-
-                <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
-                  <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Word Count
-                  </h4>
-                  <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
-                    {actualWordCount}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
-                  <div className="flex items-center gap-2">
-                    <Clock3 className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
-                      Time Taken
-                    </h4>
-                  </div>
-                  <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
-                    {timeTaken}s
-                  </p>
                 </div>
               </div>
 

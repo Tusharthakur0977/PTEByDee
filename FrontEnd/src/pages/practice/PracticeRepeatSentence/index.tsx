@@ -1,33 +1,30 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import {
+  AlertCircle,
+  ArrowLeft,
+  BarChart3,
+  CheckCircle,
   ChevronLeft,
   ChevronRight,
-  X,
-  Mic,
-  Square,
-  Play,
-  BarChart3,
   Filter,
-  CheckCircle,
-  AlertCircle,
-  Info,
   History,
-  ArrowLeft,
+  Info,
   XCircle,
 } from "lucide-react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import AudioRecorder from "../../../components/AudioRecorder";
+import MiniAudioPlayer from "../../../components/MiniAudioPlayer";
+import PreviousResponses from "../../../components/PreviousResponses";
+import QuestionSidebar from "../../../components/QuestionSidebar";
+import api from "../../../services/api";
 import { getPracticeQuestions } from "../../../services/portal";
 import { PteQuestionTypeName } from "../../../types/pte";
-import QuestionSidebar from "../../../components/QuestionSidebar";
-import ResponseDetailModal from "./ResponseDetailModal";
-import PreviousResponses from "../../../components/PreviousResponses";
 import {
   formatScoringText,
   playBeep,
-  renderHighlightedText,
+  renderSpeakingWordAnalysisInline,
 } from "../../../utils/Helpers";
-import AudioRecorder from "../../../components/AudioRecorder";
-import api from "../../../services/api";
+import ResponseDetailModal from "./ResponseDetailModal";
 
 export interface QuestionsData {
   id: string;
@@ -71,22 +68,12 @@ const PracticeRepeatSentence: React.FC = () => {
   const [selectedResponse, setSelectedResponse] = useState<any>(null);
   const [showResponseModal, setShowResponseModal] = useState(false);
   const [uploadedAudioUrl, setUploadedAudioUrl] = useState<any>({});
+  const [audioResetKey, setAudioResetKey] = useState(0);
 
   const [selectedError, setSelectedError] = useState<any>(null);
 
   const audioPlayerRef = useRef<any>(null);
   const audioRecorderRef = useRef<any>(null);
-
-  const [prepTimeLeft, setPrepTimeLeft] = useState<number>(0);
-  const prepTimerRef = useRef<any | null>(null);
-
-  // Helper to clear the timer safely
-  const clearPrepTimer = () => {
-    if (prepTimerRef.current) {
-      clearInterval(prepTimerRef.current);
-      prepTimerRef.current = null;
-    }
-  };
 
   const loadQuestions = useCallback(async () => {
     try {
@@ -126,41 +113,31 @@ const PracticeRepeatSentence: React.FC = () => {
     setShowPreviousResponses(false);
     setSelectedResponse(null);
     setShowResponseModal(false);
+    audioRecorderRef.current?.stopAndRelease();
     setResetKey((prev) => prev + 1);
-
-    // Reset Preparation Time
-    clearPrepTimer();
-    const prepDuration = 10;
-    setPrepTimeLeft(prepDuration);
-
-    prepTimerRef.current = setInterval(() => {
-      setPrepTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearPrepTimer();
-          handleStartRecordingManually(); // Auto-trigger recording
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearPrepTimer();
+    setAudioResetKey((prev) => prev + 1);
+    audioPlayerRef.current?.stop();
   }, [currentIndex]);
 
   useEffect(() => {
     return () => {
       audioRecorderRef.current?.stopAndRelease();
+      audioPlayerRef.current?.stop();
     };
-  }, [currentIndex]);
+  }, []);
 
   const handleAudioRecordingComplete = (audioUrl: string) => {
     setUploadedAudioUrl(audioUrl);
     setIsAudioReady(true);
   };
 
+  const handleAudioEnded = () => {
+    if (!isCompleted) {
+      handleStartRecordingManually();
+    }
+  };
+
   const handleStartRecordingManually = () => {
-    clearPrepTimer(); // Stop the countdown
-    setPrepTimeLeft(0);
     if (audioPlayerRef.current) {
       audioPlayerRef.current.stop();
     }
@@ -220,6 +197,7 @@ const PracticeRepeatSentence: React.FC = () => {
   const handleResetRecording = () => {
     audioRecorderRef.current?.clearRecording();
     audioRecorderRef.current?.stopAndRelease();
+    audioPlayerRef.current?.stop();
     setIsCompleted(false);
     setUploadedAudioUrl({});
     setEvaluationResult(null);
@@ -228,23 +206,8 @@ const PracticeRepeatSentence: React.FC = () => {
     setSelectedResponse(null);
     setShowResponseModal(false);
     setResetKey((prev) => prev + 1);
+    setAudioResetKey((prev) => prev + 1);
     setError(null);
-    clearPrepTimer();
-    const prepDuration = 10;
-    setPrepTimeLeft(prepDuration);
-
-    prepTimerRef.current = setInterval(() => {
-      setPrepTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearPrepTimer();
-          handleStartRecordingManually(); // Auto-trigger recording
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearPrepTimer();
   };
 
   const handleExit = () => {
@@ -392,61 +355,20 @@ const PracticeRepeatSentence: React.FC = () => {
               className="flex-1 overflow-auto px-6 py-8 relative
             "
             >
-              {!isAudioReady && !isCompleted && prepTimeLeft > 0 && (
-                <div className="absolute top-2 right-2 flex items-center justify-between p-2 rounded-xl animate-pulse">
-                  <div className="flex items-center gap-3">
-                    <div className="relative flex items-center justify-center">
-                      <svg className="w-10 h-10 transform -rotate-90">
-                        <circle
-                          cx="20"
-                          cy="20"
-                          r="18"
-                          stroke="currentColor"
-                          strokeWidth="3"
-                          fill="transparent"
-                          className="text-blue-200 dark:text-blue-700"
-                        />
-                        <circle
-                          cx="20"
-                          cy="20"
-                          r="18"
-                          stroke="currentColor"
-                          strokeWidth="3"
-                          fill="transparent"
-                          strokeDasharray={113}
-                          strokeDashoffset={
-                            113 -
-                            (113 * prepTimeLeft) /
-                              (currentQuestion?.content?.preparationTime || 25)
-                          }
-                          className="text-blue-600 dark:text-blue-400 transition-all duration-1000"
-                        />
-                      </svg>
-                      <span className="absolute text-xs font-bold text-blue-700 dark:text-blue-300">
-                        {prepTimeLeft}s
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-blue-900 dark:text-blue-100">
-                        Preparation Time
-                      </p>
-                      <p className="text-xs text-blue-700 dark:text-blue-300">
-                        Recording starts automatically
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
               <div className="max-w-4xl mx-auto space-y-6">
-                {currentQuestion?.content?.text && (
-                  <div className="relative flex-[0.7] flex-col h-auto rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-2 flex items-center justify-center overflow-hidden shadow-sm">
-                    {/* Preparation Timer UI */}
-
-                    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-600">
-                      <p className="text-md leading-relaxed text-gray-900 dark:text-white">
-                        {currentQuestion?.content?.text}
-                      </p>
-                    </div>
+                {currentQuestion?.content?.audioUrl && (
+                  <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-4">
+                    <MiniAudioPlayer
+                      ref={audioPlayerRef}
+                      src={currentQuestion.content.audioUrl}
+                      title="Listen to the sentence"
+                      autoPlay
+                      autoPlayDelay={2000}
+                      onEnded={handleAudioEnded}
+                      key={`audio-${currentQuestion.id}-${audioResetKey}`}
+                      questionId={currentQuestion.id}
+                      questionAudioText={currentQuestion.content.text || ""}
+                    />
                   </div>
                 )}
 
@@ -460,7 +382,7 @@ const PracticeRepeatSentence: React.FC = () => {
                   autoUpload
                   disabled={isCompleted}
                   key={`recorder-${currentQuestion?.id}-${resetKey}`}
-                  title="Recording will start automatically when preparation time finishes."
+                  title="Recording will start automatically when audio finishes."
                 />
 
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -592,45 +514,27 @@ const PracticeRepeatSentence: React.FC = () => {
                             Your Response
                           </h4>
                           <div className="flex flex-wrap items-center gap-4 text-sm">
-                            {/* Speaking error types */}
-                            <div className="flex items-center space-x-2">
-                              <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-                              <span className="text-gray-600 dark:text-gray-400">
-                                Pronunciation
-                              </span>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                              <span className="text-gray-600 dark:text-gray-400">
-                                Fluency
-                              </span>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <div className="w-3 h-3 bg-pink-500 rounded-full"></div>
-                              <span className="text-gray-600 dark:text-gray-400">
-                                Content
-                              </span>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                              <span className="text-gray-600 dark:text-gray-400">
-                                Grammar
-                              </span>
-                            </div>
-
-                            <span className="text-gray-500 dark:text-gray-400 text-xs">
-                              * Click colored words for explanation
+                            <span className="flex items-center gap-1">
+                              <span className="h-2 w-2 rounded-full bg-red-100 border border-red-200 dark:bg-red-900/20 dark:border-red-800" />
+                              Missing word
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <span className="h-2 w-2 rounded-full bg-orange-100 border border-orange-200 dark:bg-orange-900/20 dark:border-orange-800" />
+                              Mispronounced
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <span className="h-2 w-2 rounded-full bg-blue-100 border border-blue-200 dark:bg-blue-900/20 dark:border-blue-800" />
+                              Extra word
                             </span>
                           </div>
                         </div>
                         <div className="p-6 text-base leading-relaxed text-gray-700 dark:text-gray-300 italic">
-                          {renderHighlightedText(
-                            evaluationResult.evaluation.detailedAnalysis
-                              .userText,
-                            evaluationResult.evaluation.detailedAnalysis
-                              .errorAnalysis,
-                            (err: any) => setSelectedError(err),
-                          )}
+                          <p className="leading-relaxed">
+                            {renderSpeakingWordAnalysisInline(
+                              evaluationResult.evaluation.detailedAnalysis
+                                .wordByWordAnalysis,
+                            )}
+                          </p>
                         </div>
                       </div>
                     )}

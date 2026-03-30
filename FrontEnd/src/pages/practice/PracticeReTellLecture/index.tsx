@@ -445,7 +445,7 @@ const PracticeReTellLecture: React.FC = () => {
                     src={currentQuestion.content.audioUrl}
                     title="Listen to the question"
                     autoPlay
-                    autoPlayDelay={1000}
+                    autoPlayDelay={2000}
                     onEnded={() => setIsAudioFinished(true)}
                     key={`audio-${currentQuestion.id}-${resetKey}`}
                     questionId={currentQuestion.id}

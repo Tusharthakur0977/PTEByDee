@@ -19,6 +19,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { getQuestionTypes } from '../services/portal';
 import { PteQuestionTypeName } from '../types/pte';
 import { getPracticePagePath } from '../utils/questionTypeToSlug';
+import { questionTypeOrder, sectionOrder } from '../utils/questionOrdering';
 
 const Navbar: React.FC = () => {
   const { isDarkMode, toggleTheme } = useTheme();
@@ -60,7 +61,6 @@ const Navbar: React.FC = () => {
     }
   }, [user]);
 
-  const sectionOrder = ['Speaking', 'Writing', 'Reading', 'Listening'];
   const adminLinks = [
     {
       title: 'Dashboard',
@@ -131,7 +131,7 @@ const Navbar: React.FC = () => {
   const orderedSections = useMemo(() => {
     const sectionEntries = Object.entries(groupedQuestionTypes || {});
 
-    return sectionOrder
+    const ordered = sectionOrder
       .map((sectionName) =>
         sectionEntries.find(([name]) =>
           name.toLowerCase().includes(sectionName.toLowerCase()),
@@ -146,6 +146,42 @@ const Navbar: React.FC = () => {
         },
       ]
     >;
+
+    const remaining = sectionEntries.filter(
+      ([name]) => !ordered.some(([orderedName]) => orderedName === name),
+    );
+
+    const mergedSections = [...ordered, ...remaining];
+
+    return mergedSections.map(([sectionName, sectionData]) => {
+      const sortedQuestionTypes = [...sectionData.questionTypes].sort(
+        (questionTypeA, questionTypeB) => {
+          const orderA =
+            questionTypeOrder[questionTypeA.name.toLowerCase()] ?? 999;
+          const orderB =
+            questionTypeOrder[questionTypeB.name.toLowerCase()] ?? 999;
+
+          if (orderA !== orderB) {
+            return orderA - orderB;
+          }
+
+          return questionTypeA.name.localeCompare(questionTypeB.name);
+        },
+      );
+
+      return [
+        sectionName,
+        {
+          ...sectionData,
+          questionTypes: sortedQuestionTypes,
+        },
+      ] as [
+        string,
+        typeof sectionData & {
+          questionTypes: typeof sectionData.questionTypes;
+        },
+      ];
+    });
   }, [groupedQuestionTypes]);
 
   const handleLogout = () => {

@@ -10,7 +10,8 @@
     "prisma:push": "npx prisma db push",
     "test:cloudfront": "npx ts-node scripts/test-cloudfront-setup.ts",
     "sync:stripe-products": "npx ts-node scripts/sync-stripe-products.ts",
-    "seed:pte": "npx ts-node scripts/seed-pte-sections-and-types.ts"
+    "seed:pte": "npx ts-node scripts/seed-pte-sections-and-types.ts",
+    "delete:questions-by-text": "npx ts-node scripts/delete-questions-by-textContent.ts"
   },
   "keywords": [],
   "author": "",

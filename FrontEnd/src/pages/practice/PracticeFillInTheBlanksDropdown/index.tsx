@@ -20,6 +20,132 @@ import { PteQuestionTypeName } from "../../../types/pte";
 import { formatScoringText } from "../../../utils/Helpers";
 import QuestionSidebar from "../../../components/QuestionSidebar";
 
+type BlankDropdownProps = {
+  blankKey: string;
+  value: string;
+  options: string[];
+  disabled: boolean;
+  selectClassColor: string;
+  openBlankKey: string | null;
+  setOpenBlankKey: (key: string | null) => void;
+  onSelect: (nextValue: string) => void;
+};
+
+const BlankDropdown: React.FC<BlankDropdownProps> = ({
+  blankKey,
+  value,
+  options,
+  disabled,
+  selectClassColor,
+  openBlankKey,
+  setOpenBlankKey,
+  onSelect,
+}) => {
+  const isOpen = openBlankKey === blankKey;
+  const containerRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const onPointerDown = (event: PointerEvent) => {
+      const targetNode = event.target as Node | null;
+      if (!targetNode) return;
+      if (containerRef.current?.contains(targetNode)) return;
+      setOpenBlankKey(null);
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpenBlankKey(null);
+      }
+    };
+
+    window.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isOpen, setOpenBlankKey]);
+
+  return (
+    <span
+      ref={containerRef}
+      className="inline-block relative mx-1 align-baseline"
+    >
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => {
+          if (disabled) return;
+          setOpenBlankKey(isOpen ? null : blankKey);
+        }}
+        className={`min-w-[140px] h-[24px] px-3 pr-7 border-2 rounded-lg text-center transition-all duration-200 font-medium outline-none text-sm relative
+          disabled:cursor-not-allowed
+          ${disabled ? "cursor-not-allowed" : "cursor-pointer"}
+          ${selectClassColor}`}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+      >
+        <span className="inline-flex w-full items-center justify-center gap-2">
+          <span className={`${value ? "" : "text-gray-500 dark:text-gray-400"}`}>
+            {value || "Select"}
+          </span>
+        </span>
+        <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600 dark:text-gray-400 pointer-events-none" />
+      </button>
+
+      {isOpen && !disabled && (
+        <div
+          role="listbox"
+          className="absolute left-0 top-full mt-2 z-50 min-w-[160px] max-w-[260px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl shadow-black/10 dark:border-gray-700 dark:bg-gray-900"
+        >
+          <div className="max-h-56 overflow-auto p-1">
+            <button
+              type="button"
+              role="option"
+              aria-selected={value === ""}
+              className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                value === ""
+                  ? "bg-blue-50 text-blue-900 dark:bg-blue-900/30 dark:text-blue-100"
+                  : "text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
+              }`}
+              onClick={() => {
+                onSelect("");
+                setOpenBlankKey(null);
+              }}
+            >
+              Select
+            </button>
+            {options.map((option) => {
+              const isSelected = option === value;
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  role="option"
+                  aria-selected={isSelected}
+                  className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                    isSelected
+                      ? "bg-blue-50 text-blue-900 dark:bg-blue-900/30 dark:text-blue-100"
+                      : "text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
+                  }`}
+                  onClick={() => {
+                    onSelect(option);
+                    setOpenBlankKey(null);
+                  }}
+                >
+                  {option}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </span>
+  );
+};
+
 export interface QuestionsData {
   id: string;
   type: string;
@@ -60,6 +186,7 @@ const PracticeFillInTheBlanksDropdown: React.FC = () => {
   const [response, setResponse] = useState<{
     blanks: { [key: string]: string };
   }>({ blanks: {} });
+  const [openBlankKey, setOpenBlankKey] = useState<string | null>(null);
 
   // Evaluation features
   const [isCompleted, setIsCompleted] = useState(false);
@@ -109,6 +236,7 @@ const PracticeFillInTheBlanksDropdown: React.FC = () => {
     setSelectedResponse(null);
     setShowResponseModal(false);
     setResetKey((prev) => prev + 1);
+    setOpenBlankKey(null);
   }, [currentIndex]);
 
   const currentQuestion = questions[currentIndex];
@@ -366,35 +494,26 @@ const PracticeFillInTheBlanksDropdown: React.FC = () => {
                       <span key={index}>
                         {part}
                         {index < array.length - 1 && (
-                          <span className="inline-block relative mx-1 align-baseline group">
-                            <div className="relative inline-block">
-                              <select
-                                value={selectedValue}
-                                onChange={(e) => {
-                                  if (!isCompleted) {
-                                    setResponse({
-                                      ...response,
-                                      blanks: {
-                                        ...response.blanks,
-                                        [`blank${index + 1}`]: e.target.value,
-                                      },
-                                    });
-                                  }
-                                }}
-                                disabled={isCompleted}
-                                className={`min-w-[140px] h-[24px] px-3 pr-7 border-2 rounded-lg text-center transition-all duration-200 font-medium appearance-none cursor-pointer
-                                  disabled:cursor-not-allowed outline-none text-sm
-                                  ${selectClassColor}`}
-                              >
-                                <option value="">Select</option>
-                                {blankOptions.map((option: string) => (
-                                  <option key={option} value={option}>
-                                    {option}
-                                  </option>
-                                ))}
-                              </select>
-                              <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600 dark:text-gray-400 pointer-events-none" />
-                            </div>
+                          <>
+                            <BlankDropdown
+                              blankKey={blankKey}
+                              value={selectedValue}
+                              options={blankOptions}
+                              disabled={isCompleted}
+                              selectClassColor={selectClassColor}
+                              openBlankKey={openBlankKey}
+                              setOpenBlankKey={setOpenBlankKey}
+                              onSelect={(nextValue) => {
+                                if (isCompleted) return;
+                                setResponse({
+                                  ...response,
+                                  blanks: {
+                                    ...response.blanks,
+                                    [`blank${index + 1}`]: nextValue,
+                                  },
+                                });
+                              }}
+                            />
 
                             {/* Show correct answer if incorrect */}
                             {isCompleted && !isCorrect && correctAnswer && (
@@ -404,7 +523,7 @@ const PracticeFillInTheBlanksDropdown: React.FC = () => {
                                 </span>
                               </div>
                             )}
-                          </span>
+                          </>
                         )}
                       </span>
                     );

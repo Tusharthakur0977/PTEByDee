@@ -2,11 +2,10 @@ import {
   AlertCircle,
   CheckCircle,
   FileText,
-  Lightbulb,
   TrendingUp,
   Volume2,
   X,
-  XCircle,
+  XCircle
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import {
@@ -411,6 +410,7 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
                               setSelectedError(error),
                           )}
                         </div>
+                   
                       </div>
                     ) : (
                       <p className="whitespace-pre-wrap text-sm leading-6 text-gray-900 dark:text-white">

@@ -59,8 +59,8 @@ const AudioRecorder = React.forwardRef<any, AudioRecorderProps>(
       React.useState(false);
 
     useEffect(() => {
-      if (maxDuration && recordingTime >= maxDuration) stopRecording();
-    }, [recordingTime, maxDuration, stopRecording]);
+      if (maxDuration && recordingTime >= maxDuration) stopAndRelease();
+    }, [recordingTime, maxDuration, stopAndRelease]);
 
     useEffect(() => {
       if (audioURL && autoUpload && !hasUploadedSuccessfully) handleUpload();
@@ -90,12 +90,18 @@ const AudioRecorder = React.forwardRef<any, AudioRecorderProps>(
       onRecordingStart?.();
     };
 
-    React.useImperativeHandle(ref, () => ({
-      startRecording: handleStartRecording,
-      stopRecording,
-      stopAndRelease,
-      clearRecording,
-    }));
+  React.useImperativeHandle(ref, () => ({
+    startRecording: handleStartRecording,
+    stopRecording,
+    stopAndRelease,
+    clearRecording,
+  }));
+
+  useEffect(() => {
+    return () => {
+      stopAndRelease();
+    };
+  }, [stopAndRelease]);
 
     const formatTime = (s: number) =>
       `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
@@ -199,10 +205,10 @@ const AudioRecorder = React.forwardRef<any, AudioRecorderProps>(
                   </span>
                 </div>
 
-                {/* Stop button */}
-                <div className='ml-auto'>
-                  <button
-                    onClick={stopRecording}
+                  {/* Stop button */}
+                  <div className='ml-auto'>
+                    <button
+                    onClick={stopAndRelease}
                     className='flex items-center gap-2 px-4 py-2 rounded-md bg-red-600 hover:bg-red-700 text-white text-sm font-semibold shadow-sm'
                   >
                     <Square className='w-4 h-4' />

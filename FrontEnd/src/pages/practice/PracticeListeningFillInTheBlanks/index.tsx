@@ -379,7 +379,7 @@ const PracticeListeningFillInTheBlanks: React.FC = () => {
                   src={currentQuestion?.content?.audioUrl || ""}
                   title="Listen to the recording"
                   autoPlay={true}
-                  autoPlayDelay={500}
+                  autoPlayDelay={2000}
                   onEnded={handleAudioEnded}
                   key={`audio-${currentQuestion?.id}-${audioResetKey}`}
                   questionId={currentQuestion?.id}
@@ -631,9 +631,8 @@ const PracticeListeningFillInTheBlanks: React.FC = () => {
                 )}
 
                 {/* Answer Analysis - Show Correct vs Selected Options */}
-                {evaluationResult?.evaluation?.detailedAnalysis && (
+                {/* {evaluationResult?.evaluation?.detailedAnalysis && (
                   <div className="space-y-4">
-                    {/* Correct Answers */}
                     {evaluationResult.evaluation.detailedAnalysis
                       .correctOptionTexts && (
                       <div className="bg-white dark:bg-gray-800 rounded-lg border border-green-200 dark:border-green-800 overflow-hidden">
@@ -676,7 +675,6 @@ const PracticeListeningFillInTheBlanks: React.FC = () => {
                       </div>
                     )}
 
-                    {/* Incorrectly Selected */}
                     {evaluationResult.evaluation.detailedAnalysis
                       .incorrectlySelectedTexts &&
                       evaluationResult.evaluation.detailedAnalysis
@@ -724,7 +722,6 @@ const PracticeListeningFillInTheBlanks: React.FC = () => {
                         </div>
                       )}
 
-                    {/* Missed Correct Answers */}
                     {evaluationResult.evaluation.detailedAnalysis
                       .missedCorrectTexts &&
                       evaluationResult.evaluation.detailedAnalysis
@@ -774,7 +771,7 @@ const PracticeListeningFillInTheBlanks: React.FC = () => {
                         </div>
                       )}
                   </div>
-                )}
+                )} */}
               </div>
             )}
           </div>
