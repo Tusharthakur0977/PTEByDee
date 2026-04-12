@@ -14,12 +14,13 @@ import jwt from 'jsonwebtoken';
 export const getPracticeQuestions = asyncHandler(
   async (req: Request, res: Response) => {
     const { questionType } = req.params;
-    const {
-      limit = '10',
-      random = 'true',
-      difficultyLevel,
-      practiceStatus,
-    } = req.query;
+      const {
+        limit = '10',
+        random = 'true',
+        difficultyLevel,
+        practiceStatus,
+        imageType,
+      } = req.query;
 
     try {
       if (!questionType) {
@@ -72,6 +73,7 @@ export const getPracticeQuestions = asyncHandler(
       // Build where clause
       const whereClause: any = {
         questionTypeId: questionTypeRecord.id,
+        isArchived: false,
       };
 
       // Add difficulty filter
@@ -112,6 +114,13 @@ export const getPracticeQuestions = asyncHandler(
           }
           // If no practiced questions, all questions are unpracticed (no additional filter needed)
         }
+      }
+
+      // Filter by image type tag for describe image
+      if (imageType) {
+        whereClause.tags = {
+          has: imageType as string,
+        };
       }
 
       // Get questions for this type
@@ -259,6 +268,7 @@ export const getPracticeQuestions = asyncHandler(
               userId && question.userResponses?.length > 0
                 ? question.userResponses[0].questionScore
                 : undefined,
+            tags: question.tags || [],
             content: {
               text: question.textContent,
               audioUrl,

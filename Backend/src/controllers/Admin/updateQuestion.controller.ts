@@ -4,6 +4,7 @@ import prisma from '../../config/prismaInstance';
 import { STATUS_CODES } from '../../utils/constants';
 import { sendResponse } from '../../utils/helpers';
 import { CustomRequest } from '../../types';
+import { normalizeTags } from '../../utils/tagHelpers';
 
 const getCorrectOptionTexts = (options: any): string[] => {
   if (!Array.isArray(options)) return [];
@@ -44,6 +45,7 @@ export const updateQuestion = asyncHandler(
       incorrectWords,
       blanks,
       paragraphs,
+      tags,
     } = req.body;
 
     console.log('SSSSSSSS');
@@ -87,15 +89,31 @@ export const updateQuestion = asyncHandler(
         });
 
         if (!nextQuestionType) {
-          return sendResponse(
-            res,
-            STATUS_CODES.BAD_REQUEST,
-            null,
-            'Question type not found.'
-          );
-        }
+        return sendResponse(
+          res,
+          STATUS_CODES.BAD_REQUEST,
+          null,
+          'Question type not found.'
+        );
+      }
 
-        effectiveQuestionTypeName = nextQuestionType.name;
+      effectiveQuestionTypeName = nextQuestionType.name;
+    }
+
+      const normalizedTagsForUpdate =
+        tags !== undefined ? normalizeTags(tags) : undefined;
+
+      if (
+        normalizedTagsForUpdate !== undefined &&
+        effectiveQuestionTypeName === 'DESCRIBE_IMAGE' &&
+        normalizedTagsForUpdate.length === 0
+      ) {
+        return sendResponse(
+          res,
+          STATUS_CODES.BAD_REQUEST,
+          null,
+          'Describe Image questions must have at least one image type tag.'
+        );
       }
 
       // Check if question code is being changed and if it conflicts
@@ -235,6 +253,8 @@ export const updateQuestion = asyncHandler(
         updateData.originalTextWithErrors = originalTextWithErrors || null;
       if (incorrectWords !== undefined)
         updateData.incorrectWords = incorrectWords || null;
+      if (normalizedTagsForUpdate !== undefined)
+        updateData.tags = normalizedTagsForUpdate;
 
       updateData.updatedAt = new Date();
 

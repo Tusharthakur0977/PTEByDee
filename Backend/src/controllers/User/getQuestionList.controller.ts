@@ -64,6 +64,7 @@ export const getQuestionList = asyncHandler(
       // Build where clause
       const whereClause: any = {
         questionTypeId: questionTypeRecord.id,
+        isArchived: false,
       };
 
       // Add difficulty filter

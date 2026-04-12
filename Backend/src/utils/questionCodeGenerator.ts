@@ -69,6 +69,7 @@ export async function generateQuestionCode(
   const existingQuestions = await prisma.question.findMany({
     where: {
       questionTypeId: questionTypeId,
+      isArchived: false,
     },
     select: {
       questionCode: true,

@@ -44,11 +44,23 @@ export const deleteQuestion = asyncHandler(
 
       // Check if question has user responses
       if (question.UserResponse.length > 0) {
+        await prisma.question.update({
+          where: { id },
+          data: {
+            isArchived: true,
+            archivedAt: new Date(),
+          },
+        });
+
         return sendResponse(
           res,
-          STATUS_CODES.CONFLICT,
-          null,
-          `Cannot delete question with ${question.UserResponse.length} user responses. Please archive instead.`
+          STATUS_CODES.OK,
+          {
+            questionId: id,
+            questionCode: question.questionCode,
+            archived: true,
+          },
+          `Question "${question.questionCode}" archived because it has ${question.UserResponse.length} user responses.`
         );
       }
 

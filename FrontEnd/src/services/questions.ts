@@ -19,6 +19,7 @@ export interface CreateQuestionData {
   incorrectWords?: any;
   blanks?: any[]; // For fill-in-the-blanks questions with dropdown options
   paragraphs?: any[]; // For re-order paragraphs questions
+  tags?: string[];
 }
 
 // Removed redundant UpdateQuestionData interface

@@ -48,6 +48,21 @@ const QuestionPreview: React.FC<QuestionPreviewProps> = ({
       .join(' ');
   };
 
+  const formatDateTime = (value: string) => {
+    if (!value) return '';
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(new Date(value));
+  };
+
+  const createdLabel = question.createdAt
+    ? formatDateTime(question.createdAt)
+    : '';
+  const updatedLabel = question.updatedAt
+    ? formatDateTime(question.updatedAt)
+    : '';
+
   const getQuestionTypeColor = (typeName: string) => {
     const colors: { [key: string]: string } = {
       READ_aloud:
@@ -105,6 +120,22 @@ const QuestionPreview: React.FC<QuestionPreviewProps> = ({
               </span>
             )}
           </div>
+          <div className='mt-1 flex flex-wrap gap-3 text-xs text-slate-500 dark:text-slate-400'>
+            {createdLabel && <span>Created {createdLabel}</span>}
+            {updatedLabel && <span>Updated {updatedLabel}</span>}
+          </div>
+          {question.tags && question.tags.length > 0 && (
+            <div className='mt-2 flex flex-wrap gap-2 text-xs'>
+              {question.tags.map((tag: string) => (
+                <span
+                  key={tag}
+                  className='rounded-full border border-slate-200 px-3 py-1 text-slate-600 dark:border-slate-700 dark:text-slate-300'
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className='flex items-center gap-2'>

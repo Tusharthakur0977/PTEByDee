@@ -312,6 +312,7 @@ model Question {
     questionStatement String? // The actual question being asked (e.g., "What can we infer from the passage?", "Which of the following statements are incorrect?")
     audioUrl          String? // For Repeat Sentence, Re-tell Lecture, Answer Short Question, Summarize Spoken Text, Listening Fill in the Blanks, Highlight Correct Summary, Select Missing Word, Write from Dictation
     imageUrl          String? // For Describe Image (URL to the image)
+    tags              String[]  @default([]) // Additional metadata/tags (e.g., image type, topic)
 
     // Answer options/structure for various question types
     options        Json? // For Multiple Choice (Single/Multiple Answer), Highlight Correct Summary, Select Missing Word
@@ -329,6 +330,8 @@ model Question {
 
     createdAt        DateTime           @default(now())
     updatedAt        DateTime           @updatedAt
+    isArchived       Boolean            @default(false)
+    archivedAt       DateTime?
     UserResponse     UserResponse[] // Inverse relation: a question can have many user responses across different attempts
     PracticeResponse PracticeResponse[] // Relation to practice responses
     QuestionResponse QuestionResponse[] // Relation to standalone question responses

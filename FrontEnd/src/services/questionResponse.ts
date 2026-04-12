@@ -31,9 +31,14 @@ export interface PreviousResponse {
   id: string;
   textResponse?: string;
   audioResponseUrl?: string;
-  selectedOptions: string[];
-  orderedItems: string[];
-  highlightedWords: string[];
+  selectedOptions?: string[];
+  selectedOption?: string;
+  selectedSummary?: string;
+  selectedWord?: string;
+  orderedParagraphs?: string[];
+  orderedItems?: string[];
+  highlightedWords?: string[];
+  blanks?: { [key: string]: string };
   questionScore?: number;
   isCorrect?: boolean;
   aiFeedback?: string;

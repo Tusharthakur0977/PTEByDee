@@ -13,6 +13,18 @@ import {
 import React, { useEffect, useState } from 'react';
 import api from '../services/api';
 import QuestionImageUpload from './QuestionImageUpload';
+import { describeImageTypeOptions } from '../constants/describeImageTypes';
+
+const modalOverlayClass =
+  'fixed inset-0 z-50 overflow-y-auto bg-slate-950/70';
+const modalContentClass =
+  'relative inline-block transform overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-2xl transition-all dark:border-slate-800 dark:bg-slate-950';
+const panelClass =
+  'rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900';
+const sectionHeadingClass =
+  'text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2';
+const inputClass =
+  'w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-slate-900 outline-none transition focus:border-slate-300 focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-slate-600 dark:focus:ring-slate-800';
 
 interface QuestionFormProps {
   question?: any;
@@ -50,6 +62,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
     // New fields for enhanced question types
     paragraphs: question?.paragraphs || [],
     blanks: question?.blanks || [],
+    tags: question?.tags || [],
   });
 
   const [loading, setLoading] = useState(false);
@@ -372,6 +385,11 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
       ].includes(selectedQuestionType.name),
 
       requiresImage: selectedQuestionType.name === 'DESCRIBE_IMAGE',
+      allowsOptionalImage: [
+        'DESCRIBE_IMAGE',
+        'RE_TELL_LECTURE',
+      ].includes(selectedQuestionType.name),
+      requiresImageType: selectedQuestionType.name === 'DESCRIBE_IMAGE',
 
       requiresText: [
         'READ_ALOUD',
@@ -452,7 +470,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
         return (
           <div className='mb-6'>
             <div className='flex items-center justify-between mb-3'>
-              <label className='block text-sm font-medium text-gray-700'>
+              <label className='block text-sm font-medium text-slate-700 dark:text-slate-200'>
                 Paragraphs (in correct order) *
               </label>
               <button
@@ -470,33 +488,33 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                 (paragraph: any, index: number) => (
                   <div
                     key={paragraph.id}
-                    className='flex items-start gap-3 p-3 border border-gray-200 rounded-lg bg-white'
+                    className='flex items-start gap-3 p-3 border border-gray-200 rounded-lg bg-white dark:border-slate-700 dark:bg-slate-900'
                   >
                     <div className='flex flex-col space-y-1'>
                       <button
                         type='button'
                         onClick={() => moveParagraph(index, 'up')}
                         disabled={index === 0}
-                        className='p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50'
+                        className='p-1 text-slate-400 transition-colors hover:text-slate-600 disabled:opacity-50 dark:text-slate-500 dark:hover:text-slate-300'
                       >
                         ↑
                       </button>
-                      <GripVertical className='w-4 h-4 text-gray-400' />
+                      <GripVertical className='w-4 h-4 text-slate-400 dark:text-slate-500' />
                       <button
                         type='button'
                         onClick={() => moveParagraph(index, 'down')}
                         disabled={index === formData.paragraphs.length - 1}
-                        className='p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50'
+                        className='p-1 text-slate-400 transition-colors hover:text-slate-600 disabled:opacity-50 dark:text-slate-500 dark:hover:text-slate-300'
                       >
                         ↓
                       </button>
                     </div>
                     <div className='flex-1'>
                       <div className='flex items-center justify-between mb-2'>
-                        <span className='text-sm font-medium text-gray-700'>
+                        <span className='text-sm font-medium text-slate-700 dark:text-slate-200'>
                           Paragraph {index + 1}
                         </span>
-                        <span className='text-xs text-gray-500'>
+                        <span className='text-xs text-slate-500 dark:text-slate-400'>
                           Order: {paragraph.correctOrder}
                         </span>
                       </div>
@@ -524,7 +542,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
             </div>
 
             {(formData.paragraphs || []).length === 0 && (
-              <p className='text-sm text-gray-500 text-center py-4'>
+              <p className='text-sm text-slate-500 dark:text-slate-400 text-center py-4'>
                 No paragraphs added yet. Click "Add Paragraph" to create the
                 text segments.
               </p>
@@ -538,7 +556,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
           <div className='space-y-6'>
             {/* Text with blanks */}
             <div className='mb-6'>
-              <label className='block text-sm font-medium text-gray-700 mb-2'>
+              <label className='block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2'>
                 Text Content with Blanks *
               </label>
               <textarea
@@ -554,7 +572,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                 placeholder='Enter text with _____ for blanks. Example: The weather is _____ today and it will be _____ tomorrow.'
                 required
               />
-              <p className='text-xs text-gray-500 mt-1'>
+              <p className='text-xs text-slate-500 dark:text-slate-400 mt-1'>
                 Use _____ (5 underscores) to mark blanks in the text
               </p>
             </div>
@@ -562,7 +580,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
             {/* Blank options */}
             <div className='mb-6'>
               <div className='flex items-center justify-between mb-3'>
-                <label className='block text-sm font-medium text-gray-700'>
+                <label className='block text-sm font-medium text-slate-700 dark:text-slate-200'>
                   Blank Options *
                 </label>
                 <button
@@ -583,7 +601,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                       className='border border-gray-200 rounded-lg p-4 bg-gray-50'
                     >
                       <div className='flex items-center justify-between mb-3'>
-                        <h4 className='text-sm font-medium text-gray-700'>
+                        <h4 className='text-sm font-medium text-slate-700 dark:text-slate-200'>
                           Blank {blank.position}
                         </h4>
                         <button
@@ -597,7 +615,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
 
                       <div className='space-y-3'>
                         <div>
-                          <label className='block text-xs font-medium text-gray-600 mb-1'>
+                          <label className='block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1'>
                             Correct Answer *
                           </label>
                           <input
@@ -618,7 +636,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
 
                         <div>
                           <div className='flex items-center justify-between mb-2'>
-                            <label className='block text-xs font-medium text-gray-600'>
+                            <label className='block text-xs font-medium text-slate-600 dark:text-slate-400'>
                               Dropdown Options
                             </label>
                             <button
@@ -629,7 +647,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                               + Add Option
                             </button>
                           </div>
-                          <p className='text-xs text-gray-500 mb-2'>
+                          <p className='text-xs text-slate-500 dark:text-slate-400 mb-2'>
                             Add all options that will appear in the dropdown.
                             The correct answer will be automatically included.
                           </p>
@@ -703,7 +721,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
               </div>
 
               {(formData.blanks || []).length === 0 && (
-                <p className='text-sm text-gray-500 text-center py-4'>
+                <p className='text-sm text-slate-500 dark:text-slate-400 text-center py-4'>
                   No blanks configured yet. Add text content with _____ to
                   automatically generate blank fields.
                 </p>
@@ -755,7 +773,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
 
             {/* Optional text content override */}
             <div className='mb-6'>
-              <label className='block text-sm font-medium text-gray-700 mb-2'>
+              <label className='block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2'>
                 Text Content with Blanks (Optional)
               </label>
               <textarea
@@ -770,7 +788,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                 rows={6}
                 placeholder='Leave empty to auto-generate from audio, or enter custom text with _____ for blanks.'
               />
-              <p className='text-xs text-gray-500 mt-1'>
+              <p className='text-xs text-slate-500 dark:text-slate-400 mt-1'>
                 If provided, use _____ (5 underscores) to mark blanks in the
                 text. Otherwise, content will be auto-generated from the audio
                 file.
@@ -822,7 +840,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
 
             {/* Optional text content override */}
             <div className='mb-6'>
-              <label className='block text-sm font-medium text-gray-700 mb-2'>
+              <label className='block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2'>
                 Text Content with Errors (Optional)
               </label>
               <textarea
@@ -840,10 +858,10 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
             </div>
 
             <div className='mb-6'>
-              <label className='block text-sm font-medium text-gray-700 mb-2'>
+              <label className='block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2'>
                 Incorrect Words (Optional)
               </label>
-              <p className='text-sm text-gray-600 mb-3'>
+              <p className='text-sm text-slate-600 dark:text-slate-400 mb-3'>
                 Leave empty to auto-generate from audio, or manually specify the
                 incorrect words.
               </p>
@@ -894,7 +912,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                       incorrectWords: newWords,
                     }));
                   }}
-                  className='w-full px-3 py-2 border-2 border-dashed border-gray-300 rounded-md text-gray-600 hover:border-gray-400 hover:text-gray-700 transition-colors'
+                  className='w-full px-3 py-2 border-2 border-dashed border-gray-300 rounded-md text-slate-600 hover:border-gray-400 hover:text-slate-900 transition-colors dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-500'
                 >
                   + Add Incorrect Word
                 </button>
@@ -909,154 +927,169 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
   };
 
   return (
-    <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4'>
-      <div className='bg-white rounded-xl shadow-xl max-w-6xl w-full max-h-[95vh] overflow-y-auto'>
-        <div className='sticky top-0 bg-white px-6 py-4 border-b border-gray-200 rounded-t-xl'>
-          <div className='flex items-center justify-between'>
-            <h2 className='text-xl font-semibold text-gray-900'>
-              {question ? 'Edit Question' : 'Create New Question'}
-            </h2>
+    <div className='fixed inset-0 z-50 overflow-hidden'>
+      <div className='flex min-h-screen items-center justify-center px-4 py-6 text-center sm:p-6'>
+        {/* Background overlay */}
+        <div
+          className='fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75 dark:bg-gray-900 dark:bg-opacity-75'
+          onClick={onCancel}
+        ></div>
+
+        <div
+          className={`inline-block w-full max-w-5xl overflow-hidden rounded-lg border border-gray-200 bg-white text-left align-middle shadow-2xl transition-all transform dark:border-gray-700 dark:bg-gray-800`}
+        >
+          <div className='sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white/90 px-6 py-4 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/80'>
+            <div>
+              <h2 className='text-xl font-semibold text-slate-900 dark:text-slate-100'>
+                {question ? 'Edit Question' : 'Create New Question'}
+              </h2>
+              <p className='text-sm text-slate-500 dark:text-slate-400'>
+                Configure the details for this question
+              </p>
+            </div>
             <button
               onClick={onCancel}
-              className='p-2 text-gray-400 hover:text-gray-600 transition-colors'
+              className='p-2 text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-200'
             >
               <X className='w-6 h-6' />
             </button>
           </div>
-        </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className='p-6 space-y-8'
-        >
-          {/* Basic Information */}
-          <div className='bg-gray-50 rounded-lg p-6'>
-            <h3 className='text-lg font-medium text-gray-900 mb-4 flex items-center gap-2'>
-              <FileText className='w-5 h-5' />
-              Basic Information
-            </h3>
+          <form
+            onSubmit={handleSubmit}
+            className='space-y-8 p-6 md:p-8 overflow-y-auto max-h-[78vh]'
+          >
+            {/* Basic Information */}
+            <div className={`${panelClass} p-6 space-y-6`}>
+              <h3 className={sectionHeadingClass}>
+                <FileText className='w-5 h-5' />
+                Basic Information
+              </h3>
 
             <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
               <div>
                 <div className='flex items-center justify-between mb-2'>
-                  <label className='block text-sm font-medium text-gray-700'>
+                  <label className='block text-sm font-medium text-slate-700 dark:text-slate-200'>
                     Question Code {!autoGenerateCode && '*'}
                   </label>
-                  <div className='flex items-center gap-2'>
-                    <input
-                      type='checkbox'
-                      id='autoGenerateCode'
-                      checked={autoGenerateCode}
-                      onChange={(e) => {
-                        setAutoGenerateCode(e.target.checked);
-                        if (e.target.checked) {
-                          setFormData((prev) => ({
-                            ...prev,
-                            questionCode: '',
-                          }));
-                          if (formData.questionTypeId) {
-                            fetchPreviewQuestionCode(formData.questionTypeId);
+                    <div className='flex items-center gap-2'>
+                      <input
+                        type='checkbox'
+                        id='autoGenerateCode'
+                        checked={autoGenerateCode}
+                        onChange={(e) => {
+                          setAutoGenerateCode(e.target.checked);
+                          if (e.target.checked) {
+                            setFormData((prev) => ({
+                              ...prev,
+                              questionCode: '',
+                            }));
+                            if (formData.questionTypeId) {
+                              fetchPreviewQuestionCode(formData.questionTypeId);
+                            }
+                          } else {
+                            setPreviewQuestionCode('');
                           }
-                        } else {
-                          setPreviewQuestionCode('');
-                        }
-                      }}
-                      className='rounded border-gray-300 text-indigo-600 focus:ring-indigo-500'
-                    />
-                    <label
-                      htmlFor='autoGenerateCode'
-                      className='text-sm text-gray-600'
-                    >
-                      Auto-generate
-                    </label>
+                        }}
+                        className='rounded border-gray-300 text-indigo-600 focus:ring-indigo-500'
+                      />
+                      <label
+                        htmlFor='autoGenerateCode'
+                        className='text-sm text-slate-600 dark:text-slate-400'
+                      >
+                        Auto-generate
+                      </label>
+                    </div>
                   </div>
+
+                  {autoGenerateCode ? (
+                  <div className='w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-slate-900 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-100'>
+                      {loadingPreview ? (
+                        <div className='flex items-center gap-2 text-slate-500 dark:text-slate-400'>
+                          <div className='animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600'></div>
+                          <span className='text-sm'>Generating code...</span>
+                        </div>
+                      ) : previewQuestionCode ? (
+                        <span className='text-slate-700 font-mono dark:text-slate-100'>
+                          {previewQuestionCode}
+                        </span>
+                      ) : (
+                        <span className='text-slate-500 dark:text-slate-400 text-sm'>
+                          Select a question type to preview code
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <input
+                      type='text'
+                      value={formData.questionCode}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          questionCode: e.target.value,
+                        }))
+                      }
+                      className={inputClass}
+                      placeholder='e.g., RA_001'
+                      required
+                    />
+                  )}
+
+                  <p className='text-xs text-slate-500 dark:text-slate-400 mt-1'>
+                    {autoGenerateCode
+                      ? 'Question code will be automatically generated based on question type'
+                      : 'Unique identifier for this question'}
+                  </p>
                 </div>
 
-                {autoGenerateCode ? (
-                  <div className='w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50'>
-                    {loadingPreview ? (
-                      <div className='flex items-center gap-2 text-gray-500'>
-                        <div className='animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600'></div>
-                        <span className='text-sm'>Generating code...</span>
-                      </div>
-                    ) : previewQuestionCode ? (
-                      <span className='text-gray-700 font-mono'>
-                        {previewQuestionCode}
-                      </span>
-                    ) : (
-                      <span className='text-gray-500 text-sm'>
-                        Select a question type to preview code
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <input
-                    type='text'
-                    value={formData.questionCode}
+              <div>
+                <label className='block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2'>
+                  Question Type *
+                </label>
+                  <select
+                    value={formData.questionTypeId}
                     onChange={(e) =>
                       setFormData((prev) => ({
                         ...prev,
-                        questionCode: e.target.value,
+                        questionTypeId: e.target.value,
                       }))
                     }
-                    className='w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
-                    placeholder='e.g., RA_001'
+                    className={inputClass}
                     required
-                  />
-                )}
+                  >
+                    <option value=''>Select Question Type</option>
+                    {Object.entries(questionTypes).map(
+                      ([sectionName, section]: [string, any]) => (
+                        <optgroup
+                          key={sectionName}
+                          label={sectionName}
+                        >
+                          {section.questionTypes.map((qt: any) => (
+                            <option
+                              key={qt.id}
+                              value={qt.id}
+                            >
+                              {qt.name
+                                .split('_')
+                                .map(
+                                  (word: string) =>
+                                    word.charAt(0).toUpperCase() +
+                                    word.slice(1).toLowerCase(),
+                                )
+                                .join(' ')}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ),
+                    )}
+                  </select>
+                </div>
 
-                <p className='text-xs text-gray-500 mt-1'>
-                  {autoGenerateCode
-                    ? 'Question code will be automatically generated based on question type'
-                    : 'Unique identifier for this question'}
-                </p>
-              </div>
+            </div>
 
+            <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
               <div>
-                <label className='block text-sm font-medium text-gray-700 mb-2'>
-                  Question Type *
-                </label>
-                <select
-                  value={formData.questionTypeId}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      questionTypeId: e.target.value,
-                    }))
-                  }
-                  className='w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
-                  required
-                >
-                  <option value=''>Select Question Type</option>
-                  {Object.entries(questionTypes).map(
-                    ([sectionName, section]: [string, any]) => (
-                      <optgroup
-                        key={sectionName}
-                        label={sectionName}
-                      >
-                        {section.questionTypes.map((qt: any) => (
-                          <option
-                            key={qt.id}
-                            value={qt.id}
-                          >
-                            {qt.name
-                              .split('_')
-                              .map(
-                                (word: string) =>
-                                  word.charAt(0).toUpperCase() +
-                                  word.slice(1).toLowerCase()
-                              )
-                              .join(' ')}
-                          </option>
-                        ))}
-                      </optgroup>
-                    )
-                  )}
-                </select>
-              </div>
-
-              <div>
-                <label className='block text-sm font-medium text-gray-700 mb-2'>
+                <label className='block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2'>
                   Difficulty Level *
                 </label>
                 <select
@@ -1067,521 +1100,579 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                       difficultyLevel: e.target.value,
                     }))
                   }
-                  className='w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                  className={inputClass}
                   required
                 >
                   <option value='EASY'>Easy</option>
                   <option value='MEDIUM'>Medium</option>
                   <option value='HARD'>Hard</option>
                 </select>
-                <p className='text-xs text-gray-500 mt-1'>
+                <p className='text-xs text-slate-500 dark:text-slate-400 mt-1'>
                   Easy: Basic level questions | Medium: Standard difficulty |
                   Hard: Advanced level questions
                 </p>
               </div>
-            </div>
-
-            <div className='mt-4'>
-              <label className='block text-sm font-medium text-gray-700 mb-2'>
-                Duration (seconds)
-              </label>
-              <input
-                type='number'
-                value={
-                  formData.durationMillis
-                    ? Math.round(formData.durationMillis / 1000)
-                    : ''
-                }
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    durationMillis: parseInt(e.target.value) * 1000 || null,
-                  }))
-                }
-                className='w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
-                min='1'
-                placeholder='e.g., 40 for 40 seconds'
-              />
-              <p className='text-xs text-gray-500 mt-1'>
-                Time limit for this question (optional)
-              </p>
-            </div>
-          </div>
-
-          {/* Question Content */}
-          {selectedQuestionType && (
-            <div className='bg-blue-50 rounded-lg p-6'>
-              <h3 className='text-lg font-medium text-gray-900 mb-4 flex items-center gap-2'>
-                <HelpCircle className='w-5 h-5' />
-                Question Content
-              </h3>
-
-              {/* Text Content */}
-              {requirements.requiresText &&
-                !requirements.requiresParagraphs && (
-                  <div className='mb-6'>
-                    <label className='block text-sm font-medium text-gray-700 mb-2'>
-                      Text Content *
-                    </label>
-                    <textarea
-                      value={formData.textContent}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          textContent: e.target.value,
-                        }))
-                      }
-                      className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
-                      rows={8}
-                      placeholder='Enter the text content for this question...'
-                      required
-                    />
-                  </div>
-                )}
-
-              {/* Question Statement for Multiple Choice Questions */}
-              {requirements.requiresOptions && (
-                <div className='mb-6'>
-                  <label className='block text-sm font-medium text-gray-700 mb-2'>
-                    Question Statement *
+              {selectedQuestionType?.name === 'DESCRIBE_IMAGE' && (
+                <div>
+                  <label className='block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2'>
+                    Image Type *
                   </label>
-                  <input
-                    type='text'
-                    value={formData.questionStatement}
+                  <select
+                    value={formData.tags[0] || ''}
                     onChange={(e) =>
                       setFormData((prev) => ({
                         ...prev,
-                        questionStatement: e.target.value,
+                        tags: e.target.value ? [e.target.value] : [],
                       }))
                     }
-                    className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
-                    placeholder='e.g., "What can we infer from the passage?", "Which of the following statements are incorrect?"'
+                    className={inputClass}
                     required
-                  />
-                  <p className='text-xs text-gray-500 mt-1'>
-                    Enter the actual question that will be asked to students
-                    based on the text/audio content above
+                  >
+                    <option value=''>Select image type</option>
+                    {describeImageTypeOptions.map((option) => (
+                      <option
+                        key={option.value}
+                        value={option.value}
+                      >
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className='text-xs text-slate-500 dark:text-slate-400 mt-1'>
+                    Use this to categorize the Describe Image question.
                   </p>
                 </div>
               )}
+            </div>
 
-              {/* Audio Upload */}
-              {requirements.requiresAudio && (
-                <div className='mb-6'>
-                  <label className='block text-sm font-medium text-gray-700 mb-2'>
-                    Audio File *
-                  </label>
-                  <div className='border-2 border-dashed border-blue-300 rounded-lg p-6 bg-white'>
-                    {formData.audioKey || selectedAudioFile ? (
-                      <div className='text-center'>
-                        <Volume2 className='w-12 h-12 text-green-600 mx-auto mb-3' />
-                        <p className='text-sm text-green-600 font-medium mb-2'>
-                          {formData.audioKey
-                            ? 'Audio uploaded successfully'
-                            : 'Audio file selected'}
-                        </p>
-                        <p className='text-xs text-gray-500 mb-4'>
-                          {formData.audioKey || selectedAudioFile?.name}
-                        </p>
-                        {selectedAudioFile && !formData.audioKey && (
-                          <div className='text-xs text-blue-600 mb-4'>
-                            <p>
-                              Audio will be uploaded when you create the
-                              question
-                            </p>
-                            {selectedQuestionType?.name ===
-                              'ANSWER_SHORT_QUESTION' && (
-                              <p className='mt-1 text-green-600'>
-                                🤖 AI will automatically extract correct answers
-                                from the audio transcription using OpenAI
-                              </p>
-                            )}
-                          </div>
-                        )}
+            <div className='mt-4'>
+              <label className='block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2'>
+                Duration (seconds)
+              </label>
+                <input
+                  type='number'
+                  value={
+                    formData.durationMillis
+                      ? Math.round(formData.durationMillis / 1000)
+                      : ''
+                  }
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      durationMillis: parseInt(e.target.value) * 1000 || null,
+                    }))
+                  }
+                  className='w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                  min='1'
+                  placeholder='e.g., 40 for 40 seconds'
+                />
+                <p className='text-xs text-slate-500 dark:text-slate-400 mt-1'>
+                  Time limit for this question (optional)
+                </p>
+              </div>
 
-                        {audioPreview && (
-                          <div className='flex items-center justify-center gap-3 mb-4'>
-                            <button
-                              type='button'
-                              onClick={handleAudioPlay}
-                              className='flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors'
-                            >
-                              {playingAudio ? (
-                                <Pause className='w-4 h-4' />
-                              ) : (
-                                <Play className='w-4 h-4' />
-                              )}
-                              Preview
-                            </button>
-                            <audio
-                              id='preview-audio'
-                              src={audioPreview}
-                              className='hidden'
-                              onEnded={() => setPlayingAudio(false)}
-                            />
-                          </div>
-                        )}
+            </div>
 
-                        <button
-                          type='button'
-                          onClick={() => {
-                            setFormData((prev) => ({ ...prev, audioKey: '' }));
-                            setSelectedAudioFile(null);
-                            setAudioPreview(null);
-                            // Revoke the object URL to free memory
-                            if (
-                              audioPreview &&
-                              audioPreview.startsWith('blob:')
-                            ) {
-                              URL.revokeObjectURL(audioPreview);
-                            }
-                          }}
-                          className='text-sm text-red-600 hover:text-red-700 transition-colors'
-                        >
-                          Remove Audio
-                        </button>
-                      </div>
-                    ) : (
-                      <div className='text-center'>
-                        <Upload className='w-12 h-12 text-blue-400 mx-auto mb-3' />
-                        <h3 className='text-lg font-medium text-gray-900 mb-2'>
-                          Upload Audio File
-                        </h3>
-                        <p className='text-sm text-gray-600 mb-4'>
-                          Drag and drop your audio file here, or click to browse
-                        </p>
+            {/* Question Content */}
+          {selectedQuestionType && (
+            <div className='rounded-2xl border border-blue-100 bg-blue-50 p-6 dark:border-slate-800 dark:bg-slate-900/60'>
+                <h3 className='text-lg font-medium text-gray-900 mb-4 flex items-center gap-2'>
+                  <HelpCircle className='w-5 h-5' />
+                  Question Content
+                </h3>
 
-                        <input
-                          type='file'
-                          accept='audio/*'
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleAudioFileSelect(file);
-                          }}
-                          className='hidden'
-                          id='audio-upload'
-                          disabled={uploadingAudio}
-                        />
-
-                        <label
-                          htmlFor='audio-upload'
-                          className={`inline-flex items-center gap-2 px-6 py-3 border border-blue-300 rounded-lg shadow-sm text-sm font-medium text-blue-700 bg-white hover:bg-blue-50 cursor-pointer transition-colors ${
-                            uploadingAudio
-                              ? 'opacity-50 cursor-not-allowed'
-                              : ''
-                          }`}
-                        >
-                          <Upload className='w-4 h-4' />
-                          {uploadingAudio
-                            ? 'Uploading...'
-                            : 'Choose Audio File'}
-                        </label>
-
-                        <div className='mt-4 text-xs text-gray-500 space-y-1'>
-                          <p>Supported formats: MP3, WAV, OGG, M4A, AAC</p>
-                          <p>Maximum file size: 50MB</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Image URL */}
-              {requirements.requiresImage && (
-                <div className='mb-6'>
-                  <QuestionImageUpload
-                    onImageUpload={(imageData) => {
-                      setFormData((prev) => ({
-                        ...prev,
-                        imageKey: imageData.imageKey,
-                      }));
-                    }}
-                    currentImageUrl={formData.imageKey}
-                    currentImageKey={formData.imageKey}
-                    label='Question Image'
-                    required={true}
-                  />
-                </div>
-              )}
-
-              {/* Word Count Limits */}
-              {requirements.requiresWordCount && (
-                <div className='grid grid-cols-2 gap-4 mb-6'>
-                  <div>
-                    <label className='block text-sm font-medium text-gray-700 mb-2'>
-                      Minimum Word Count *
-                    </label>
-                    <input
-                      type='number'
-                      value={formData.wordCountMin || ''}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          wordCountMin: parseInt(e.target.value) || null,
-                        }))
-                      }
-                      className='w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
-                      min='1'
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className='block text-sm font-medium text-gray-700 mb-2'>
-                      Maximum Word Count *
-                    </label>
-                    <input
-                      type='number'
-                      value={formData.wordCountMax || ''}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          wordCountMax: parseInt(e.target.value) || null,
-                        }))
-                      }
-                      className='w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
-                      min='1'
-                      required
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Options for Multiple Choice */}
-              {requirements.requiresOptions && (
-                <div className='mb-6'>
-                  <div className='flex items-center justify-between mb-3'>
-                    <div>
-                      <label className='block text-sm font-medium text-gray-700'>
-                        Answer Options *
+                {/* Text Content */}
+                {requirements.requiresText &&
+                  !requirements.requiresParagraphs && (
+                    <div className='mb-6'>
+                      <label className='block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2'>
+                        Text Content *
                       </label>
-                      <p className='text-xs text-gray-500 mt-1'>
-                        {selectedQuestionType.name.includes('SINGLE_ANSWER')
-                          ? 'Select one correct answer (radio buttons)'
-                          : 'Select multiple correct answers (checkboxes)'}
-                      </p>
-                      {isSingleAnswerQuestion && (
-                        <p className='mt-2 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-medium text-indigo-700'>
-                          You must choose one option as the correct answer before creating this question.
-                        </p>
-                      )}
+                      <textarea
+                        value={formData.textContent}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            textContent: e.target.value,
+                          }))
+                        }
+                        className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                        rows={8}
+                        placeholder='Enter the text content for this question...'
+                        required
+                      />
                     </div>
-                    <button
-                      type='button'
-                      onClick={addOption}
-                      className='px-3 py-1 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700 transition-colors'
-                    >
-                      Add Option
-                    </button>
+                  )}
+
+                {/* Question Statement for Multiple Choice Questions */}
+                {requirements.requiresOptions && (
+                  <div className='mb-6'>
+                    <label className='block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2'>
+                      Question Statement *
+                    </label>
+                    <input
+                      type='text'
+                      value={formData.questionStatement}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          questionStatement: e.target.value,
+                        }))
+                      }
+                      className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                      placeholder='e.g., "What can we infer from the passage?", "Which of the following statements are incorrect?"'
+                      required
+                    />
+                    <p className='text-xs text-slate-500 dark:text-slate-400 mt-1'>
+                      Enter the actual question that will be asked to students
+                      based on the text/audio content above
+                    </p>
                   </div>
+                )}
 
-                  <div className='space-y-3'>
-                    {(formData.options || []).map(
-                      (option: any, index: number) => {
-                        const isSingleAnswer =
-                          selectedQuestionType.name.includes('SINGLE_ANSWER');
+                {/* Audio Upload */}
+                {requirements.requiresAudio && (
+                  <div className='mb-6'>
+                    <label className='block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2'>
+                      Audio File *
+                    </label>
+                    <div className='border-2 border-dashed border-blue-300 rounded-lg p-6 bg-white dark:border-blue-400/40 dark:bg-slate-900/60'>
+                      {formData.audioKey || selectedAudioFile ? (
+                        <div className='text-center'>
+                          <Volume2 className='w-12 h-12 text-green-600 mx-auto mb-3' />
+                          <p className='text-sm text-green-600 font-medium mb-2'>
+                            {formData.audioKey
+                              ? 'Audio uploaded successfully'
+                              : 'Audio file selected'}
+                          </p>
+                          <p className='text-xs text-slate-500 dark:text-slate-400 mb-4'>
+                            {formData.audioKey || selectedAudioFile?.name}
+                          </p>
+                          {selectedAudioFile && !formData.audioKey && (
+                            <div className='text-xs text-blue-600 dark:text-blue-400 mb-4'>
+                              <p>
+                                Audio will be uploaded when you create the
+                                question
+                              </p>
+                              {selectedQuestionType?.name ===
+                                'ANSWER_SHORT_QUESTION' && (
+                                <p className='mt-1 text-green-600'>
+                                  🤖 AI will automatically extract correct
+                                  answers from the audio transcription using
+                                  OpenAI
+                                </p>
+                              )}
+                            </div>
+                          )}
 
-                        return (
-                          <div
-                            key={option.id || index}
-                            className={`flex items-center gap-3 rounded-lg border p-3 bg-white ${
-                              option.isCorrect
-                                ? 'border-emerald-300 ring-1 ring-emerald-200'
-                                : 'border-gray-200'
+                          {audioPreview && (
+                            <div className='flex items-center justify-center gap-3 mb-4'>
+                              <button
+                                type='button'
+                                onClick={handleAudioPlay}
+                                className='flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors'
+                              >
+                                {playingAudio ? (
+                                  <Pause className='w-4 h-4' />
+                                ) : (
+                                  <Play className='w-4 h-4' />
+                                )}
+                                Preview
+                              </button>
+                              <audio
+                                id='preview-audio'
+                                src={audioPreview}
+                                className='hidden'
+                                onEnded={() => setPlayingAudio(false)}
+                              />
+                            </div>
+                          )}
+
+                          <button
+                            type='button'
+                            onClick={() => {
+                              setFormData((prev) => ({
+                                ...prev,
+                                audioKey: '',
+                              }));
+                              setSelectedAudioFile(null);
+                              setAudioPreview(null);
+                              // Revoke the object URL to free memory
+                              if (
+                                audioPreview &&
+                                audioPreview.startsWith('blob:')
+                              ) {
+                                URL.revokeObjectURL(audioPreview);
+                              }
+                            }}
+                            className='text-sm text-red-600 hover:text-red-700 transition-colors'
+                          >
+                            Remove Audio
+                          </button>
+                        </div>
+                      ) : (
+                        <div className='text-center'>
+                          <Upload className='w-12 h-12 text-blue-400 mx-auto mb-3' />
+                          <h3 className='text-lg font-medium text-slate-900 dark:text-slate-100 mb-2'>
+                            Upload Audio File
+                          </h3>
+                          <p className='text-sm text-slate-600 dark:text-slate-400 mb-4'>
+                            Drag and drop your audio file here, or click to
+                            browse
+                          </p>
+
+                          <input
+                            type='file'
+                            accept='audio/*'
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleAudioFileSelect(file);
+                            }}
+                            className='hidden'
+                            id='audio-upload'
+                            disabled={uploadingAudio}
+                          />
+
+                          <label
+                            htmlFor='audio-upload'
+                            className={`inline-flex items-center gap-2 px-6 py-3 border border-blue-300 rounded-lg shadow-sm text-sm font-medium text-blue-700 bg-white hover:bg-blue-50 cursor-pointer transition-colors ${
+                              uploadingAudio
+                                ? 'opacity-50 cursor-not-allowed'
+                                : ''
                             }`}
                           >
-                            <input
-                              type={isSingleAnswer ? 'radio' : 'checkbox'}
-                              name={
-                                isSingleAnswer ? 'correctAnswer' : undefined
-                              }
-                              checked={option.isCorrect || false}
-                              onChange={(e) => {
-                                if (isSingleAnswer) {
-                                  // For single answer, uncheck all others first
-                                  const updatedOptions = (
-                                    formData.options || []
-                                  ).map((opt: any, i: number) => ({
-                                    ...opt,
-                                    isCorrect:
-                                      i === index ? e.target.checked : false,
-                                  }));
-                                  setFormData((prev) => ({
-                                    ...prev,
-                                    options: updatedOptions,
-                                  }));
-                                  setFormError(null);
-                                } else {
-                                  // For multiple answers, just toggle this option
-                                  updateOption(
-                                    index,
-                                    'isCorrect',
-                                    e.target.checked
-                                  );
-                                }
-                              }}
-                              className='w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500'
-                            />
-                            <input
-                              type='text'
-                              value={option.text || ''}
-                              onChange={(e) =>
-                                updateOption(index, 'text', e.target.value)
-                              }
-                              className='flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
-                              placeholder={`Option ${index + 1}`}
-                              required
-                            />
-                            {option.isCorrect && (
-                              <span className='rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700'>
-                                Correct answer
-                              </span>
-                            )}
-                            <button
-                              type='button'
-                              onClick={() => removeOption(index)}
-                              className='p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors'
-                            >
-                              <X className='w-4 h-4' />
-                            </button>
+                            <Upload className='w-4 h-4' />
+                            {uploadingAudio
+                              ? 'Uploading...'
+                              : 'Choose Audio File'}
+                          </label>
+
+                          <div className='mt-4 text-xs text-slate-500 dark:text-slate-400 space-y-1'>
+                            <p>Supported formats: MP3, WAV, OGG, M4A, AAC</p>
+                            <p>Maximum file size: 50MB</p>
                           </div>
-                        );
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Image URL */}
+                {(requirements.requiresImage || requirements.allowsOptionalImage) && (
+                  <div className='mb-6'>
+                    <QuestionImageUpload
+                      onImageUpload={(imageData) => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          imageKey: imageData.imageKey,
+                        }));
+                      }}
+                      currentImageUrl={formData.imageKey}
+                      currentImageKey={formData.imageKey}
+                      label={
+                        requirements.requiresImage
+                          ? 'Question Image'
+                          : 'Optional Lecture Image'
                       }
+                      required={requirements.requiresImage}
+                    />
+                    {!requirements.requiresImage &&
+                      requirements.allowsOptionalImage && (
+                        <p className='text-xs text-slate-500 dark:text-slate-400 mt-1'>
+                          You can optionally upload an image that will be shown
+                          to learners when they practice this Retell Lecture
+                          question.
+                        </p>
+                      )}
+                  </div>
+                )}
+
+                {/* Word Count Limits */}
+                {requirements.requiresWordCount && (
+                  <div className='grid grid-cols-2 gap-4 mb-6'>
+                    <div>
+                      <label className='block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2'>
+                        Minimum Word Count *
+                      </label>
+                      <input
+                        type='number'
+                        value={formData.wordCountMin || ''}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            wordCountMin: parseInt(e.target.value) || null,
+                          }))
+                        }
+                        className='w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                        min='1'
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className='block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2'>
+                        Maximum Word Count *
+                      </label>
+                      <input
+                        type='number'
+                        value={formData.wordCountMax || ''}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            wordCountMax: parseInt(e.target.value) || null,
+                          }))
+                        }
+                        className='w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                        min='1'
+                        required
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Options for Multiple Choice */}
+                {requirements.requiresOptions && (
+                  <div className='mb-6'>
+                    <div className='flex items-center justify-between mb-3'>
+                      <div>
+                        <label className='block text-sm font-medium text-slate-700 dark:text-slate-200'>
+                          Answer Options *
+                        </label>
+                        <p className='text-xs text-slate-500 dark:text-slate-400 mt-1'>
+                          {selectedQuestionType.name.includes('SINGLE_ANSWER')
+                            ? 'Select one correct answer (radio buttons)'
+                            : 'Select multiple correct answers (checkboxes)'}
+                        </p>
+                        {isSingleAnswerQuestion && (
+                          <p className='mt-2 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-medium text-indigo-700'>
+                            You must choose one option as the correct answer
+                            before creating this question.
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type='button'
+                        onClick={addOption}
+                        className='px-3 py-1 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700 transition-colors'
+                      >
+                        Add Option
+                      </button>
+                    </div>
+
+                    <div className='space-y-3'>
+                      {(formData.options || []).map(
+                        (option: any, index: number) => {
+                          const isSingleAnswer =
+                            selectedQuestionType.name.includes('SINGLE_ANSWER');
+
+                          return (
+                            <div
+                              key={option.id || index}
+                              className={`flex items-center gap-3 rounded-lg border p-3 bg-white ${
+                                option.isCorrect
+                                  ? 'border-emerald-300 ring-1 ring-emerald-200'
+                                  : 'border-gray-200'
+                              }`}
+                            >
+                              <input
+                                type={isSingleAnswer ? 'radio' : 'checkbox'}
+                                name={
+                                  isSingleAnswer ? 'correctAnswer' : undefined
+                                }
+                                checked={option.isCorrect || false}
+                                onChange={(e) => {
+                                  if (isSingleAnswer) {
+                                    // For single answer, uncheck all others first
+                                    const updatedOptions = (
+                                      formData.options || []
+                                    ).map((opt: any, i: number) => ({
+                                      ...opt,
+                                      isCorrect:
+                                        i === index ? e.target.checked : false,
+                                    }));
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      options: updatedOptions,
+                                    }));
+                                    setFormError(null);
+                                  } else {
+                                    // For multiple answers, just toggle this option
+                                    updateOption(
+                                      index,
+                                      'isCorrect',
+                                      e.target.checked,
+                                    );
+                                  }
+                                }}
+                                className='w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500'
+                              />
+                              <input
+                                type='text'
+                                value={option.text || ''}
+                                onChange={(e) =>
+                                  updateOption(index, 'text', e.target.value)
+                                }
+                                className='flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                                placeholder={`Option ${index + 1}`}
+                                required
+                              />
+                              {option.isCorrect && (
+                                <span className='rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700'>
+                                  Correct answer
+                                </span>
+                              )}
+                              <button
+                                type='button'
+                                onClick={() => removeOption(index)}
+                                className='p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors'
+                              >
+                                <X className='w-4 h-4' />
+                              </button>
+                            </div>
+                          );
+                        },
+                      )}
+                    </div>
+
+                    {(formData.options || []).length === 0 && (
+                      <p className='text-sm text-slate-500 dark:text-slate-400 text-center py-4'>
+                        No options added yet. Click "Add Option" to create
+                        answer choices.
+                      </p>
+                    )}
+
+                    {requirements.requiresOptions && (
+                      <div className='mt-3 flex flex-wrap items-center gap-3 text-xs'>
+                        <span className='text-slate-600 dark:text-slate-400'>
+                          Correct answers selected:{' '}
+                          <span className='font-semibold text-gray-900'>
+                            {selectedCorrectOptionCount}
+                          </span>
+                        </span>
+                        {isSingleAnswerQuestion &&
+                          selectedCorrectOptionCount !== 1 && (
+                            <span className='rounded-full bg-amber-100 px-2.5 py-1 font-medium text-amber-700'>
+                              Select exactly one correct answer
+                            </span>
+                          )}
+                        {!isSingleAnswerQuestion &&
+                          isMultipleChoiceQuestion &&
+                          selectedCorrectOptionCount === 0 && (
+                            <span className='rounded-full bg-amber-100 px-2.5 py-1 font-medium text-amber-700'>
+                              Select at least one correct answer
+                            </span>
+                          )}
+                      </div>
+                    )}
+
+                    {formError && requirements.requiresOptions && (
+                      <div className='mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700'>
+                        {formError}
+                      </div>
                     )}
                   </div>
+                )}
 
-                  {(formData.options || []).length === 0 && (
-                    <p className='text-sm text-gray-500 text-center py-4'>
-                      No options added yet. Click "Add Option" to create answer
-                      choices.
-                    </p>
+                {/* Question Type Specific Fields */}
+                {renderQuestionTypeSpecificFields()}
+              </div>
+            )}
+
+            {/* Question Type Help */}
+            {selectedQuestionType && (
+            <div className='rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-600/50 dark:bg-amber-800/10'>
+                <h4 className='text-sm font-medium text-amber-800 mb-2'>
+                  {selectedQuestionType.name
+                    .split('_')
+                    .map(
+                      (word: string) =>
+                        word.charAt(0).toUpperCase() +
+                        word.slice(1).toLowerCase(),
+                    )
+                    .join(' ')}{' '}
+                  Requirements:
+                </h4>
+                <ul className='text-sm text-amber-700 space-y-1'>
+                  {requirements.requiresText && (
+                    <li>• Text content is required</li>
                   )}
-
+                  {requirements.requiresAudio && (
+                    <li>• Audio file is required</li>
+                  )}
+                  {requirements.requiresImage && (
+                    <li>• Image URL is required</li>
+                  )}
+                  {requirements.requiresImageType && (
+                    <li>• Select the image type/category</li>
+                  )}
                   {requirements.requiresOptions && (
-                    <div className='mt-3 flex flex-wrap items-center gap-3 text-xs'>
-                      <span className='text-gray-600'>
-                        Correct answers selected:{' '}
-                        <span className='font-semibold text-gray-900'>
-                          {selectedCorrectOptionCount}
-                        </span>
-                      </span>
-                      {isSingleAnswerQuestion && selectedCorrectOptionCount !== 1 && (
-                        <span className='rounded-full bg-amber-100 px-2.5 py-1 font-medium text-amber-700'>
-                          Select exactly one correct answer
-                        </span>
-                      )}
-                      {!isSingleAnswerQuestion &&
-                        isMultipleChoiceQuestion &&
-                        selectedCorrectOptionCount === 0 && (
-                          <span className='rounded-full bg-amber-100 px-2.5 py-1 font-medium text-amber-700'>
-                            Select at least one correct answer
-                          </span>
-                        )}
-                    </div>
+                    <>
+                      <li>• Question statement is required</li>
+                      <li>• Answer options are required</li>
+                      <li>
+                        • Mark the correct answer before saving the question
+                      </li>
+                    </>
                   )}
-
-                  {formError && requirements.requiresOptions && (
-                    <div className='mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700'>
-                      {formError}
-                    </div>
+                  {requirements.requiresWordCount && (
+                    <li>• Word count limits are required</li>
                   )}
-                </div>
-              )}
-
-              {/* Question Type Specific Fields */}
-              {renderQuestionTypeSpecificFields()}
-            </div>
-          )}
-
-          {/* Question Type Help */}
-          {selectedQuestionType && (
-            <div className='bg-amber-50 border border-amber-200 rounded-lg p-4'>
-              <h4 className='text-sm font-medium text-amber-800 mb-2'>
-                {selectedQuestionType.name
-                  .split('_')
-                  .map(
-                    (word: string) =>
-                      word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-                  )
-                  .join(' ')}{' '}
-                Requirements:
-              </h4>
-              <ul className='text-sm text-amber-700 space-y-1'>
-                {requirements.requiresText && (
-                  <li>• Text content is required</li>
-                )}
-                {requirements.requiresAudio && (
-                  <li>• Audio file is required</li>
-                )}
-                {requirements.requiresImage && <li>• Image URL is required</li>}
-                {requirements.requiresOptions && (
-                  <>
-                    <li>• Question statement is required</li>
-                    <li>• Answer options are required</li>
+                  {requirements.requiresIncorrectWords && (
                     <li>
-                      • Mark the correct answer before saving the question
+                      • Original text with errors and incorrect words list are
+                      required
                     </li>
-                  </>
-                )}
-                {requirements.requiresWordCount && (
-                  <li>• Word count limits are required</li>
-                )}
-                {requirements.requiresIncorrectWords && (
-                  <li>
-                    • Original text with errors and incorrect words list are
-                    required
-                  </li>
-                )}
-                {requirements.requiresParagraphs && (
-                  <li>• Multiple paragraphs in correct order are required</li>
-                )}
-                {requirements.requiresBlanks && (
-                  <li>• Blank options and correct answers are required</li>
-                )}
-                {requirements.requiresBlanks && (
-                  <li>
-                    • Each blank must have at least 3-5 dropdown options
-                    including the correct answer
-                  </li>
-                )}
-              </ul>
-            </div>
-          )}
+                  )}
+                  {requirements.requiresParagraphs && (
+                    <li>• Multiple paragraphs in correct order are required</li>
+                  )}
+                  {requirements.requiresBlanks && (
+                    <li>• Blank options and correct answers are required</li>
+                  )}
+                  {requirements.requiresBlanks && (
+                    <li>
+                      • Each blank must have at least 3-5 dropdown options
+                      including the correct answer
+                    </li>
+                  )}
+                </ul>
+              </div>
+            )}
 
-          {/* Action Buttons */}
-          <div className='flex justify-end gap-4 pt-6 border-t border-gray-200'>
-            <button
-              type='button'
-              onClick={onCancel}
-              className='px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium'
-            >
-              Cancel
-            </button>
-            <button
-              type='submit'
-              disabled={
-                loading ||
-                uploadingAudio ||
-                transcribingAudio ||
-                extractingAnswers ||
-                hasInvalidCorrectAnswerSelection
-              }
-              className='px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium'
-            >
-              {uploadingAudio
-                ? 'Uploading Audio...'
-                : transcribingAudio
-                ? 'Transcribing Audio...'
-                : extractingAnswers
-                ? 'Extracting Answers...'
-                : loading
-                ? 'Saving...'
-                : question
-                ? 'Update Question'
-                : 'Create Question'}
-            </button>
-          </div>
-        </form>
+            {/* Action Buttons */}
+            <div className='flex flex-wrap justify-end gap-4 border-t border-slate-200 pt-6 dark:border-slate-800'>
+              <button
+                type='button'
+                onClick={onCancel}
+                className='px-6 py-3 rounded-2xl border border-slate-200 text-slate-700 transition-colors hover:border-slate-400 hover:text-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-500 dark:hover:text-slate-100'
+              >
+                Cancel
+              </button>
+              <button
+                type='submit'
+                disabled={
+                  loading ||
+                  uploadingAudio ||
+                  transcribingAudio ||
+                  extractingAnswers ||
+                  hasInvalidCorrectAnswerSelection
+                }
+                className='px-6 py-3 rounded-2xl bg-slate-900 text-white transition-colors hover:bg-slate-800 disabled:opacity-60 disabled:cursor-not-allowed font-medium'
+              >
+                {uploadingAudio
+                  ? 'Uploading Audio...'
+                  : transcribingAudio
+                    ? 'Transcribing Audio...'
+                    : extractingAnswers
+                      ? 'Extracting Answers...'
+                      : loading
+                        ? 'Saving...'
+                        : question
+                          ? 'Update Question'
+                          : 'Create Question'}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

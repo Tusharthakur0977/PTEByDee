@@ -45,6 +45,7 @@ interface Question {
     testType: string;
   };
   responseCount: number;
+  tags?: string[];
 }
 
 interface QuestionType {
@@ -209,15 +210,23 @@ const QuestionManagement: React.FC = () => {
         questionToDelete.id
       );
       if (response.success) {
-        setQuestions(questions.filter((q) => q.id !== questionToDelete.id));
-        setShowDeleteModal(false);
-        setQuestionToDelete(null);
+        if (response.data?.archived) {
+          setError(response.message);
+          fetchQuestions();
+        } else {
+          setQuestions((prev) =>
+            prev.filter((q) => q.id !== questionToDelete.id)
+          );
+        }
       } else {
         setError(response.message);
       }
     } catch (error: any) {
       console.error('Error deleting question:', error);
       setError(error.response?.data?.message || 'Failed to delete question');
+    } finally {
+      setShowDeleteModal(false);
+      setQuestionToDelete(null);
     }
   };
 
@@ -288,14 +297,20 @@ const QuestionManagement: React.FC = () => {
                     type='text'
                     placeholder='Search questions...'
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      setCurrentPage(1);
+                    }}
                     className={`${inputClass} pl-10 pr-4`}
                   />
                 </div>
 
                 <select
                   value={selectedSection}
-                  onChange={(e) => setSelectedSection(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedSection(e.target.value);
+                    setCurrentPage(1);
+                  }}
                   className={inputClass}
                 >
                   <option value=''>All Sections</option>
@@ -311,7 +326,10 @@ const QuestionManagement: React.FC = () => {
 
                 <select
                   value={selectedQuestionType}
-                  onChange={(e) => setSelectedQuestionType(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedQuestionType(e.target.value);
+                    setCurrentPage(1);
+                  }}
                   className={inputClass}
                 >
                   <option value=''>All Question Types</option>
@@ -329,7 +347,10 @@ const QuestionManagement: React.FC = () => {
 
                 <select
                   value={selectedTest}
-                  onChange={(e) => setSelectedTest(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedTest(e.target.value);
+                    setCurrentPage(1);
+                  }}
                   className={inputClass}
                 >
                   <option value=''>All Tests</option>

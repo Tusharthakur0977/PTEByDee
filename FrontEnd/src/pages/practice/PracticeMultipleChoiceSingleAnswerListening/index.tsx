@@ -5,17 +5,19 @@ import {
   Filter,
   History,
   Info,
-} from "lucide-react";
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import MiniAudioPlayer from "../../../components/MiniAudioPlayer";
-import PreviousResponses from "../../../components/PreviousResponses";
-import QuestionSidebar from "../../../components/QuestionSidebar";
-import ResponseDetailModal from "./ResponseDetailModal";
-import api from "../../../services/api";
-import { getPracticeQuestions } from "../../../services/portal";
-import { PteQuestionTypeName } from "../../../types/pte";
-import { formatScoringText } from "../../../utils/Helpers";
+  XCircle,
+} from 'lucide-react';
+import InlinePreviousAttempts from '../../../components/InlinePreviousAttempts';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import MiniAudioPlayer from '../../../components/MiniAudioPlayer';
+import PreviousResponses from '../../../components/PreviousResponses';
+import QuestionSidebar from '../../../components/QuestionSidebar';
+import ResponseDetailModal from './ResponseDetailModal';
+import api from '../../../services/api';
+import { getPracticeQuestions } from '../../../services/portal';
+import { PteQuestionTypeName } from '../../../types/pte';
+import { formatScoringText } from '../../../utils/Helpers';
 
 export interface QuestionsData {
   id: string;
@@ -48,8 +50,8 @@ const PracticeMultipleChoiceSingleAnswerListening: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showQuestionSidebar, setShowQuestionSidebar] = useState(false);
   const [difficultyLevel, setDifficultyLevel] = useState<
-    "EASY" | "MEDIUM" | "HARD" | "all"
-  >("all");
+    'EASY' | 'MEDIUM' | 'HARD' | 'all'
+  >('all');
   const [showDifficultyFilter, setShowDifficultyFilter] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const evaluationRef = useRef<HTMLDivElement>(null);
@@ -62,7 +64,7 @@ const PracticeMultipleChoiceSingleAnswerListening: React.FC = () => {
   // User response
   const [response, setResponse] = useState<{
     selectedOption: string;
-  }>({ selectedOption: "" });
+  }>({ selectedOption: '' });
 
   // Evaluation features
   const [isCompleted, setIsCompleted] = useState(false);
@@ -79,7 +81,7 @@ const PracticeMultipleChoiceSingleAnswerListening: React.FC = () => {
         random: false,
       };
 
-      if (difficultyLevel !== "all") {
+      if (difficultyLevel !== 'all') {
         options.difficultyLevel = difficultyLevel;
       }
 
@@ -90,7 +92,7 @@ const PracticeMultipleChoiceSingleAnswerListening: React.FC = () => {
       setQuestions(response.questions as QuestionsData[]);
       setCurrentIndex(0);
     } catch (err) {
-      setError("Failed to load questions");
+      setError('Failed to load questions');
     } finally {
       setIsLoading(false);
     }
@@ -106,7 +108,7 @@ const PracticeMultipleChoiceSingleAnswerListening: React.FC = () => {
   useEffect(() => {
     audioPlayerRef.current?.stop();
     setIsCompleted(false);
-    setResponse({ selectedOption: "" });
+    setResponse({ selectedOption: '' });
     setEvaluationResult(null);
     setShowPreviousResponses(false);
     setSelectedResponse(null);
@@ -130,7 +132,7 @@ const PracticeMultipleChoiceSingleAnswerListening: React.FC = () => {
   const handleReset = () => {
     audioPlayerRef.current?.stop();
     audioPlayerRef.current?.play();
-    setResponse({ selectedOption: "" });
+    setResponse({ selectedOption: '' });
     setElapsedSeconds(0);
     setIsCompleted(false);
     setEvaluationResult(null);
@@ -141,7 +143,7 @@ const PracticeMultipleChoiceSingleAnswerListening: React.FC = () => {
     if (isCompleted || isSubmitting) return;
 
     if (!response.selectedOption) {
-      setError("Please select an option");
+      setError('Please select an option');
       return;
     }
 
@@ -149,7 +151,7 @@ const PracticeMultipleChoiceSingleAnswerListening: React.FC = () => {
       setIsSubmitting(true);
       audioPlayerRef.current?.stop();
 
-      const result = await api.post("/user/questions/submit-response", {
+      const result = await api.post('/user/questions/submit-response', {
         questionId: currentQuestion?.id,
         userResponse: {
           selectedOption: response.selectedOption,
@@ -162,13 +164,13 @@ const PracticeMultipleChoiceSingleAnswerListening: React.FC = () => {
       setIsCompleted(true);
       setTimeout(() => {
         evaluationRef.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
+          behavior: 'smooth',
+          block: 'start',
         });
       }, 100);
     } catch (err: any) {
-      console.error("Error submitting response:", err);
-      setError(err.message || "Failed to evaluate response");
+      console.error('Error submitting response:', err);
+      setError(err.message || 'Failed to evaluate response');
 
       setEvaluationResult(null);
       setIsCompleted(false);
@@ -190,8 +192,8 @@ const PracticeMultipleChoiceSingleAnswerListening: React.FC = () => {
   };
 
   const handleExit = () => {
-    if (window.confirm("Are you sure you want to exit?")) {
-      navigate("/portal");
+    if (window.confirm('Are you sure you want to exit?')) {
+      navigate('/portal');
     }
   };
 
@@ -216,76 +218,80 @@ const PracticeMultipleChoiceSingleAnswerListening: React.FC = () => {
 
   const getScoreColor = (score: number, max: number): string => {
     const percentage = (score / max) * 100;
-    if (percentage >= 80) return "text-green-600 dark:text-green-400";
-    if (percentage >= 60) return "text-yellow-600 dark:text-yellow-400";
-    return "text-red-600 dark:text-red-400";
+    if (percentage >= 80) return 'text-green-600 dark:text-green-400';
+    if (percentage >= 60) return 'text-yellow-600 dark:text-yellow-400';
+    return 'text-red-600 dark:text-red-400';
   };
 
   const formatElapsedTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs
+    return `${mins.toString().padStart(2, '0')}:${secs
       .toString()
-      .padStart(2, "0")}`;
+      .padStart(2, '0')}`;
   };
 
   return (
-    <div className="min-h-[calc(100vh-65px)] bg-gradient-to-br dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex flex-col">
+    <div className='min-h-[calc(100vh-65px)] bg-gradient-to-br dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex flex-col'>
       {/*  HEADER */}
-      <div className="dark:bg-gray-800 border-b dark:border-gray-700 px-6 py-4 flex justify-between items-center">
-        <div className="flex items-center gap-4">
-          <button onClick={handleExit} className="p-2" title="Exit">
-            <ChevronLeft className="w-6 h-6 text-black dark:text-white" />
+      <div className='dark:bg-gray-800 border-b dark:border-gray-700 px-6 py-4 flex justify-between items-center'>
+        <div className='flex items-center gap-4'>
+          <button
+            onClick={handleExit}
+            className='p-2'
+            title='Exit'
+          >
+            <ChevronLeft className='w-6 h-6 text-black dark:text-white' />
           </button>
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2 text-black dark:text-white">
-              Multiple Choice - Single Answer (Listening){" "}
-              <p className="text-gray-400 dark:text-gray-400 text-sm">
+            <h1 className='text-2xl font-bold flex items-center gap-2 text-black dark:text-white'>
+              Multiple Choice - Single Answer (Listening){' '}
+              <p className='text-gray-400 dark:text-gray-400 text-sm'>
                 (Question {currentIndex + 1} of {questions.length})
               </p>
             </h1>
 
-            <div className="flex flex-row items-center space-x-3 ">
-              <p className="font-bold text-blue-600 dark:text-blue-400 text-sm leading-relaxed">
+            <div className='flex flex-row items-center space-x-3 '>
+              <p className='font-bold text-blue-600 dark:text-blue-400 text-sm leading-relaxed'>
                 Listen to the recording and answer the question by selecting the
                 correct response. Only one response is correct.
               </p>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="relative group">
+        <div className='flex items-center gap-3'>
+          <div className='relative group'>
             <button
               onClick={() => setShowDifficultyFilter(!showDifficultyFilter)}
-              className="p-2 text-gray-300 hover:text-white"
-              title="Filter by difficulty"
+              className='p-2 text-gray-300 hover:text-white'
+              title='Filter by difficulty'
             >
-              <Filter className="w-4 h-4 text-gray-400 dark:text-white" />
+              <Filter className='w-4 h-4 text-gray-400 dark:text-white' />
             </button>
             {showDifficultyFilter && (
-              <div className="absolute right-0 mt-2 w-48 bg-gray-700 rounded-lg shadow-lg p-3 z-50">
-                <p className="text-xs text-gray-400 mb-2 font-semibold">
+              <div className='absolute right-0 mt-2 w-48 bg-gray-700 rounded-lg shadow-lg p-3 z-50'>
+                <p className='text-xs text-gray-400 mb-2 font-semibold'>
                   Difficulty Level
                 </p>
-                <div className="space-y-2">
-                  {(["all", "EASY", "MEDIUM", "HARD"] as const).map((level) => (
+                <div className='space-y-2'>
+                  {(['all', 'EASY', 'MEDIUM', 'HARD'] as const).map((level) => (
                     <label
                       key={level}
-                      className="flex items-center gap-2 cursor-pointer"
+                      className='flex items-center gap-2 cursor-pointer'
                     >
                       <input
-                        type="radio"
-                        name="difficulty"
+                        type='radio'
+                        name='difficulty'
                         value={level}
                         checked={difficultyLevel === level}
                         onChange={(e) => {
                           setDifficultyLevel(e.target.value as any);
                           setShowDifficultyFilter(false);
                         }}
-                        className="w-4 h-4"
+                        className='w-4 h-4'
                       />
-                      <span className="text-white text-sm">
-                        {level === "all" ? "All Levels" : level}
+                      <span className='text-white text-sm'>
+                        {level === 'all' ? 'All Levels' : level}
                       </span>
                     </label>
                   ))}
@@ -296,51 +302,62 @@ const PracticeMultipleChoiceSingleAnswerListening: React.FC = () => {
 
           <button
             onClick={() => setShowQuestionSidebar(true)}
-            className="p-2 text-gray-300 hover:text-white"
-            title="View all questions"
+            className='p-2 text-gray-300 hover:text-white'
+            title='View all questions'
           >
-            <BarChart3 className="w-4 h-4 text-gray-400 dark:text-white" />
+            <BarChart3 className='w-4 h-4 text-gray-400 dark:text-white' />
           </button>
           <button
             onClick={() => setShowPreviousResponses(true)}
-            className="flex items-center gap-2 p-2 text-gray-400 text-sm font-semibold"
-            title="Previous Attempts"
+            className='flex items-center gap-2 p-2 text-gray-400 text-sm font-semibold'
+            title='Previous Attempts'
           >
-            <History className="w-4 h-4" />
+            <History className='w-4 h-4' />
           </button>
         </div>
       </div>
 
       {isLoading && (
-        <div className="h-screen dark:bg-gray-900 flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
-            <p className="dark:text-white">Loading questions...</p>
+        <div className='h-screen dark:bg-gray-900 flex items-center justify-center'>
+          <div className='text-center'>
+            <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4'></div>
+            <p className='dark:text-white'>Loading questions...</p>
           </div>
         </div>
       )}
 
       {questions.length === 0 && !isLoading ? (
-        <div className="h-screen bg-gray-900 flex items-center justify-center">
-          <p className="dark:text-white">No questions available</p>
+        <div className='flex flex-1 items-center justify-center px-6 py-12'>
+          <div className='w-full max-w-md rounded-3xl border border-slate-200 bg-white/80 p-8 text-center shadow-lg shadow-slate-900/5 dark:border-slate-700 dark:bg-slate-900/70'>
+            <div className='mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-200'>
+              <XCircle className='h-6 w-6' />
+            </div>
+            <h3 className='text-lg font-semibold text-slate-900 dark:text-white'>
+              No practice questions found
+            </h3>
+            <p className='mt-2 text-sm text-slate-500 dark:text-slate-400'>
+              We are still curating Describe Image questions for this category.
+              Try another type or revisit soon.
+            </p>
+          </div>
         </div>
       ) : (
-        <div className="flex-1 overflow-auto relative">
-          <div className="absolute top-4 right-4 z-10 rounded-lg bg-white/90 dark:bg-gray-800/90 backdrop-blur px-3 py-1.5 border border-gray-200 dark:border-gray-600 shadow-sm">
-            <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">
+        <div className='flex-1 overflow-auto relative'>
+          <div className='absolute top-4 right-4 z-10 rounded-lg bg-white/90 dark:bg-gray-800/90 backdrop-blur px-3 py-1.5 border border-gray-200 dark:border-gray-600 shadow-sm'>
+            <p className='text-xs font-semibold text-gray-700 dark:text-gray-200'>
               Elapsed: {formatElapsedTime(elapsedSeconds)}
             </p>
           </div>
-          <div className="max-w-4xl mx-auto p-8 space-y-6">
+          <div className='max-w-4xl mx-auto p-8 space-y-6'>
             {/* Audio Player */}
             {currentQuestion?.content?.audioUrl && (
-              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-600">
+              <div className='bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-600'>
                 <MiniAudioPlayer
                   ref={audioPlayerRef}
                   src={currentQuestion.content.audioUrl}
                   questionId={currentQuestion.id}
                   questionAudioText={
-                    currentQuestion.content.text || "Audio Recording"
+                    currentQuestion.content.text || 'Audio Recording'
                   }
                   autoPlay={true}
                   autoPlayDelay={2000}
@@ -350,8 +367,8 @@ const PracticeMultipleChoiceSingleAnswerListening: React.FC = () => {
             )}
 
             {/* Multiple Choice Options */}
-            <div className="space-y-3">
-              <h4 className="font-medium text-gray-900 dark:text-white">
+            <div className='space-y-3'>
+              <h4 className='font-medium text-gray-900 dark:text-white'>
                 Choose the correct answer:
               </h4>
               {currentQuestion?.content?.options?.map((option) => {
@@ -361,31 +378,31 @@ const PracticeMultipleChoiceSingleAnswerListening: React.FC = () => {
                 const isSelected = response.selectedOption === option.id;
 
                 let optionClass =
-                  "border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700";
+                  'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700';
 
                 if (isCompleted) {
                   if (isCorrectAnswer) {
                     optionClass =
-                      "border-green-500 bg-green-50 dark:bg-green-900/30";
+                      'border-green-500 bg-green-50 dark:bg-green-900/30';
                   } else if (isSelected) {
-                    optionClass = "border-red-500 bg-red-50 dark:bg-red-900/30";
+                    optionClass = 'border-red-500 bg-red-50 dark:bg-red-900/30';
                   } else {
                     optionClass =
-                      "border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/20";
+                      'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/20';
                   }
                 } else if (isSelected) {
                   optionClass =
-                    "border-blue-500 bg-blue-50 dark:bg-blue-900/30";
+                    'border-blue-500 bg-blue-50 dark:bg-blue-900/30';
                 }
 
                 return (
                   <label
                     key={option.id}
-                    className={`flex items-start space-x-4 p-4 border rounded-lg cursor-pointer transition-all duration-200 ${optionClass} ${isCompleted ? "pointer-events-none" : ""}`}
+                    className={`flex items-start space-x-4 p-4 border rounded-lg cursor-pointer transition-all duration-200 ${optionClass} ${isCompleted ? 'pointer-events-none' : ''}`}
                   >
                     <input
-                      type="radio"
-                      name="answer"
+                      type='radio'
+                      name='answer'
                       value={option.id}
                       checked={response.selectedOption === option.id}
                       onChange={(e) => {
@@ -394,9 +411,9 @@ const PracticeMultipleChoiceSingleAnswerListening: React.FC = () => {
                         });
                       }}
                       disabled={isCompleted}
-                      className="mt-1 h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
+                      className='mt-1 h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300'
                     />
-                    <span className="text-gray-900 dark:text-white leading-relaxed">
+                    <span className='text-gray-900 dark:text-white leading-relaxed'>
                       {option.text}
                     </span>
                   </label>
@@ -406,17 +423,17 @@ const PracticeMultipleChoiceSingleAnswerListening: React.FC = () => {
 
             {/* Error message */}
             {error && (
-              <div className="bg-red-900/30 border border-red-600 rounded-lg p-4">
-                <p className="text-red-400">{error}</p>
+              <div className='bg-red-900/30 border border-red-600 rounded-lg p-4'>
+                <p className='text-red-400'>{error}</p>
               </div>
             )}
 
             {/* Action buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className='flex flex-col sm:flex-row gap-4 justify-center'>
               <button
                 onClick={handleReset}
                 disabled={isSubmitting || !response.selectedOption}
-                className="px-6 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 font-semibold transition"
+                className='px-6 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 font-semibold transition'
               >
                 Reset
               </button>
@@ -425,9 +442,9 @@ const PracticeMultipleChoiceSingleAnswerListening: React.FC = () => {
                 <button
                   onClick={handleSubmit}
                   disabled={!response.selectedOption || isSubmitting}
-                  className="flex-1 sm:flex-none sm:w-[60%] bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-semibold py-3 rounded-xl shadow-md transition"
+                  className='flex-1 sm:flex-none sm:w-[60%] bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-semibold py-3 rounded-xl shadow-md transition'
                 >
-                  {isSubmitting ? "Submitting..." : "Submit Answer"}
+                  {isSubmitting ? 'Submitting...' : 'Submit Answer'}
                 </button>
               )}
             </div>
@@ -436,45 +453,45 @@ const PracticeMultipleChoiceSingleAnswerListening: React.FC = () => {
             {evaluationResult?.evaluation && (
               <div
                 ref={evaluationRef}
-                className="flex flex-1 flex-col overflow-auto px-6 py-8 gap-5 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500"
+                className='flex flex-1 flex-col overflow-auto px-6 py-8 gap-5 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500'
               >
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white px-1">
+                <h3 className='text-xl font-bold text-gray-900 dark:text-white px-1'>
                   Detailed Analysis
                 </h3>
 
                 {/* Scoring Table */}
-                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
-                  <table className="w-full border-collapse">
-                    <thead className="bg-gray-50 dark:bg-gray-700/50">
+                <div className='bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm'>
+                  <table className='w-full border-collapse'>
+                    <thead className='bg-gray-50 dark:bg-gray-700/50'>
                       <tr>
-                        <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                        <th className='px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400'>
                           Rubric
                         </th>
-                        <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                        <th className='px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400'>
                           Score
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                    <tbody className='divide-y divide-gray-100 dark:divide-gray-700'>
                       {Object.entries(
                         evaluationResult.evaluation.detailedAnalysis.scores ||
                           {},
                       ).map(([component, scoreData]: any) => (
                         <tr
                           key={component}
-                          className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition"
+                          className='hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition'
                         >
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-gray-700 dark:text-gray-200">
+                          <td className='px-6 py-4'>
+                            <div className='flex items-center gap-2'>
+                              <span className='font-semibold text-gray-700 dark:text-gray-200'>
                                 {formatScoringText(component)}
                               </span>
-                              <div className="relative group inline-flex items-center">
-                                <Info className="h-4 w-4 text-gray-400 cursor-help" />
+                              <div className='relative group inline-flex items-center'>
+                                <Info className='h-4 w-4 text-gray-400 cursor-help' />
 
                                 {/* Tooltip */}
-                                <div className="absolute left-full top-1/2 ml-3 -translate-y-1/2 w-64 p-3 bg-gray-900 text-white text-xs rounded-xl shadow-xl hidden group-hover:block z-50">
-                                  <p className="font-bold mb-1">
+                                <div className='absolute left-full top-1/2 ml-3 -translate-y-1/2 w-64 p-3 bg-gray-900 text-white text-xs rounded-xl shadow-xl hidden group-hover:block z-50'>
+                                  <p className='font-bold mb-1'>
                                     Scoring Criteria
                                   </p>
                                   <p>
@@ -489,14 +506,14 @@ const PracticeMultipleChoiceSingleAnswerListening: React.FC = () => {
 
                                   {/* Arrow */}
                                   <div
-                                    className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full 
-                    border-8 border-transparent border-r-gray-900"
+                                    className='absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full 
+                    border-8 border-transparent border-r-gray-900'
                                   ></div>
                                 </div>
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 text-left">
+                          <td className='px-6 py-4 text-left'>
                             <span
                               className={`text-lg font-bold ${getScoreColor(
                                 scoreData.score || 0,
@@ -504,7 +521,7 @@ const PracticeMultipleChoiceSingleAnswerListening: React.FC = () => {
                               )}`}
                             >
                               {scoreData.score}
-                              <span className="text-gray-400 font-medium">
+                              <span className='text-gray-400 font-medium'>
                                 /{scoreData.max}
                               </span>
                             </span>
@@ -516,21 +533,21 @@ const PracticeMultipleChoiceSingleAnswerListening: React.FC = () => {
                 </div>
 
                 {/* Score Summary */}
-                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-                  <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Your Score:{" "}
-                    <span className="font-semibold text-green-600 dark:text-green-400">
+                <div className='bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6'>
+                  <h4 className='text-lg font-semibold text-gray-900 dark:text-white'>
+                    Your Score:{' '}
+                    <span className='font-semibold text-green-600 dark:text-green-400'>
                       {evaluationResult.evaluation.score.scored}
                     </span>
                     {evaluationResult.evaluation.detailedAnalysis?.scores && (
-                      <span className="ml-2 text-gray-500 dark:text-gray-400">
-                        /{" "}
+                      <span className='ml-2 text-gray-500 dark:text-gray-400'>
+                        /{' '}
                         {Object.values(
                           evaluationResult.evaluation.detailedAnalysis.scores,
                         ).reduce(
                           (sum: number, score: any) => sum + score.max,
                           0,
-                        )}{" "}
+                        )}{' '}
                         points
                       </span>
                     )}
@@ -540,17 +557,17 @@ const PracticeMultipleChoiceSingleAnswerListening: React.FC = () => {
                 {/* Explanation */}
                 {evaluationResult?.evaluation?.detailedAnalysis?.choiceResult
                   ?.explanation && (
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-blue-200 dark:border-blue-800 shadow-sm overflow-hidden">
+                  <div className='bg-white dark:bg-gray-800 rounded-2xl border border-blue-200 dark:border-blue-800 shadow-sm overflow-hidden'>
                     {/* Header */}
-                    <div className="px-6 py-4 border-b border-blue-100 dark:border-blue-800 flex items-center gap-2">
-                      <span className="text-xl">📘</span>
-                      <h4 className="font-bold text-blue-900 dark:text-blue-200 text-lg">
+                    <div className='px-6 py-4 border-b border-blue-100 dark:border-blue-800 flex items-center gap-2'>
+                      <span className='text-xl'>📘</span>
+                      <h4 className='font-bold text-blue-900 dark:text-blue-200 text-lg'>
                         Answer Explanation
                       </h4>
                     </div>
 
                     {/* Content */}
-                    <div className="p-6 text-sm leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-line">
+                    <div className='p-6 text-sm leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-line'>
                       {
                         evaluationResult.evaluation.detailedAnalysis
                           .choiceResult?.explanation
@@ -565,27 +582,33 @@ const PracticeMultipleChoiceSingleAnswerListening: React.FC = () => {
       )}
 
       {/* FOOTER */}
-      <div className="bg-gray-800 border-t border-gray-700 px-6 py-4 flex justify-between items-center">
+
+      <InlinePreviousAttempts
+        questionId={currentQuestion?.id} question={currentQuestion}
+        onViewResponse={handleViewResponse}
+        className='mt-6'
+      />
+      <div className='bg-gray-800 border-t border-gray-700 px-6 py-4 flex justify-between items-center'>
         <button
           onClick={handlePrevious}
           disabled={currentIndex === 0}
-          className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition"
+          className='flex items-center gap-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition'
         >
-          <ChevronLeft className="w-5 h-5" />
+          <ChevronLeft className='w-5 h-5' />
           Previous
         </button>
 
-        <span className="text-gray-400 text-sm">
+        <span className='text-gray-400 text-sm'>
           {currentIndex + 1} / {questions.length}
         </span>
 
         <button
           onClick={handleNext}
           disabled={currentIndex === questions.length - 1}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition"
+          className='flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition'
         >
           Next
-          <ChevronRight className="w-5 h-5" />
+          <ChevronRight className='w-5 h-5' />
         </button>
       </div>
 
@@ -598,7 +621,7 @@ const PracticeMultipleChoiceSingleAnswerListening: React.FC = () => {
         }
         selectedQuestionId={currentQuestion?.id}
         onQuestionSelect={handleQuestionSelect}
-        practiceStatus="all"
+        practiceStatus='all'
         difficultyLevel={difficultyLevel}
         onFilterChange={(filters) => {
           setDifficultyLevel(filters.difficultyLevel);
@@ -607,7 +630,7 @@ const PracticeMultipleChoiceSingleAnswerListening: React.FC = () => {
 
       {/* Previous Attempts Modal Drawer */}
       <PreviousResponses
-        questionId={currentQuestion?.id}
+        questionId={currentQuestion?.id} question={currentQuestion}
         onViewResponse={handleViewResponse}
         isOpen={showPreviousResponses}
         onClose={() => setShowPreviousResponses(false)}

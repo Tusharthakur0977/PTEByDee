@@ -9,6 +9,7 @@ import { generateQuestionCode } from '../../utils/questionCodeGenerator';
 import { transcribeAudioWithRetry } from '../../services/audioTranscriptionService';
 import openai from '../../config/openAi';
 import { generateImageSignedUrl } from '../../config/cloudFrontConfig';
+import { normalizeTags } from '../../utils/tagHelpers';
 
 const getCorrectOptionTexts = (options: any): string[] => {
   if (!Array.isArray(options)) return [];
@@ -47,6 +48,7 @@ export const createQuestion = asyncHandler(
       incorrectWords,
       blanks,
       paragraphs, // For RE_ORDER_PARAGRAPHS questions
+      tags,
     } = req.body;
 
     try {
@@ -106,6 +108,8 @@ export const createQuestion = asyncHandler(
         );
       }
 
+      const normalizedTags = normalizeTags(tags);
+
       // Validate question content based on question type
       const validationResult = validateQuestionContent(questionType.name, {
         textContent,
@@ -121,6 +125,7 @@ export const createQuestion = asyncHandler(
         incorrectWords,
         blanks,
         paragraphs,
+        tags: normalizedTags,
       });
 
       if (!validationResult.isValid) {
@@ -474,6 +479,7 @@ export const createQuestion = asyncHandler(
           durationMillis: durationMillis || null,
           originalTextWithErrors: originalTextWithErrors || null,
           incorrectWords: finalIncorrectWords || null,
+          tags: normalizedTags,
         },
         include: {
           questionType: {
@@ -532,6 +538,7 @@ function validateQuestionContent(
     incorrectWords,
     blanks,
     paragraphs,
+    tags,
   } = content;
 
   switch (questionType) {
@@ -562,6 +569,12 @@ function validateQuestionContent(
         return {
           isValid: false,
           message: 'Image is required for Describe Image questions.',
+        };
+      }
+      if (!tags || (Array.isArray(tags) && tags.length === 0)) {
+        return {
+          isValid: false,
+          message: 'Select the image type before creating this Describe Image question.',
         };
       }
       break;

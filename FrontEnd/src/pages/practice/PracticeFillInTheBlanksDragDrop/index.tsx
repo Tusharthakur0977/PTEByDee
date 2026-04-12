@@ -6,7 +6,9 @@ import {
   Filter,
   History,
   Info,
+  XCircle,
 } from "lucide-react";
+import InlinePreviousAttempts from '../../../components/InlinePreviousAttempts';
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PreviousResponses from "../../../components/PreviousResponses";
@@ -331,8 +333,19 @@ const PracticeFillInTheBlanksDragDrop: React.FC = () => {
       )}
 
       {questions.length === 0 && !isLoading ? (
-        <div className="h-screen bg-gray-900 flex items-center justify-center">
-          <p className="dark:text-white">No questions available</p>
+        <div className='flex flex-1 items-center justify-center px-6 py-12'>
+          <div className='w-full max-w-md rounded-3xl border border-slate-200 bg-white/80 p-8 text-center shadow-lg shadow-slate-900/5 dark:border-slate-700 dark:bg-slate-900/70'>
+            <div className='mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-200'>
+              <XCircle className='h-6 w-6' />
+            </div>
+            <h3 className='text-lg font-semibold text-slate-900 dark:text-white'>
+              No practice questions found
+            </h3>
+            <p className='mt-2 text-sm text-slate-500 dark:text-slate-400'>
+              We are still curating Describe Image questions for this category.
+              Try another type or revisit soon.
+            </p>
+          </div>
         </div>
       ) : (
         <div className="flex-1 overflow-auto relative">
@@ -666,6 +679,12 @@ const PracticeFillInTheBlanksDragDrop: React.FC = () => {
       )}
 
       {/* FOOTER */}
+
+      <InlinePreviousAttempts
+        questionId={currentQuestion?.id} question={currentQuestion}
+        onViewResponse={handleViewResponse}
+        className='mt-6'
+      />
       <div className="bg-gray-800 border-t border-gray-700 px-6 py-4 flex justify-between items-center">
         <button
           onClick={handlePrevious}
@@ -706,7 +725,7 @@ const PracticeFillInTheBlanksDragDrop: React.FC = () => {
 
       {/* Previous Attempts Modal Drawer */}
       <PreviousResponses
-        questionId={currentQuestion?.id}
+        questionId={currentQuestion?.id} question={currentQuestion}
         onViewResponse={handleViewResponse}
         isOpen={showPreviousResponses}
         onClose={() => setShowPreviousResponses(false)}

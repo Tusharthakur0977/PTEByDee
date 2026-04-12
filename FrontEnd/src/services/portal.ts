@@ -138,6 +138,7 @@ export const getPracticeQuestions = async (
     random?: boolean;
     difficultyLevel?: 'EASY' | 'MEDIUM' | 'HARD';
     practiceStatus?: 'practiced' | 'unpracticed' | 'all';
+    imageType?: string;
   } = {}
 ): Promise<PracticeQuestionsResponse> => {
   const {
@@ -145,6 +146,7 @@ export const getPracticeQuestions = async (
     random = true,
     difficultyLevel,
     practiceStatus,
+    imageType,
   } = options;
 
   const params = new URLSearchParams({
@@ -158,6 +160,10 @@ export const getPracticeQuestions = async (
 
   if (practiceStatus && practiceStatus !== 'all') {
     params.append('practiceStatus', practiceStatus);
+  }
+
+  if (imageType && imageType !== 'all') {
+    params.append('imageType', imageType);
   }
 
   const response = await publicApi.get(

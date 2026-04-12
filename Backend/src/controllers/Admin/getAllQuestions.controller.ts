@@ -18,7 +18,6 @@ export const getAllQuestions = asyncHandler(
         limit = '10',
         search = '',
         questionType,
-        testId,
         sectionId,
         sortBy = 'createdAt',
         sortOrder = 'desc',
@@ -29,7 +28,9 @@ export const getAllQuestions = asyncHandler(
       const skip = (pageNumber - 1) * limitNumber;
 
       // Build where clause for filtering
-      const whereClause: any = {};
+      const whereClause: any = {
+        isArchived: false,
+      };
 
       // Search functionality
       if (search) {
@@ -56,22 +57,15 @@ export const getAllQuestions = asyncHandler(
       }
 
       // Filter by question type
+      const questionTypeFilter: any = {};
       if (questionType) {
-        whereClause.questionType = {
-          name: questionType,
-        };
+        questionTypeFilter.name = questionType;
       }
-
-      // Filter by test
-      if (testId) {
-        whereClause.testId = testId;
-      }
-
-      // Filter by PTE section
       if (sectionId) {
-        whereClause.questionType = {
-          pteSectionId: sectionId,
-        };
+        questionTypeFilter.pteSectionId = sectionId;
+      }
+      if (Object.keys(questionTypeFilter).length > 0) {
+        whereClause.questionType = questionTypeFilter;
       }
 
       // Build orderBy clause
@@ -92,13 +86,6 @@ export const getAllQuestions = asyncHandler(
               pteSection: true,
             },
           },
-          // test: {
-          //   select: {
-          //     id: true,
-          //     title: true,
-          //     testType: true,
-          //   },
-          // },
           _count: {
             select: {
               UserResponse: true,
@@ -122,13 +109,13 @@ export const getAllQuestions = asyncHandler(
               const signedUrlResponse =
                 await SecureUrlService.generateSecureVideoUrl(
                   question.audioUrl,
-                  { expirationHours: 24 }
+                  { expirationHours: 24 },
                 );
               audioUrl = signedUrlResponse.signedUrl;
             } catch (error) {
               console.warn(
                 `Failed to generate signed URL for audio ${question.audioUrl}:`,
-                error
+                error,
               );
               audioUrl = question.audioUrl;
             }
@@ -142,13 +129,13 @@ export const getAllQuestions = asyncHandler(
               const signedUrlResponse =
                 await SecureUrlService.generateSecureImageUrl(
                   question.imageUrl,
-                  { expirationHours: 24 }
+                  { expirationHours: 24 },
                 );
               imageSignedUrl = signedUrlResponse.signedUrl;
             } catch (error) {
               console.warn(
                 `Failed to generate signed URL for image ${question.imageUrl}:`,
-                error
+                error,
               );
               imageSignedUrl = question.imageUrl;
             }
@@ -162,7 +149,7 @@ export const getAllQuestions = asyncHandler(
             imageUrl: imageSignedUrl,
             responseCount: question._count.UserResponse,
           };
-        })
+        }),
       );
 
       // Calculate pagination info
@@ -183,7 +170,6 @@ export const getAllQuestions = asyncHandler(
         filters: {
           search: search as string,
           questionType: questionType as string,
-          testId: testId as string,
           sectionId: sectionId as string,
           sortBy: sortBy as string,
           sortOrder: sortOrder as string,
@@ -194,7 +180,7 @@ export const getAllQuestions = asyncHandler(
         res,
         STATUS_CODES.OK,
         responseData,
-        `Retrieved ${transformedQuestions.length} questions successfully.`
+        `Retrieved ${transformedQuestions.length} questions successfully.`,
       );
     } catch (error: any) {
       console.error('Get all questions error:', error);
@@ -202,8 +188,8 @@ export const getAllQuestions = asyncHandler(
         res,
         STATUS_CODES.INTERNAL_SERVER_ERROR,
         null,
-        'An error occurred while fetching questions. Please try again.'
+        'An error occurred while fetching questions. Please try again.',
       );
     }
-  }
+  },
 );
