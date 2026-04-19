@@ -337,14 +337,17 @@ const PracticeDescribeImage: React.FC = () => {
                 value={imageTypeFilter}
                 onChange={(e) =>
                   setImageTypeFilter(
-                    e.target.value === 'all' ? 'all' : e.target.value
+                    e.target.value === 'all' ? 'all' : e.target.value,
                   )
                 }
                 className='rounded-full border border-slate-200 bg-white px-5 py-1.5 text-xs font-semibold text-slate-900 outline-none transition focus:border-slate-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-slate-500'
               >
                 <option value='all'>All Image Types</option>
                 {describeImageTypeOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
+                  <option
+                    key={option.value}
+                    value={option.value}
+                  >
                     {option.label}
                   </option>
                 ))}
@@ -656,8 +659,7 @@ const PracticeDescribeImage: React.FC = () => {
                       <h4 className='font-bold text-gray-800 dark:text-gray-200'>
                         Your Response
                       </h4>
-                      <div className='flex flex-wrap items-center gap-4 text-sm'>
-                        {/* Speaking error types */}
+                      {/* <div className='flex flex-wrap items-center gap-4 text-sm'>
                         <div className='flex items-center space-x-2'>
                           <div className='w-3 h-3 bg-orange-500 rounded-full'></div>
                           <span className='text-gray-600 dark:text-gray-400'>
@@ -686,15 +688,16 @@ const PracticeDescribeImage: React.FC = () => {
                         <span className='text-gray-500 dark:text-gray-400 text-xs'>
                           * Click colored words for explanation
                         </span>
-                      </div>
+                      </div> */}
                     </div>
                     <div className='p-6 text-base leading-relaxed text-gray-700 dark:text-gray-300 italic'>
-                      {renderHighlightedText(
+                      {/* {renderHighlightedText(
                         evaluationResult.evaluation.detailedAnalysis.userText,
                         evaluationResult.evaluation.detailedAnalysis
                           .errorAnalysis,
                         (err: any) => setSelectedError(err),
-                      )}
+                      )} */}
+                      {evaluationResult.evaluation.detailedAnalysis.userText}
                     </div>
                   </div>
                 )}
@@ -950,7 +953,7 @@ const PracticeDescribeImage: React.FC = () => {
 
       {/* Previous Attempts Modal Drawer (Mobile/Tablet) */}
       <PreviousResponses
-        questionId={currentQuestion?.id} question={currentQuestion}
+        questionId={currentQuestion?.id}
         onViewResponse={handleViewResponse}
         isOpen={showPreviousResponses}
         onClose={() => setShowPreviousResponses(false)}

@@ -1,9 +1,9 @@
-import { PteQuestionTypeName } from "@prisma/client";
-import openai from "../config/openAi";
+import { PteQuestionTypeName } from '@prisma/client';
+import openai from '../config/openAi';
 import {
   QuestionEvaluationResult,
   EvaluationDetail,
-} from "../types/evaluationResponse";
+} from '../types/evaluationResponse';
 
 /**
  * Converts legacy evaluation results to standardized format
@@ -170,16 +170,16 @@ function correctAudioErrorPositions(errorAnalysis: any, userText: string): any {
 
   // Normalize function - removes punctuation for comparison
   const normalize = (text: string): string =>
-    text.toLowerCase().replace(/[.,!?;:\-()[\]{}""'']/g, "");
+    text.toLowerCase().replace(/[.,!?;:\-()[\]{}""'']/g, '');
 
   // Omitted/missing words do not exist in the user's transcript. If we attach a
   // word index for an omitted item, the frontend will highlight the wrong word
   // in userText (especially when the same word appears multiple times).
   // Instead, we keep the error but strip its position so it is not highlighted.
   const isOmissionLikeContentError = (error: any): boolean => {
-    const text = typeof error?.text === "string" ? error.text : "";
+    const text = typeof error?.text === 'string' ? error.text : '';
     const correction =
-      typeof error?.correction === "string" ? error.correction : "";
+      typeof error?.correction === 'string' ? error.correction : '';
 
     const normText = normalize(text);
     const normCorrection = normalize(correction);
@@ -190,7 +190,7 @@ function correctAudioErrorPositions(errorAnalysis: any, userText: string): any {
 
     // Extra signal when provided (not required).
     const explanation =
-      typeof error?.explanation === "string" ? error.explanation : "";
+      typeof error?.explanation === 'string' ? error.explanation : '';
     if (!explanation) return true;
     return /\bomitted\b|\bmissing\b|\bleft out\b/i.test(explanation);
   };
@@ -456,7 +456,7 @@ async function evaluateReadAloud(
 
     **Original Text**: "${question.textContent}"
     **Transcribed User Text**: "${transcribedText}"
-    **Time Taken**: ${timeTakenSeconds || "Not specified"} seconds
+    **Time Taken**: ${timeTakenSeconds || 'Not specified'} seconds
 
     Provide your evaluation as a JSON object with error analysis:
     {
@@ -512,20 +512,20 @@ async function evaluateReadAloud(
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: 'gpt-4o',
       messages: [
         {
-          role: "system",
+          role: 'system',
           content:
-            "You are a helpful assistant designed to output JSON for PTE Academic evaluation.",
+            'You are a helpful assistant designed to output JSON for PTE Academic evaluation.',
         },
-        { role: "user", content: prompt },
+        { role: 'user', content: prompt },
       ],
-      response_format: { type: "json_object" },
+      response_format: { type: 'json_object' },
       temperature: 0.2,
     });
 
-    const evaluation = JSON.parse(response.choices[0].message.content || "{}");
+    const evaluation = JSON.parse(response.choices[0].message.content || '{}');
 
     // Parse the actual OpenAI response format for Repeat Sentence
     // Handle the nested structure: evaluation.content.score, evaluation.pronunciation.score, etc.
@@ -555,11 +555,11 @@ async function evaluateReadAloud(
       feedback:
         evaluation.feedback?.summary ||
         evaluation.feedback?.content ||
-        "Audio response evaluated successfully.",
+        'Audio response evaluated successfully.',
       suggestions: evaluation.feedback?.suggestions || [
-        "Practice reading aloud regularly",
-        "Focus on clear pronunciation",
-        "Maintain steady pace and rhythm",
+        'Practice reading aloud regularly',
+        'Focus on clear pronunciation',
+        'Maintain steady pace and rhythm',
       ],
       detailedAnalysis: {
         scores: {
@@ -571,9 +571,9 @@ async function evaluateReadAloud(
           oralFluency: { score: fluencyScore, max: fluencyMaxScore },
         },
         feedback: {
-          content: evaluation.feedback?.content || "",
-          pronunciation: evaluation.feedback?.pronunciation || "",
-          oralFluency: evaluation.feedback?.oralFluency || "",
+          content: evaluation.feedback?.content || '',
+          pronunciation: evaluation.feedback?.pronunciation || '',
+          oralFluency: evaluation.feedback?.oralFluency || '',
         },
         timeTaken: timeTakenSeconds || 0,
         userText: transcribedText,
@@ -586,14 +586,14 @@ async function evaluateReadAloud(
       },
     };
   } catch (error) {
-    console.error("OpenAI evaluation error for Read Aloud:", error);
+    console.error('OpenAI evaluation error for Read Aloud:', error);
     return {
       score: { scored: 0, max: 13 },
       isCorrect: false,
-      feedback: "Unable to evaluate response at this time. Please try again.",
+      feedback: 'Unable to evaluate response at this time. Please try again.',
       suggestions: [
-        "Please try again later",
-        "Contact support if the issue persists",
+        'Please try again later',
+        'Contact support if the issue persists',
       ],
       detailedAnalysis: {
         scores: {
@@ -601,7 +601,7 @@ async function evaluateReadAloud(
           pronunciation: { score: 0, max: 5 },
           oralFluency: { score: 0, max: 5 },
         },
-        feedback: { summary: "Unable to evaluate response at this time." },
+        feedback: { summary: 'Unable to evaluate response at this time.' },
         timeTaken: timeTakenSeconds || 0,
         userText: transcribedText,
         correctAnswer: question.textContent || undefined,
@@ -625,7 +625,7 @@ async function evaluateRepeatSentence(
 ): Promise<QuestionEvaluationResult> {
   const transcribedText = userResponse.textResponse;
   const originalSentence =
-    question.textContent || question.correctAnswers?.[0] || "";
+    question.textContent || question.correctAnswers?.[0] || '';
 
   const prompt = `
   **Your Role:** You are an expert AI evaluator for the PTE Academic test. Your task is to analyze a user's "Repeat Sentence" speaking performance with extreme precision.
@@ -726,25 +726,25 @@ async function evaluateRepeatSentence(
   ---
   **Original Sentence**: "${originalSentence}"
   **Transcribed User Text**: "${transcribedText}"
-  **Time Taken**: ${timeTakenSeconds || "Not specified"} seconds
+  **Time Taken**: ${timeTakenSeconds || 'Not specified'} seconds
 `;
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: 'gpt-4o',
       messages: [
         {
-          role: "system",
+          role: 'system',
           content:
-            "You are a helpful assistant designed to output JSON for PTE Academic evaluation.",
+            'You are a helpful assistant designed to output JSON for PTE Academic evaluation.',
         },
-        { role: "user", content: prompt },
+        { role: 'user', content: prompt },
       ],
-      response_format: { type: "json_object" },
+      response_format: { type: 'json_object' },
       temperature: 0.2,
     });
 
-    const evaluation = JSON.parse(response.choices[0].message.content || "{}");
+    const evaluation = JSON.parse(response.choices[0].message.content || '{}');
 
     // Parse the actual OpenAI response format
     // Handle the actual response structure from OpenAI
@@ -771,11 +771,11 @@ async function evaluateRepeatSentence(
       feedback:
         evaluation.feedback?.summary ||
         evaluation.feedback?.content ||
-        "Audio response evaluated successfully.",
+        'Audio response evaluated successfully.',
       suggestions: evaluation.feedback?.suggestions || [
-        "Practice repeating sentences clearly",
-        "Focus on accurate pronunciation",
-        "Maintain natural speech rhythm",
+        'Practice repeating sentences clearly',
+        'Focus on accurate pronunciation',
+        'Maintain natural speech rhythm',
       ],
       detailedAnalysis: {
         scores: {
@@ -784,9 +784,9 @@ async function evaluateRepeatSentence(
           oralFluency: { score: fluencyScore, max: 5 },
         },
         feedback: {
-          content: evaluation.feedback?.content || "",
-          pronunciation: evaluation.feedback?.pronunciation || "",
-          oralFluency: evaluation.feedback?.oralFluency || "",
+          content: evaluation.feedback?.content || '',
+          pronunciation: evaluation.feedback?.pronunciation || '',
+          oralFluency: evaluation.feedback?.oralFluency || '',
         },
         timeTaken: timeTakenSeconds || 0,
         userText: transcribedText,
@@ -799,19 +799,19 @@ async function evaluateRepeatSentence(
       },
     };
   } catch (error) {
-    console.error("OpenAI evaluation error for Repeat Sentence:", error);
+    console.error('OpenAI evaluation error for Repeat Sentence:', error);
     return {
       score: { scored: 0, max: 13 },
       isCorrect: false,
-      feedback: "Error occurred during evaluation.",
-      suggestions: ["Please try again.", "Ensure clear pronunciation."],
+      feedback: 'Error occurred during evaluation.',
+      suggestions: ['Please try again.', 'Ensure clear pronunciation.'],
       detailedAnalysis: {
         scores: {
           content: { score: 0, max: 3 },
           pronunciation: { score: 0, max: 5 },
           oralFluency: { score: 0, max: 5 },
         },
-        feedback: { summary: "Error occurred during evaluation." },
+        feedback: { summary: 'Error occurred during evaluation.' },
         timeTaken: timeTakenSeconds || 0,
         userText: transcribedText,
         correctAnswer: originalSentence || undefined,
@@ -843,23 +843,23 @@ async function evaluateDescribeImage(
       imageAnalysis = JSON.parse(question.textContent);
     }
   } catch (error) {
-    console.error("Error parsing image analysis data:", error);
+    console.error('Error parsing image analysis data:', error);
   }
 
   const keyElements =
     imageAnalysis?.keyElements || question.correctAnswers || [];
-  const imageType = imageAnalysis?.imageType || "image";
-  const mainTopic = imageAnalysis?.mainTopic || "the image content";
+  const imageType = imageAnalysis?.imageType || 'image';
+  const mainTopic = imageAnalysis?.mainTopic || 'the image content';
 
   const prompt = `You are an official PTE Academic grader specialized in "Describe Image" tasks. Evaluate this response focusing strictly on **Fluency**, **Pronunciation**, and **Content Coverage**.
 
     **Image Analysis Reference:**
     - Image Type: ${imageType}
     - Main Topic: ${mainTopic}
-    - Key Elements to Mention: ${keyElements.join(", ")}
+    - Key Elements to Mention: ${keyElements.join(', ')}
 
     **User's Description:** "${transcribedText}"
-    **Time Taken:** ${timeTakenSeconds || "Not specified"} seconds
+    **Time Taken:** ${timeTakenSeconds || 'Not specified'} seconds
 
     **IMPORTANT GRADING RULES:**
       - **IGNORE GRAMMAR:** Do not evaluate grammar, sentence structure, prepositions, or tenses. This is a content, fluency, and pronunciation test only.
@@ -976,20 +976,20 @@ async function evaluateDescribeImage(
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: 'gpt-4o',
       messages: [
         {
-          role: "system",
+          role: 'system',
           content:
-            "You are a helpful assistant designed to output JSON for PTE Academic evaluation.",
+            'You are a helpful assistant designed to output JSON for PTE Academic evaluation.',
         },
-        { role: "user", content: prompt },
+        { role: 'user', content: prompt },
       ],
-      response_format: { type: "json_object" },
+      response_format: { type: 'json_object' },
       temperature: 0.2,
     });
 
-    const evaluation = JSON.parse(response.choices[0].message.content || "{}");
+    const evaluation = JSON.parse(response.choices[0].message.content || '{}');
 
     // Parse the OpenAI response format for Describe Image
     const contentScore = evaluation?.scores?.content || 0;
@@ -1012,18 +1012,18 @@ async function evaluateDescribeImage(
     // Get feedback from OpenAI response
     const feedbackData = evaluation.feedback || {};
     const feedbackText =
-      feedbackData.summary || "Image description response evaluated.";
+      feedbackData.summary || 'Image description response evaluated.';
 
     return {
       score: { scored: overallScore, max: maxPossibleScore },
       isCorrect: percentageScore >= 65,
       feedback: feedbackText,
       suggestions: evaluation.suggestions || [
-        "Describe all key elements visible in the image",
-        "Use specific vocabulary related to the image content",
-        "Organize your description logically (overview → details → conclusion)",
-        "Speak clearly and maintain natural pace",
-        "Include relationships between elements when relevant",
+        'Describe all key elements visible in the image',
+        'Use specific vocabulary related to the image content',
+        'Organize your description logically (overview → details → conclusion)',
+        'Speak clearly and maintain natural pace',
+        'Include relationships between elements when relevant',
       ],
       detailedAnalysis: {
         scores: {
@@ -1035,9 +1035,9 @@ async function evaluateDescribeImage(
           },
         },
         feedback: {
-          content: feedbackData.content || "",
-          pronunciation: feedbackData.pronunciation || "",
-          oralFluency: feedbackData.oralFluency || "",
+          content: feedbackData.content || '',
+          pronunciation: feedbackData.pronunciation || '',
+          oralFluency: feedbackData.oralFluency || '',
         },
         timeTaken: timeTakenSeconds || 0,
         userText: transcribedText,
@@ -1050,15 +1050,15 @@ async function evaluateDescribeImage(
       },
     };
   } catch (error) {
-    console.error("OpenAI evaluation error for Describe Image:", error);
+    console.error('OpenAI evaluation error for Describe Image:', error);
     return {
       score: { scored: 0, max: 16 },
       isCorrect: false,
-      feedback: "Error occurred during evaluation.",
+      feedback: 'Error occurred during evaluation.',
       suggestions: [
-        "Please try again.",
-        "Focus on describing key visual elements.",
-        "Ensure clear pronunciation and logical organization.",
+        'Please try again.',
+        'Focus on describing key visual elements.',
+        'Ensure clear pronunciation and logical organization.',
       ],
       detailedAnalysis: {
         scores: {
@@ -1066,7 +1066,7 @@ async function evaluateDescribeImage(
           oralFluency: { score: 0, max: 5 },
           pronunciation: { score: 0, max: 5 },
         },
-        feedback: { summary: "Error occurred during evaluation." },
+        feedback: { summary: 'Error occurred during evaluation.' },
         timeTaken: timeTakenSeconds || 0,
         userText: transcribedText,
         errorAnalysis: {
@@ -1089,7 +1089,7 @@ async function evaluateRetellLecture(
   timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
   const transcribedText = userResponse.textResponse;
-  const originalLecture = question.textContent || "";
+  const originalLecture = question.textContent || '';
 
   const prompt = `
 **Your Role:** You are an expert AI evaluator for the PTE Academic test.
@@ -1164,7 +1164,7 @@ async function evaluateRetellLecture(
 
   **Original Lecture**: "${originalLecture}"
   **User's Transcribed Response**: "${transcribedText}"
-  **Time Taken**: ${timeTakenSeconds || "Not specified"} seconds
+  **Time Taken**: ${timeTakenSeconds || 'Not specified'} seconds
 
 {
   "Content": <number_0_to_6>,
@@ -1186,26 +1186,26 @@ async function evaluateRetellLecture(
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: 'gpt-4o',
       messages: [
         {
-          role: "system",
+          role: 'system',
           content:
-            "You are a helpful assistant designed to output JSON for PTE Academic evaluation.",
+            'You are a helpful assistant designed to output JSON for PTE Academic evaluation.',
         },
-        { role: "user", content: prompt },
+        { role: 'user', content: prompt },
       ],
-      response_format: { type: "json_object" },
+      response_format: { type: 'json_object' },
       temperature: 0.2,
     });
 
-    const evaluation = JSON.parse(response.choices[0].message.content || "{}");
+    const evaluation = JSON.parse(response.choices[0].message.content || '{}');
 
     // Parse the OpenAI response format for Re-tell Lecture
     // Handle the actual response structure from OpenAI
     const contentScore = evaluation.Content || 0;
     const contentMaxScore = 6;
-    const oralFluencyScore = evaluation["Oral Fluency"] || 0;
+    const oralFluencyScore = evaluation['Oral Fluency'] || 0;
     const oralFluencyMaxScore = 5;
     const pronunciationScore = evaluation.Pronunciation || 0;
     const pronunciationMaxScore = 5;
@@ -1226,11 +1226,11 @@ async function evaluateRetellLecture(
       feedback:
         evaluation.feedback?.summary ||
         evaluation.feedback?.content ||
-        "Re-tell Lecture response evaluated successfully.",
+        'Re-tell Lecture response evaluated successfully.',
       suggestions: evaluation.feedback?.suggestions || [
-        "Focus on main ideas and key points",
-        "Organize your response logically",
-        "Use clear pronunciation and natural pace",
+        'Focus on main ideas and key points',
+        'Organize your response logically',
+        'Use clear pronunciation and natural pace',
       ],
       detailedAnalysis: {
         scores: {
@@ -1244,13 +1244,13 @@ async function evaluateRetellLecture(
         feedback: {
           content:
             evaluation.feedback?.content ||
-            "Focus on main ideas and key points",
+            'Focus on main ideas and key points',
           oralFluency:
             evaluation.feedback?.oralFluency ||
-            "Practice smooth, natural speech rhythm",
+            'Practice smooth, natural speech rhythm',
           pronunciation:
             evaluation.feedback?.pronunciation ||
-            "Work on clear articulation and stress patterns",
+            'Work on clear articulation and stress patterns',
         },
         timeTaken: timeTakenSeconds || 0,
         userText: transcribedText,
@@ -1262,15 +1262,15 @@ async function evaluateRetellLecture(
       },
     };
   } catch (error) {
-    console.error("OpenAI evaluation error for Re-tell Lecture:", error);
+    console.error('OpenAI evaluation error for Re-tell Lecture:', error);
     return {
       score: { scored: 0, max: 16 },
       isCorrect: false,
-      feedback: "Error occurred during evaluation.",
+      feedback: 'Error occurred during evaluation.',
       suggestions: [
-        "Please try again.",
-        "Focus on capturing key points from the lecture.",
-        "Ensure clear pronunciation and logical organization.",
+        'Please try again.',
+        'Focus on capturing key points from the lecture.',
+        'Ensure clear pronunciation and logical organization.',
       ],
       detailedAnalysis: {
         scores: {
@@ -1278,7 +1278,7 @@ async function evaluateRetellLecture(
           oralFluency: { score: 0, max: 5 },
           pronunciation: { score: 0, max: 5 },
         },
-        feedback: { summary: "Error occurred during evaluation." },
+        feedback: { summary: 'Error occurred during evaluation.' },
         timeTaken: timeTakenSeconds || 0,
         userText: transcribedText,
         errorAnalysis: {
@@ -1301,7 +1301,7 @@ async function evaluateSummarizeGroupDiscussion(
   timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
   const transcribedText = userResponse.textResponse;
-  const discussionTranscript = question.textContent || "";
+  const discussionTranscript = question.textContent || '';
 
   const prompt = `
   **Your Role:** You are an expert AI evaluator for the PTE Academic test. Your task is to analyze a user's "Summarize Group Discussion" speaking performance with extreme precision.
@@ -1332,26 +1332,29 @@ async function evaluateSummarizeGroupDiscussion(
 
     **STEP 2: STANDARD CONTENT SCORING (Connected Speech Only)**
       Evaluate how accurately and effectively the user summarized the discussion.
+      
+      **KEY PRINCIPLE:** Score based on **distinct concepts/ideas captured**, NOT on exact wording or phrase matching. Paraphrasing, synonyms, and alternative expressions are fully acceptable and should NOT result in lower scores.
 
       - 6 pts (Excellent)**
-        - Seamless and coherent summary covering **4–5 or more key points** from the discussion.
-        - Accurately represents multiple viewpoints.
+        - Captures **4–5 or more distinct concepts/ideas** from the discussion in any wording.
+        - Accurately represents multiple viewpoints/perspectives (paraphrased is acceptable).
         - Uses complete sentences with logical connectors.
         - Ideas are logically structured with clear relationships between perspectives.
         - No major factual distortions.
+        - **Example:** If discussion mentions "environmental impact" and user says "affects the ecosystem," this is acceptable and counts as a captured concept.
       - 5 pts (Very Good)**
-        - Covers **3–4 key points** from the discussion.
+        - Captures **3–4 distinct concepts/ideas** from the discussion.
         - Uses complete sentences and appropriate connectors.
-        - Captures the general direction of the discussion.
+        - Accurate understanding demonstrated through own words/paraphrasing.
         - Minor omissions or simplifications may exist.
         - If delivery is robotic or poorly connected, **cap at 4**.
       - 4 pts (Good)**
-        - Covers **2-3 key points** accurately.
+        - Captures **2-3 distinct concepts/ideas** accurately.
         - Uses simple but complete sentences.
-        - Focuses more on individual ideas than relationships between viewpoints.
+        - Demonstrates comprehension even if not all relationships between viewpoints are explained.
         - Organization may be basic but meaning is clear.
       - 3 pts (Limited / Fragmented)**
-        - Covers **2–3 key points** using sentences, OR
+        - Captures **2–3 concepts/ideas** using sentences, OR
         - Relies on **long exact phrases (3–4 words)** from the discussion without connectors.
         - Logical connections are weak or unclear.
       - 2 pts (Keyword List)**
@@ -1366,10 +1369,16 @@ async function evaluateSummarizeGroupDiscussion(
 
        **IMPORTANT CONTENT GUIDELINES**
         - **Logic Check:** Ensure the user has not stated the opposite of what speakers said.
-        - **Accuracy Check:** Incorrect attribution or distortion of viewpoints must be penalized.
+        - **Accuracy Check:** Only penalize when user demonstrates fundamental misunderstanding or directly contradicts discussion content.
+        - **Flexibility Rules:**
+          * Accept any wording variation, synonym, or paraphrase that conveys the same concept (e.g., "uses water" = "depends on H2O")
+          * Accept different order of ideas/viewpoints
+          * Accept selective coverage (mentioning some but not all viewpoints is acceptable if accurate)
+          * Accept different emphasis or reorganization of the discussion content
+          * Do NOT penalize for not using exact phrases from the original discussion
         - **Distinction Rule:**
-        - *"Climate. Farming. Water."* → **Score 2**
-        - *"Farming uses water and affects the climate."* → **Score 4**
+        - *"Climate. Farming. Water."* → **Score 2** (isolated words, no sentences)
+        - *"Farming impacts water and climate."* → **Score 4** (2-3 concepts in sentences, paraphrased is fine)
 
     ## 2. Pronunciation (0-5 scale):** Score based on the accuracy of the transcribed words.
         * **5 pts:** Transcription is clear and accurate, with only very minor, isolated errors that do not impact understanding.
@@ -1388,6 +1397,14 @@ async function evaluateSummarizeGroupDiscussion(
         * **0 pts:** Mostly isolated words, not delivered in phrases, or no meaningful speech.
 
       **Important Guidelines:**
+        - **PRIMARY FOCUS:** Evaluate whether the user captured distinct concepts/ideas from the discussion, regardless of how they're worded
+        - **Accept Paraphrasing:** User doesn't need to use exact words from the discussion—any equivalent phrasing counts toward the score
+        - **Accept Synonyms:** "environmental impact" = "harm to nature" = "affects ecosystem"—these are equivalent and should earn equal credit
+        - **Accept Different Order:** Ideas can be presented in any sequence; don't penalize for reorganizing the discussion
+        - **Accept Selective Coverage:** It's acceptable to mention some viewpoints but not all (as long as what IS mentioned is accurate)
+        - **Flexible Representations:** The user can explain concepts in their own words using entirely different vocabulary
+        - **No Word Matching Required:** This is NOT a word-matching exercise. Focus on understanding and concept capture, not memorization
+        - **Content Accuracy Over Wording:** If the core idea is accurately conveyed with different wording, award full credit for that concept
         - Focus on content accuracy and relevance to the group discussion
         - Consider how well the user captured multiple viewpoints
         - Evaluate pronunciation based on transcription quality and clarity
@@ -1406,7 +1423,22 @@ async function evaluateSummarizeGroupDiscussion(
       **Error Types:**
       * **Pronunciation:** Mispronounced/unclear words.
       * **Fluency:** Hesitations, fillers (um, uh, er), unnatural pauses.
-      * **Content:** Omitted key points, incorrect info, logic errors.
+      * **Content:** ONLY factually incorrect statements, logical contradictions, or fundamental misunderstandings of discussion content.
+
+      **CRITICAL CONTENT ERROR RULES:**
+      * **DO NOT MARK AS CONTENT ERRORS:**
+        - Synonyms or alternative wording (e.g., "environmental damage" vs "harm to ecosystem")
+        - Different phrasing of the same concept
+        - Reordering of ideas/viewpoints
+        - Omitted information (just means lower score, not an error)
+        - Using paraphrased language instead of exact phrases
+        - Selective coverage of viewpoints (if what IS mentioned is accurate)
+        - Different emphasis or reorganization of concepts
+      * **ONLY MARK AS CONTENT ERRORS:**
+        - Statements that directly contradict the discussion (e.g., speaker said "X is bad," user said "X is good")
+        - Fundamental misunderstandings (e.g., user misidentified who said what, or reversed the meaning)
+        - Logically impossible statements that contradict themselves
+        - Factually incorrect numbers/data that was explicitly stated in the discussion (not approximations)
 
       **IMPORTANT:**
       * **Connector Immunity:** Do NOT mark **"but", "whereas", "as", "and", "so"** as grammar errors.
@@ -1419,13 +1451,14 @@ async function evaluateSummarizeGroupDiscussion(
 
   **Group Discussion Transcript**: "${discussionTranscript}"
   **User's Transcribed Summary**: "${transcribedText}"
-  **Time Taken**: ${timeTakenSeconds || "Not specified"} seconds
+  **Time Taken**: ${timeTakenSeconds || 'Not specified'} seconds
 
 {
   "Content": <number_0_to_6>,
   "Oral Fluency": <number_0_to_5>,
   "Pronunciation": <number_0_to_5>,
   "feedback": {
+    "summary": "A concise overview of the overall performance and core areas for improvement.",
     "content": "Specific feedback. *If score is 2 due to keyword listing, warn user: 'You are listing keywords. You must use full sentences and phrases to summarize the discussion.'*",
     "oralFluency": "Specific feedback on speech flow.",
     "pronunciation": "Specific feedback on clarity."
@@ -1465,33 +1498,27 @@ async function evaluateSummarizeGroupDiscussion(
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: 'gpt-4o',
       messages: [
         {
-          role: "system",
+          role: 'system',
           content:
-            "You are a helpful assistant designed to output JSON for PTE Academic evaluation.",
+            'You are a helpful assistant designed to output JSON for PTE Academic evaluation.',
         },
-        { role: "user", content: prompt },
+        { role: 'user', content: prompt },
       ],
-      response_format: { type: "json_object" },
+      response_format: { type: 'json_object' },
       temperature: 0.2,
     });
 
-    const evaluation = JSON.parse(response.choices[0].message.content || "{}");
+    const evaluation = JSON.parse(response.choices[0].message.content || '{}');
 
     const contentScore = evaluation.Content || 0;
     const contentMaxScore = 6;
-    const oralFluencyScore = evaluation["Oral Fluency"] || 0;
+    const oralFluencyScore = evaluation['Oral Fluency'] || 0;
     const oralFluencyMaxScore = 5;
     const pronunciationScore = evaluation.Pronunciation || 0;
     const pronunciationMaxScore = 5;
-
-    const contentPercentage = (contentScore / contentMaxScore) * 100;
-    const oralFluencyPercentage =
-      (oralFluencyScore / oralFluencyMaxScore) * 100;
-    const pronunciationPercentage =
-      (pronunciationScore / pronunciationMaxScore) * 100;
 
     const overallScore = contentScore + oralFluencyScore + pronunciationScore;
     const maxPossibleScore =
@@ -1502,14 +1529,11 @@ async function evaluateSummarizeGroupDiscussion(
     return {
       score: { scored: overallScore, max: maxPossibleScore },
       isCorrect: percentageScore >= 65,
-      feedback:
-        evaluation.feedback?.summary ||
-        evaluation.feedback?.content ||
-        "Summarize Group Discussion response evaluated successfully.",
+      feedback: evaluation.feedback?.summary,
       suggestions: evaluation.feedback?.suggestions || [
-        "Focus on capturing all key viewpoints",
-        "Organize your summary logically",
-        "Use clear pronunciation and natural pace",
+        'Focus on capturing all key viewpoints',
+        'Organize your summary logically',
+        'Use clear pronunciation and natural pace',
       ],
       detailedAnalysis: {
         scores: {
@@ -1523,17 +1547,16 @@ async function evaluateSummarizeGroupDiscussion(
         feedback: {
           summary:
             evaluation.feedback?.summary ||
-            evaluation.feedback?.content ||
-            "Summarize Group Discussion response evaluated successfully.",
+            'Summarize Group Discussion response evaluated successfully.',
           content:
             evaluation.feedback?.content ||
-            "Focus on main ideas and diverse viewpoints",
+            'Focus on main ideas and diverse viewpoints',
           oralFluency:
             evaluation.feedback?.oralFluency ||
-            "Practice smooth, natural speech rhythm",
+            'Practice smooth, natural speech rhythm',
           pronunciation:
             evaluation.feedback?.pronunciation ||
-            "Work on clear articulation and stress patterns",
+            'Work on clear articulation and stress patterns',
         },
         timeTaken: timeTakenSeconds || 0,
         userText: transcribedText,
@@ -1546,17 +1569,17 @@ async function evaluateSummarizeGroupDiscussion(
     };
   } catch (error) {
     console.error(
-      "OpenAI evaluation error for Summarize Group Discussion:",
+      'OpenAI evaluation error for Summarize Group Discussion:',
       error,
     );
     return {
       score: { scored: 0, max: 16 },
       isCorrect: false,
-      feedback: "Error occurred during evaluation.",
+      feedback: 'Error occurred during evaluation.',
       suggestions: [
-        "Please try again.",
-        "Focus on capturing diverse viewpoints from the discussion.",
-        "Ensure clear pronunciation and logical organization.",
+        'Please try again.',
+        'Focus on capturing diverse viewpoints from the discussion.',
+        'Ensure clear pronunciation and logical organization.',
       ],
       detailedAnalysis: {
         scores: {
@@ -1564,7 +1587,7 @@ async function evaluateSummarizeGroupDiscussion(
           oralFluency: { score: 0, max: 5 },
           pronunciation: { score: 0, max: 5 },
         },
-        feedback: { summary: "Error occurred during evaluation." },
+        feedback: { summary: 'Error occurred during evaluation.' },
         timeTaken: timeTakenSeconds || 0,
         userText: transcribedText,
         errorAnalysis: {
@@ -1587,7 +1610,7 @@ async function evaluateRespondToASituation(
   timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
   const transcribedText = userResponse.textResponse;
-  const situationPrompt = question.textContent || "";
+  const situationPrompt = question.textContent || '';
   const prompt = `
     **Your Role:** You are an expert AI evaluator for the PTE Academic test. Your task is to analyze a user's "Respond to a Situation" speaking performance with extreme precision.
 
@@ -1703,13 +1726,14 @@ async function evaluateRespondToASituation(
 
     **Situation Prompt**: "${situationPrompt}"
     **User's Transcribed Response**: "${transcribedText}"
-    **Time Taken**: ${timeTakenSeconds || "Not specified"} seconds
+    **Time Taken**: ${timeTakenSeconds || 'Not specified'} seconds
 
     {
       "Content": <number_0_to_6>,
       "Oral Fluency": <number_0_to_5>,
       "Pronunciation": <number_0_to_5>,
       "feedback": {
+      "summary": "A concise overview of the overall performance and core areas for improvement.",
         "content": "Specific feedback on how well the user addressed the situation",
         "oralFluency": "Specific feedback on speech flow and fluency",
         "pronunciation": "Specific feedback on pronunciation clarity"
@@ -1749,33 +1773,27 @@ async function evaluateRespondToASituation(
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: 'gpt-4o',
       messages: [
         {
-          role: "system",
+          role: 'system',
           content:
-            "You are a helpful assistant designed to output JSON for PTE Academic evaluation.",
+            'You are a helpful assistant designed to output JSON for PTE Academic evaluation.',
         },
-        { role: "user", content: prompt },
+        { role: 'user', content: prompt },
       ],
-      response_format: { type: "json_object" },
+      response_format: { type: 'json_object' },
       temperature: 0.2,
     });
 
-    const evaluation = JSON.parse(response.choices[0].message.content || "{}");
+    const evaluation = JSON.parse(response.choices[0].message.content || '{}');
 
     const contentScore = evaluation.Content || 0;
     const contentMaxScore = 6;
-    const oralFluencyScore = evaluation["Oral Fluency"] || 0;
+    const oralFluencyScore = evaluation['Oral Fluency'] || 0;
     const oralFluencyMaxScore = 5;
     const pronunciationScore = evaluation.Pronunciation || 0;
     const pronunciationMaxScore = 5;
-
-    const contentPercentage = (contentScore / contentMaxScore) * 100;
-    const oralFluencyPercentage =
-      (oralFluencyScore / oralFluencyMaxScore) * 100;
-    const pronunciationPercentage =
-      (pronunciationScore / pronunciationMaxScore) * 100;
 
     const overallScore = contentScore + oralFluencyScore + pronunciationScore;
     const maxPossibleScore =
@@ -1786,14 +1804,11 @@ async function evaluateRespondToASituation(
     return {
       score: { scored: overallScore, max: maxPossibleScore },
       isCorrect: percentageScore >= 65,
-      feedback:
-        evaluation.feedback?.summary ||
-        evaluation.feedback?.content ||
-        "Respond to a Situation response evaluated successfully.",
+      feedback: evaluation.feedback?.summary,
       suggestions: evaluation.feedback?.suggestions || [
-        "Address all aspects of the situation",
-        "Use clear and appropriate language",
-        "Maintain natural pace and intonation",
+        'Address all aspects of the situation',
+        'Use clear and appropriate language',
+        'Maintain natural pace and intonation',
       ],
       detailedAnalysis: {
         scores: {
@@ -1805,18 +1820,14 @@ async function evaluateRespondToASituation(
           },
         },
         feedback: {
-          summary:
-            evaluation.feedback?.summary ||
-            evaluation.feedback?.content ||
-            "Respond to a Situation response evaluated successfully.",
           content:
             evaluation.feedback?.content ||
-            "Focus on clearly addressing the situation",
+            'Focus on clearly addressing the situation',
           oralFluency:
             evaluation.feedback?.oralFluency ||
-            "Practice smooth, natural speech rhythm",
+            'Practice smooth, natural speech rhythm',
           pronunciation:
-            evaluation.feedback?.pronunciation || "Work on clear articulation",
+            evaluation.feedback?.pronunciation || 'Work on clear articulation',
         },
         timeTaken: timeTakenSeconds || 0,
         userText: transcribedText,
@@ -1829,15 +1840,15 @@ async function evaluateRespondToASituation(
       },
     };
   } catch (error) {
-    console.error("OpenAI evaluation error for Respond to a Situation:", error);
+    console.error('OpenAI evaluation error for Respond to a Situation:', error);
     return {
       score: { scored: 0, max: 16 },
       isCorrect: false,
-      feedback: "Error occurred during evaluation.",
+      feedback: 'Error occurred during evaluation.',
       suggestions: [
-        "Please ensure clear audio recording",
-        "Try recording again with better microphone quality",
-        "Ensure quiet background environment",
+        'Please ensure clear audio recording',
+        'Try recording again with better microphone quality',
+        'Ensure quiet background environment',
       ],
       detailedAnalysis: {
         scores: {
@@ -1845,7 +1856,7 @@ async function evaluateRespondToASituation(
           oralFluency: { score: 0, max: 5 },
           pronunciation: { score: 0, max: 5 },
         },
-        feedback: { summary: "Error occurred during evaluation." },
+        feedback: { summary: 'Error occurred during evaluation.' },
         timeTaken: timeTakenSeconds || 0,
         userText: transcribedText,
         errorAnalysis: {
@@ -1865,7 +1876,7 @@ async function evaluateRespondToASituation(
 function isAnswerCorrect(userTranscript: string, correctAnswers: string[]) {
   if (
     !userTranscript ||
-    typeof userTranscript !== "string" ||
+    typeof userTranscript !== 'string' ||
     !Array.isArray(correctAnswers)
   ) {
     return false;
@@ -1901,11 +1912,11 @@ function evaluateAnswerShortQuestion(
       // Add content error for incorrect answer
       errorAnalysis.contentErrors.push({
         text: transcribedText,
-        type: "content",
+        type: 'content',
         position: { start: 0, end: 1 },
-        correction: correctAnswers?.[0] || "Expected answer",
+        correction: correctAnswers?.[0] || 'Expected answer',
         explanation: `Incorrect answer. Expected one of: ${
-          correctAnswers?.join(", ") || "correct answer"
+          correctAnswers?.join(', ') || 'correct answer'
         }`,
       });
     }
@@ -1914,11 +1925,11 @@ function evaluateAnswerShortQuestion(
       return {
         score: { scored: 1, max: 1 },
         isCorrect: true,
-        feedback: "Your answer is correct.",
-        suggestions: ["Excellent! Your answer was concise and accurate."],
+        feedback: 'Your answer is correct.',
+        suggestions: ['Excellent! Your answer was concise and accurate.'],
         detailedAnalysis: {
           scores: { vocabulary: { score: 1, max: 1 } },
-          feedback: { summary: "Your answer is correct." },
+          feedback: { summary: 'Your answer is correct.' },
           timeTaken: timeTakenSeconds || 0,
           userText: transcribedText,
           correctAnswer: question.correctAnswers?.[0],
@@ -1929,16 +1940,16 @@ function evaluateAnswerShortQuestion(
       return {
         score: { scored: 0, max: 1 },
         isCorrect: false,
-        feedback: "Your answer is incorrect.",
+        feedback: 'Your answer is incorrect.',
         suggestions: [
-          "Listen carefully and ensure your answer directly addresses the question.",
-          "Keep your answer brief and to the point.",
+          'Listen carefully and ensure your answer directly addresses the question.',
+          'Keep your answer brief and to the point.',
         ],
         detailedAnalysis: {
           scores: { vocabulary: { score: 0, max: 1 } },
           feedback: {
-            summary: "Your answer is incorrect.",
-            vocabulary: `Expected one of: ${correctAnswers?.join(", ") || "correct answer"}`,
+            summary: 'Your answer is incorrect.',
+            vocabulary: `Expected one of: ${correctAnswers?.join(', ') || 'correct answer'}`,
           },
           timeTaken: timeTakenSeconds || 0,
           userText: transcribedText,
@@ -1948,15 +1959,15 @@ function evaluateAnswerShortQuestion(
       };
     }
   } catch (error) {
-    console.error("Error evaluating Answer Short Question:", error);
+    console.error('Error evaluating Answer Short Question:', error);
     return {
       score: { scored: 0, max: 1 },
       isCorrect: false,
-      feedback: "Error occurred during evaluation.",
-      suggestions: ["Please try again."],
+      feedback: 'Error occurred during evaluation.',
+      suggestions: ['Please try again.'],
       detailedAnalysis: {
         scores: { vocabulary: { score: 0, max: 1 } },
-        feedback: { summary: "Error occurred during evaluation." },
+        feedback: { summary: 'Error occurred during evaluation.' },
         timeTaken: timeTakenSeconds || 0,
       },
     };
@@ -1972,7 +1983,7 @@ async function evaluateSummarizeWrittenText(
   userResponse: any,
   timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
-  const userText = userResponse.text || "";
+  const userText = userResponse.text || '';
   const wordCount = userText
     .split(/\s+/)
     .filter((word: string | any[]) => word.length > 0).length;
@@ -2133,20 +2144,20 @@ async function evaluateSummarizeWrittenText(
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: 'gpt-4o',
       messages: [
         {
-          role: "system",
+          role: 'system',
           content:
-            "You are a helpful assistant designed to output JSON for PTE Academic evaluation.",
+            'You are a helpful assistant designed to output JSON for PTE Academic evaluation.',
         },
-        { role: "user", content: prompt },
+        { role: 'user', content: prompt },
       ],
-      response_format: { type: "json_object" },
+      response_format: { type: 'json_object' },
       temperature: 0.3,
     });
 
-    const evaluation = JSON.parse(response.choices[0].message.content || "{}");
+    const evaluation = JSON.parse(response.choices[0].message.content || '{}');
 
     // Extract individual scores for each trait
     const contentScore = evaluation.scores?.content || 0;
@@ -2178,7 +2189,7 @@ async function evaluateSummarizeWrittenText(
       score: { scored: overallScore, max: totalMaxScore },
       isCorrect: percentageScore >= 65,
       feedback:
-        evaluation.feedback?.summary || "Summary evaluated successfully.",
+        evaluation.feedback?.summary || 'Summary evaluated successfully.',
       suggestions: [],
       detailedAnalysis: {
         scores: {
@@ -2188,10 +2199,10 @@ async function evaluateSummarizeWrittenText(
           vocabulary: { score: vocabularyScore, max: maxVocabularyScore },
         },
         feedback: {
-          content: evaluation.feedback?.content || "",
-          form: evaluation.feedback?.form || "",
-          grammar: evaluation.feedback?.grammar || "",
-          vocabulary: evaluation.feedback?.vocabulary || "",
+          content: evaluation.feedback?.content || '',
+          form: evaluation.feedback?.form || '',
+          grammar: evaluation.feedback?.grammar || '',
+          vocabulary: evaluation.feedback?.vocabulary || '',
         },
         timeTaken: timeTakenSeconds || 0,
         userText: userText,
@@ -2203,12 +2214,12 @@ async function evaluateSummarizeWrittenText(
       },
     };
   } catch (error) {
-    console.error("OpenAI evaluation error for Summarize Written Text:", error);
+    console.error('OpenAI evaluation error for Summarize Written Text:', error);
     return {
       score: { scored: 0, max: 9 },
       isCorrect: false,
-      feedback: "Unable to evaluate response at this time.",
-      suggestions: ["Please try again later"],
+      feedback: 'Unable to evaluate response at this time.',
+      suggestions: ['Please try again later'],
       detailedAnalysis: {
         scores: {
           content: { score: 0, max: 4 },
@@ -2216,7 +2227,7 @@ async function evaluateSummarizeWrittenText(
           grammar: { score: 0, max: 2 },
           vocabulary: { score: 0, max: 2 },
         },
-        feedback: { summary: "Unable to evaluate response at this time." },
+        feedback: { summary: 'Unable to evaluate response at this time.' },
         timeTaken: timeTakenSeconds || 0,
         userText: userText,
         wordCount: wordCount,
@@ -2238,7 +2249,7 @@ function correctErrorPositions(errorAnalysis: any, userText: string): any {
 
   // Normalize function - removes punctuation for comparison
   const normalize = (text: string): string =>
-    text.toLowerCase().replace(/[.,!?;:\-()[\]{}""'']/g, "");
+    text.toLowerCase().replace(/[.,!?;:\-()[\]{}""'']/g, '');
 
   // Helper function to find the correct position of an error word using context
   const findWordPosition = (
@@ -2417,7 +2428,7 @@ async function evaluateWriteEssay(
   userResponse: any,
   timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
-  const userText = userResponse.text || "";
+  const userText = userResponse.text || '';
   const wordCount = userText
     .split(/\s+/)
     .filter((word: string | any[]) => word.length > 0).length;
@@ -2644,20 +2655,20 @@ async function evaluateWriteEssay(
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: 'gpt-4o',
       messages: [
         {
-          role: "system",
+          role: 'system',
           content:
-            "You are a helpful assistant designed to output JSON for PTE Academic evaluation.",
+            'You are a helpful assistant designed to output JSON for PTE Academic evaluation.',
         },
-        { role: "user", content: prompt },
+        { role: 'user', content: prompt },
       ],
-      response_format: { type: "json_object" },
+      response_format: { type: 'json_object' },
       temperature: 0.3,
     });
 
-    const evaluation = JSON.parse(response.choices[0].message.content || "{}");
+    const evaluation = JSON.parse(response.choices[0].message.content || '{}');
 
     // Extract individual scores for each trait
     const scores = evaluation.scores || {};
@@ -2707,11 +2718,11 @@ async function evaluateWriteEssay(
     return {
       score: { scored: overallScore, max: totalMaxScore },
       isCorrect: percentageScore >= 65,
-      feedback: evaluation.feedback?.summary || "Essay evaluated successfully.",
+      feedback: evaluation.feedback?.summary || 'Essay evaluated successfully.',
       suggestions: evaluation.suggestions || [
-        "Ensure your essay directly addresses all parts of the prompt.",
-        "Develop your main points with specific reasons and examples.",
-        "Check your essay for grammatical accuracy and spelling before submitting.",
+        'Ensure your essay directly addresses all parts of the prompt.',
+        'Develop your main points with specific reasons and examples.',
+        'Check your essay for grammatical accuracy and spelling before submitting.',
       ],
       detailedAnalysis: {
         scores: {
@@ -2727,15 +2738,15 @@ async function evaluateWriteEssay(
           spelling: { score: spellingScore, max: maxSpellingScore },
         },
         feedback: {
-          content: evaluation.feedback?.content || "",
-          form: evaluation.feedback?.form || "",
+          content: evaluation.feedback?.content || '',
+          form: evaluation.feedback?.form || '',
           developmentStructureCoherence:
-            evaluation.feedback?.developmentStructureCoherence || "",
-          grammar: evaluation.feedback?.grammar || "",
+            evaluation.feedback?.developmentStructureCoherence || '',
+          grammar: evaluation.feedback?.grammar || '',
           generalLinguisticRange:
-            evaluation.feedback?.generalLinguisticRange || "",
-          vocabularyRange: evaluation.feedback?.vocabularyRange || "",
-          spelling: evaluation.feedback?.spelling || "",
+            evaluation.feedback?.generalLinguisticRange || '',
+          vocabularyRange: evaluation.feedback?.vocabularyRange || '',
+          spelling: evaluation.feedback?.spelling || '',
         },
         timeTaken: timeTakenSeconds || 0,
         userText: userText,
@@ -2747,12 +2758,12 @@ async function evaluateWriteEssay(
       },
     };
   } catch (error) {
-    console.error("OpenAI evaluation error for Write Essay:", error);
+    console.error('OpenAI evaluation error for Write Essay:', error);
     return {
       score: { scored: 0, max: 26 },
       isCorrect: false,
-      feedback: "Unable to evaluate response at this time.",
-      suggestions: ["Please try again later"],
+      feedback: 'Unable to evaluate response at this time.',
+      suggestions: ['Please try again later'],
       detailedAnalysis: {
         scores: {
           content: { score: 0, max: 6 },
@@ -2763,7 +2774,7 @@ async function evaluateWriteEssay(
           vocabularyRange: { score: 0, max: 2 },
           spelling: { score: 0, max: 2 },
         },
-        feedback: { summary: "Unable to evaluate response at this time." },
+        feedback: { summary: 'Unable to evaluate response at this time.' },
         timeTaken: timeTakenSeconds || 0,
         userText: userText,
         wordCount: wordCount,
@@ -2783,7 +2794,7 @@ async function evaluateMultipleChoiceSingle(
 ): Promise<QuestionEvaluationResult> {
   const selectedOption = userResponse.selectedOption;
 
-  console.log(selectedOption, "EIOWIOR");
+  console.log(selectedOption, 'EIOWIOR');
 
   // Ensure options have IDs
 
@@ -2797,19 +2808,19 @@ async function evaluateMultipleChoiceSingle(
   const selectedOptionText =
     question.options.find(
       (opt: any) => (opt.id || opt.option_id) === selectedOption,
-    )?.text || "Unknown option";
+    )?.text || 'Unknown option';
   const correctOptionText =
     question.options.find((opt: any) =>
       correctAnswers.includes(opt.id || opt.option_id),
-    )?.text || "Unknown option";
+    )?.text || 'Unknown option';
 
   // Determine if this is a reading or listening question based on question type
-  const isReadingQuestion = question.questionType.name.includes("READING");
-  const skillType = isReadingQuestion ? "reading" : "listening";
+  const isReadingQuestion = question.questionType.name.includes('READING');
+  const skillType = isReadingQuestion ? 'reading' : 'listening';
   const actualScore = isCorrect ? 1 : 0;
 
   // Generate detailed explanation for both reading and listening questions using AI
-  let explanation = "";
+  let explanation = '';
   try {
     const generationFunction = isReadingQuestion
       ? generateDynamicExplanation
@@ -2825,12 +2836,12 @@ async function evaluateMultipleChoiceSingle(
       isCorrect: isCorrect,
     });
   } catch (error) {
-    console.error("Error generating explanation:", error);
+    console.error('Error generating explanation:', error);
     // Fallback to static explanation
     explanation = `The correct answer is "${correctOptionText}". Your selected answer "${selectedOptionText}" was incorrect. ${
       isReadingQuestion
-        ? "Review the passage carefully to find evidence supporting the correct answer."
-        : "Listen again carefully to identify the correct information."
+        ? 'Review the passage carefully to find evidence supporting the correct answer.'
+        : 'Listen again carefully to identify the correct information.'
     }`;
   }
 
@@ -2841,19 +2852,19 @@ async function evaluateMultipleChoiceSingle(
       ? `Correct! You selected: "${selectedOptionText}"`
       : `Incorrect. You selected: "${selectedOptionText}". The correct answer is: "${correctOptionText}"`,
     suggestions: isCorrect
-      ? ["Great job! Continue practicing similar questions."]
+      ? ['Great job! Continue practicing similar questions.']
       : isReadingQuestion
         ? [
-            "Re-read the passage carefully and identify key information",
-            "Look for specific evidence that directly supports the correct answer",
-            "Eliminate options that are only partially correct or off-topic",
+            'Re-read the passage carefully and identify key information',
+            'Look for specific evidence that directly supports the correct answer',
+            'Eliminate options that are only partially correct or off-topic',
             'Pay attention to qualifying words like "always", "never", "some", "most"',
-            "Consider the main idea vs. specific details when answering",
+            'Consider the main idea vs. specific details when answering',
           ]
         : [
-            "Review the passage/audio more carefully",
-            "Look for key information that supports the correct answer",
-            "Practice elimination techniques for wrong options",
+            'Review the passage/audio more carefully',
+            'Look for key information that supports the correct answer',
+            'Practice elimination techniques for wrong options',
           ],
     detailedAnalysis: {
       scores: {
@@ -2908,34 +2919,34 @@ async function evaluateMultipleChoiceMultiple(
     correctSelected === totalCorrectAnswers && incorrectSelected === 0;
 
   // Determine if this is a reading or listening question
-  const isReadingQuestion = question.questionType.name.includes("READING");
-  const skillType = isReadingQuestion ? "reading" : "listening";
+  const isReadingQuestion = question.questionType.name.includes('READING');
+  const skillType = isReadingQuestion ? 'reading' : 'listening';
 
   // Get option texts for detailed feedback
   const options = question.options || [];
   const selectedOptionTexts = selectedOptions.map(
     (optId: string) =>
-      options.find((opt: any) => opt.id === optId)?.text || "Unknown option",
+      options.find((opt: any) => opt.id === optId)?.text || 'Unknown option',
   );
   const correctOptionTexts = correctAnswers.map(
     (optId: string) =>
-      options.find((opt: any) => opt.id === optId)?.text || "Unknown option",
+      options.find((opt: any) => opt.id === optId)?.text || 'Unknown option',
   );
   const incorrectlySelectedTexts = selectedOptions
     .filter((optId: string) => !correctAnswers.includes(optId))
     .map(
       (optId: string) =>
-        options.find((opt: any) => opt.id === optId)?.text || "Unknown option",
+        options.find((opt: any) => opt.id === optId)?.text || 'Unknown option',
     );
   const missedCorrectTexts = correctAnswers
     .filter((optId: string) => !selectedOptions.includes(optId))
     .map(
       (optId: string) =>
-        options.find((opt: any) => opt.id === optId)?.text || "Unknown option",
+        options.find((opt: any) => opt.id === optId)?.text || 'Unknown option',
     );
 
   // Generate detailed explanation for both reading and listening questions using AI
-  let explanation = "";
+  let explanation = '';
   try {
     const generationFunction = isReadingQuestion
       ? generateDynamicExplanationMultiple
@@ -2952,22 +2963,22 @@ async function evaluateMultipleChoiceMultiple(
       allOptions: question.options,
     });
   } catch (error) {
-    console.error("Error generating explanation:", error);
+    console.error('Error generating explanation:', error);
     // Fallback to static explanation
     explanation = `The correct answers are: ${correctOptionTexts
       .map((text: string) => `"${text}"`)
-      .join(", ")}. `;
+      .join(', ')}. `;
 
     if (incorrectlySelectedTexts.length > 0) {
       explanation += `You incorrectly selected: ${incorrectlySelectedTexts
         .map((text: string) => `"${text}"`)
-        .join(", ")}. `;
+        .join(', ')}. `;
     }
 
     if (missedCorrectTexts.length > 0) {
       explanation += `You missed: ${missedCorrectTexts
         .map((text: string) => `"${text}"`)
-        .join(", ")}. `;
+        .join(', ')}. `;
     }
   }
 
@@ -2976,19 +2987,19 @@ async function evaluateMultipleChoiceMultiple(
     isCorrect,
     feedback: `You selected ${correctSelected} correct and ${incorrectSelected} incorrect options out of ${correctAnswers.length} total correct answers.`,
     suggestions: isCorrect
-      ? ["Excellent! You identified all correct answers."]
+      ? ['Excellent! You identified all correct answers.']
       : isReadingQuestion
         ? [
-            "Read the passage thoroughly to identify all relevant information",
-            "Look for multiple pieces of evidence that support different correct answers",
-            "Be careful not to select options that are only partially supported",
-            "Check that each selected option is directly supported by the text",
-            "Consider whether you might have missed any correct options",
+            'Read the passage thoroughly to identify all relevant information',
+            'Look for multiple pieces of evidence that support different correct answers',
+            'Be careful not to select options that are only partially supported',
+            'Check that each selected option is directly supported by the text',
+            'Consider whether you might have missed any correct options',
           ]
         : [
-            "Read all options carefully before selecting",
-            "Look for multiple pieces of evidence in the text/audio",
-            "Avoid selecting options that are only partially correct",
+            'Read all options carefully before selecting',
+            'Look for multiple pieces of evidence in the text/audio',
+            'Avoid selecting options that are only partially correct',
           ],
     detailedAnalysis: {
       scores: {
@@ -2998,7 +3009,7 @@ async function evaluateMultipleChoiceMultiple(
         summary: `You selected ${correctSelected} correct and ${incorrectSelected} incorrect options out of ${correctAnswers.length} total correct answers.`,
       },
       timeTaken: timeTakenSeconds || 0,
-      correctAnswer: correctOptionTexts.join("; "),
+      correctAnswer: correctOptionTexts.join('; '),
       choiceResult: {
         selectedTexts: selectedOptionTexts,
         correctTexts: correctOptionTexts,
@@ -3048,16 +3059,16 @@ async function evaluateReorderParagraphs(
 
   const userOrderText = userOrder.map((id: string) => ({
     id,
-    text: paragraphMap.get(id) || "",
+    text: paragraphMap.get(id) || '',
   }));
 
   const correctOrderText = correctOrder.map((id: string) => ({
     id,
-    text: paragraphMap.get(id) || "",
+    text: paragraphMap.get(id) || '',
   }));
 
   // Generate detailed explanation using AI
-  let explanation = "";
+  let explanation = '';
   try {
     explanation = await generateDynamicExplanationReorder({
       questionType: question.questionType.name,
@@ -3065,7 +3076,7 @@ async function evaluateReorderParagraphs(
       correctOrderText, // Pass only correct order - explain why it's correct
     });
   } catch (error) {
-    console.error("Error generating explanation:", error);
+    console.error('Error generating explanation:', error);
     // Fallback to static explanation
     explanation = `The correct paragraph order follows a logical flow that connects ideas through transitions, chronological sequencing, or cause-and-effect relationships. Look for topic connections and structural clues that indicate which paragraphs belong together.`;
   }
@@ -3075,14 +3086,14 @@ async function evaluateReorderParagraphs(
     isCorrect,
     feedback: `You got ${correctPairs} out of ${maxPairs} paragraph pairs in the correct order.`,
     suggestions: isCorrect
-      ? ["Excellent! You identified the correct logical flow."]
+      ? ['Excellent! You identified the correct logical flow.']
       : [
-          "Look for logical connectors (however, therefore, meanwhile, etc.)",
-          "Identify the introduction paragraph (usually sets up the topic)",
-          "Find the conclusion paragraph (usually summarizes or concludes)",
-          "Follow chronological order when dealing with events or processes",
-          "Look for pronouns and references that connect to previous paragraphs",
-          "Consider cause-and-effect relationships between ideas",
+          'Look for logical connectors (however, therefore, meanwhile, etc.)',
+          'Identify the introduction paragraph (usually sets up the topic)',
+          'Find the conclusion paragraph (usually summarizes or concludes)',
+          'Follow chronological order when dealing with events or processes',
+          'Look for pronouns and references that connect to previous paragraphs',
+          'Consider cause-and-effect relationships between ideas',
         ],
     detailedAnalysis: {
       scores: {
@@ -3158,7 +3169,7 @@ async function evaluateFillInTheBlanks(
   // );
 
   // Generate detailed explanation for reading questions using AI
-  let explanation = "";
+  let explanation = '';
   try {
     // explanation = await generateDynamicExplanationFillBlanks({
     //   questionType: question.questionType.name,
@@ -3173,19 +3184,19 @@ async function evaluateFillInTheBlanks(
       blankResults,
     });
   } catch (error) {
-    console.error("Error generating explanation:", error);
+    console.error('Error generating explanation:', error);
     // Fallback to static explanation
     const incorrectBlanks = Object.entries(blankResults)
       .filter(([_, result]: [string, any]) => !result.isCorrect)
       .map(([blankKey, result]: [string, any]) => {
-        const blankNumber = blankKey.replace("blank", "");
+        const blankNumber = blankKey.replace('blank', '');
         return `Blank ${blankNumber}: You wrote "${
-          result.userAnswer || "(empty)"
+          result.userAnswer || '(empty)'
         }", correct answer is "${result.correctAnswer}"`;
       });
 
     if (incorrectBlanks.length > 0) {
-      explanation = `Incorrect answers: ${incorrectBlanks.join("; ")}. `;
+      explanation = `Incorrect answers: ${incorrectBlanks.join('; ')}. `;
     }
 
     explanation += `Consider the context around each blank for grammatical and meaning clues.`;
@@ -3196,13 +3207,13 @@ async function evaluateFillInTheBlanks(
     isCorrect,
     feedback: `You filled ${correctCount} out of ${totalBlanks} blanks correctly.`,
     suggestions: isCorrect
-      ? ["Great work! You understood the context well."]
+      ? ['Great work! You understood the context well.']
       : [
-          "Read the entire passage first to understand the overall meaning",
-          "Look for grammatical clues around each blank (verb forms, articles, etc.)",
-          "Consider the logical flow and meaning of the sentence",
-          "Pay attention to collocations (words that commonly go together)",
-          "Check if your answer fits grammatically and semantically",
+          'Read the entire passage first to understand the overall meaning',
+          'Look for grammatical clues around each blank (verb forms, articles, etc.)',
+          'Consider the logical flow and meaning of the sentence',
+          'Pay attention to collocations (words that commonly go together)',
+          'Check if your answer fits grammatically and semantically',
         ],
     detailedAnalysis: {
       scores: {
@@ -3239,7 +3250,7 @@ ${Object.entries(blankResults)
     ([key, val]: any, index) =>
       `${index + 1}. User="${val.userAnswer}", Correct="${val.correctAnswer}"`,
   )
-  .join("\n")}
+  .join('\n')}
 
 ### Instructions:
 - Write explanation in structured paragraphs (NOT blank-wise labels)
@@ -3259,13 +3270,13 @@ Do NOT return JSON. Return plain text.
 `;
 
   const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [{ role: "user", content: prompt }],
+    model: 'gpt-4o',
+    messages: [{ role: 'user', content: prompt }],
     temperature: 0.3,
     max_tokens: 900,
   });
 
-  return response.choices[0]?.message?.content || "";
+  return response.choices[0]?.message?.content || '';
 }
 
 // LISTENING QUESTION EVALUATION
@@ -3277,7 +3288,7 @@ async function evaluateSummarizeSpokenText(
   userResponse: any,
   timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
-  const userText = userResponse.text || "";
+  const userText = userResponse.text || '';
   const wordCount = userText
     .split(/\s+/)
     .filter((word: string | any[]) => word.length > 0).length;
@@ -3382,20 +3393,20 @@ Your final output **must** be a single, minified JSON object with NO markdown.
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: 'gpt-4o',
       messages: [
         {
-          role: "system",
+          role: 'system',
           content:
-            "You are a helpful assistant designed to output JSON for PTE Academic evaluation.",
+            'You are a helpful assistant designed to output JSON for PTE Academic evaluation.',
         },
-        { role: "user", content: prompt },
+        { role: 'user', content: prompt },
       ],
-      response_format: { type: "json_object" },
+      response_format: { type: 'json_object' },
       temperature: 0.3,
     });
 
-    const evaluation = JSON.parse(response.choices[0].message.content || "{}");
+    const evaluation = JSON.parse(response.choices[0].message.content || '{}');
 
     // Extract individual scores for each trait
     const scores = evaluation.scores || {};
@@ -3423,11 +3434,11 @@ Your final output **must** be a single, minified JSON object with NO markdown.
       isCorrect: percentageScore >= 65,
       feedback:
         evaluation.feedback?.summary ||
-        "Spoken text summary evaluated successfully.",
+        'Spoken text summary evaluated successfully.',
       suggestions: evaluation.suggestions || [
-        "Focus on main ideas from the audio",
-        "Stay within word count limits (50-70 words)",
-        "Use proper grammar and vocabulary",
+        'Focus on main ideas from the audio',
+        'Stay within word count limits (50-70 words)',
+        'Use proper grammar and vocabulary',
       ],
       detailedAnalysis: {
         scores: {
@@ -3438,11 +3449,11 @@ Your final output **must** be a single, minified JSON object with NO markdown.
           spelling: { score: spellingScore, max: 2 },
         },
         feedback: {
-          content: evaluation.feedback?.content || "",
-          form: evaluation.feedback?.form || "",
-          grammar: evaluation.feedback?.grammar || "",
-          vocabulary: evaluation.feedback?.vocabulary || "",
-          spelling: evaluation.feedback?.spelling || "",
+          content: evaluation.feedback?.content || '',
+          form: evaluation.feedback?.form || '',
+          grammar: evaluation.feedback?.grammar || '',
+          vocabulary: evaluation.feedback?.vocabulary || '',
+          spelling: evaluation.feedback?.spelling || '',
         },
         timeTaken: timeTakenSeconds || 0,
         userText: userText,
@@ -3455,12 +3466,12 @@ Your final output **must** be a single, minified JSON object with NO markdown.
       },
     };
   } catch (error) {
-    console.error("OpenAI evaluation error for Summarize Spoken Text:", error);
+    console.error('OpenAI evaluation error for Summarize Spoken Text:', error);
     return {
       score: { scored: 0, max: 9 },
       isCorrect: false,
-      feedback: "Unable to evaluate response at this time.",
-      suggestions: ["Please try again later"],
+      feedback: 'Unable to evaluate response at this time.',
+      suggestions: ['Please try again later'],
       detailedAnalysis: {
         scores: {
           content: { score: 0, max: 4 },
@@ -3469,7 +3480,7 @@ Your final output **must** be a single, minified JSON object with NO markdown.
           vocabulary: { score: 0, max: 2 },
           spelling: { score: 0, max: 2 },
         },
-        feedback: { summary: "Unable to evaluate response at this time." },
+        feedback: { summary: 'Unable to evaluate response at this time.' },
         timeTaken: timeTakenSeconds || 0,
         userText: userText,
         wordCount: wordCount,
@@ -3492,7 +3503,7 @@ async function evaluateHighlightIncorrectWords(
 
   // Helper function to clean words (remove punctuation for comparison)
   const cleanWord = (word: string): string => {
-    return word.replace(/[^\w]/g, "").toLowerCase();
+    return word.replace(/[^\w]/g, '').toLowerCase();
   };
 
   // Create cleaned versions for comparison
@@ -3531,9 +3542,9 @@ async function evaluateHighlightIncorrectWords(
     isCorrect,
     feedback: `You correctly identified ${correctHighlights} out of ${incorrectWords.length} incorrect words and incorrectly highlighted ${incorrectHighlights} correct words.`,
     suggestions: [
-      "Listen carefully to identify differences between audio and text",
-      "Focus on pronunciation and word stress patterns",
-      "Practice with different accents and speaking speeds",
+      'Listen carefully to identify differences between audio and text',
+      'Focus on pronunciation and word stress patterns',
+      'Practice with different accents and speaking speeds',
     ],
     detailedAnalysis: {
       scores: {
@@ -3543,7 +3554,7 @@ async function evaluateHighlightIncorrectWords(
         summary: `You correctly identified ${correctHighlights} out of ${incorrectWords.length} incorrect words and incorrectly highlighted ${incorrectHighlights} correct words.`,
       },
       timeTaken: timeTakenSeconds || 0,
-      correctAnswer: incorrectWords.join(", ") || undefined,
+      correctAnswer: incorrectWords.join(', ') || undefined,
       highlightResult: {
         highlightedWords,
         incorrectWords,
@@ -3565,9 +3576,9 @@ async function evaluateWriteFromDictation(
   userResponse: any,
   timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
-  const userText = userResponse.text?.toLowerCase().trim() || "";
-  const correctTextLower = question.textContent?.toLowerCase().trim() || "";
-  const correctTextOriginal = question.textContent?.trim() || "";
+  const userText = userResponse.text?.toLowerCase().trim() || '';
+  const correctTextLower = question.textContent?.toLowerCase().trim() || '';
+  const correctTextOriginal = question.textContent?.trim() || '';
 
   // Calculate word-level accuracy (order-independent)
   const userWords = userText
@@ -3582,17 +3593,17 @@ async function evaluateWriteFromDictation(
     return {
       score: { scored: 0, max: 0 },
       isCorrect: false,
-      feedback: "No correct answer defined for this question.",
+      feedback: 'No correct answer defined for this question.',
       suggestions: [
-        "Focus on spelling accuracy",
-        "Listen for punctuation cues in the audio",
-        "Practice typing while listening to improve speed and accuracy",
+        'Focus on spelling accuracy',
+        'Listen for punctuation cues in the audio',
+        'Practice typing while listening to improve speed and accuracy',
       ],
       detailedAnalysis: {
         scores: { listening: { score: 0, max: 0 } },
-        feedback: { summary: "No correct answer defined for this question." },
+        feedback: { summary: 'No correct answer defined for this question.' },
         timeTaken: timeTakenSeconds || 0,
-        userText: userResponse.text || "",
+        userText: userResponse.text || '',
         errorAnalysis: {
           spellingErrors: [],
           grammarErrors: [],
@@ -3697,7 +3708,7 @@ async function evaluateWriteFromDictation(
   for (const mistake of spellingMistakes) {
     errorAnalysis.spellingErrors.push({
       text: mistake.userWord,
-      type: "spelling_error",
+      type: 'spelling_error',
       position: { start: 0, end: 1 },
       correction: mistake.correctWord,
       explanation: `Spelling mistake: "${mistake.userWord}" should be "${mistake.correctWord}"`,
@@ -3708,7 +3719,7 @@ async function evaluateWriteFromDictation(
   for (const missingWord of missingWords) {
     errorAnalysis.vocabularyIssues.push({
       text: missingWord,
-      type: "missing_word",
+      type: 'missing_word',
       position: { start: 0, end: 1 },
       correction: missingWord,
       explanation: `You missed the word: "${missingWord}"`,
@@ -3719,9 +3730,9 @@ async function evaluateWriteFromDictation(
   for (const extraWord of extraWordsInResponse) {
     errorAnalysis.grammarErrors.push({
       text: extraWord,
-      type: "unnecessary_word",
+      type: 'unnecessary_word',
       position: { start: 0, end: 1 },
-      correction: "",
+      correction: '',
       explanation: `Unnecessary word that should be removed: "${extraWord}"`,
     });
   }
@@ -3743,22 +3754,22 @@ async function evaluateWriteFromDictation(
             spellingMistakes.length > 0
               ? ` Spelling mistakes: ${spellingMistakes
                   .map((m) => `"${m.userWord}" → "${m.correctWord}"`)
-                  .join(", ")}.`
-              : ""
+                  .join(', ')}.`
+              : ''
           }${
             missingWords.length > 0
-              ? ` Missing: ${missingWords.join(", ")}.`
-              : ""
+              ? ` Missing: ${missingWords.join(', ')}.`
+              : ''
           }${
             extraWordsInResponse.length > 0
-              ? ` Extra words: ${extraWordsInResponse.join(", ")}.`
-              : ""
+              ? ` Extra words: ${extraWordsInResponse.join(', ')}.`
+              : ''
           }`,
     suggestions: [
-      "Focus on spelling accuracy",
-      "Listen for punctuation cues in the audio",
-      "Practice typing while listening to improve speed and accuracy",
-      "Make sure all words are present and no extra words are added",
+      'Focus on spelling accuracy',
+      'Listen for punctuation cues in the audio',
+      'Practice typing while listening to improve speed and accuracy',
+      'Make sure all words are present and no extra words are added',
     ],
     detailedAnalysis: {
       scores: {
@@ -3773,7 +3784,7 @@ async function evaluateWriteFromDictation(
             : `You typed ${correctWordCount} out of ${correctWords.length} words correctly.`,
       },
       timeTaken: timeTakenSeconds || 0,
-      userText: userResponse.text || "",
+      userText: userResponse.text || '',
       correctAnswer: correctTextOriginal || undefined,
       errorAnalysis,
     },
@@ -3815,10 +3826,10 @@ async function evaluateHighlightCorrectSummary(
   const correctOptionText = correctAnswers[0].text;
 
   // Generate explanation for correct/incorrect answers
-  let explanation = "";
+  let explanation = '';
   try {
     explanation = await generateDynamicExplanationListening({
-      questionType: "HIGHLIGHT_CORRECT_SUMMARY",
+      questionType: 'HIGHLIGHT_CORRECT_SUMMARY',
       questionStatement: question.questionStatement,
       selectedAnswer: userSelectedText,
       correctAnswer: correctOptionText,
@@ -3827,24 +3838,24 @@ async function evaluateHighlightCorrectSummary(
     });
   } catch (error) {
     console.error(
-      "Error generating explanation for HIGHLIGHT_CORRECT_SUMMARY:",
+      'Error generating explanation for HIGHLIGHT_CORRECT_SUMMARY:',
       error,
     );
-    explanation = "";
+    explanation = '';
   }
 
   return {
     score: { scored: score, max: 1 },
     isCorrect,
     feedback: isCorrect
-      ? "Correct! You selected the best summary."
-      : "Incorrect. The selected summary does not best represent the audio content.",
+      ? 'Correct! You selected the best summary.'
+      : 'Incorrect. The selected summary does not best represent the audio content.',
     suggestions: isCorrect
-      ? ["Excellent listening comprehension!"]
+      ? ['Excellent listening comprehension!']
       : [
-          "Focus on main ideas rather than details",
-          "Listen for the overall theme and purpose",
-          "Practice identifying key information in audio content",
+          'Focus on main ideas rather than details',
+          'Listen for the overall theme and purpose',
+          'Practice identifying key information in audio content',
         ],
     detailedAnalysis: {
       scores: {
@@ -3852,8 +3863,8 @@ async function evaluateHighlightCorrectSummary(
       },
       feedback: {
         summary: isCorrect
-          ? "Correct! You selected the best summary."
-          : "Incorrect. The selected summary does not best represent the audio content.",
+          ? 'Correct! You selected the best summary.'
+          : 'Incorrect. The selected summary does not best represent the audio content.',
       },
       timeTaken: timeTakenSeconds || 0,
       correctAnswer: correctOptionText,
@@ -3891,10 +3902,10 @@ async function evaluateSelectMissingWord(
   const correctOptionText = correctAnswers[0].text;
 
   // Generate explanation for incorrect answers
-  let explanation = "";
+  let explanation = '';
   try {
     explanation = await generateDynamicExplanationListening({
-      questionType: "SELECT_MISSING_WORD",
+      questionType: 'SELECT_MISSING_WORD',
       questionStatement: question.questionStatement,
       selectedAnswer: selectedOptionText,
       correctAnswer: correctOptionText,
@@ -3903,24 +3914,24 @@ async function evaluateSelectMissingWord(
     });
   } catch (error) {
     console.error(
-      "Error generating explanation for SELECT_MISSING_WORD:",
+      'Error generating explanation for SELECT_MISSING_WORD:',
       error,
     );
-    explanation = "";
+    explanation = '';
   }
 
   return {
     score: { scored: score, max: 1 },
     isCorrect,
     feedback: isCorrect
-      ? "Correct! You identified the missing word accurately."
-      : "Incorrect. Listen again for context clues about the missing word.",
+      ? 'Correct! You identified the missing word accurately.'
+      : 'Incorrect. Listen again for context clues about the missing word.',
     suggestions: isCorrect
-      ? ["Great listening skills!"]
+      ? ['Great listening skills!']
       : [
-          "Pay attention to context and meaning",
-          "Listen for grammatical clues",
-          "Consider the logical flow of the sentence",
+          'Pay attention to context and meaning',
+          'Listen for grammatical clues',
+          'Consider the logical flow of the sentence',
         ],
     detailedAnalysis: {
       scores: {
@@ -4001,7 +4012,7 @@ async function evaluateListeningFillInTheBlanks(
   );
 
   // Generate formal explanation for incorrect blanks
-  let explanation = "";
+  let explanation = '';
   if (!isCorrect) {
     try {
       // Get first incorrect blank for explanation
@@ -4012,10 +4023,10 @@ async function evaluateListeningFillInTheBlanks(
       if (firstIncorrectBlank) {
         const [blankKey, result] = firstIncorrectBlank;
         explanation = await generateDynamicExplanationListeningFillBlanks({
-          questionType: "LISTENING_FILL_IN_THE_BLANKS",
+          questionType: 'LISTENING_FILL_IN_THE_BLANKS',
           userAnswer: result.userAnswer,
           correctAnswer: result.correctAnswer,
-          blankContext: question.questionStatement || "",
+          blankContext: question.questionStatement || '',
           allIncorrectBlanks: Object.entries(blankResults)
             .filter(([_, b]: [string, any]) => !b.isCorrect)
             .map(([_, b]: [string, any]) => ({
@@ -4026,10 +4037,10 @@ async function evaluateListeningFillInTheBlanks(
       }
     } catch (error) {
       console.error(
-        "Error generating explanation for LISTENING_FILL_IN_THE_BLANKS:",
+        'Error generating explanation for LISTENING_FILL_IN_THE_BLANKS:',
         error,
       );
-      explanation = "";
+      explanation = '';
     }
   }
 
@@ -4041,27 +4052,27 @@ async function evaluateListeningFillInTheBlanks(
   };
 
   // Create a text representation for error highlighting
-  let userText = "";
-  let correctText = "";
+  let userText = '';
+  let correctText = '';
 
   Object.keys(correctBlanks).forEach((blankKey, index) => {
-    const userAnswer = userBlanks[blankKey] || "(blank)";
+    const userAnswer = userBlanks[blankKey] || '(blank)';
     const correctAnswer = correctBlanks[blankKey];
     const isBlankCorrect = blankResults[blankKey].isCorrect;
 
     if (index > 0) {
-      userText += " ";
-      correctText += " ";
+      userText += ' ';
+      correctText += ' ';
     }
 
     userText += userAnswer;
     correctText += correctAnswer;
 
     // Add error if blank is incorrect
-    if (!isBlankCorrect && userAnswer !== "(blank)") {
+    if (!isBlankCorrect && userAnswer !== '(blank)') {
       errorAnalysis.spellingErrors.push({
         text: userAnswer,
-        type: "spelling",
+        type: 'spelling',
         position: { start: 0, end: 1 },
         correction: correctAnswer,
         explanation: `Incorrect word for blank ${
@@ -4110,12 +4121,12 @@ function isListeningAnswerCorrect(
   // 2. Check for a match after removing punctuation and extra spaces
   // This allows for "end." to match "end"
   const cleanUser = user
-    .replace(/[^\w\s]/g, "")
-    .replace(/\s+/g, " ")
+    .replace(/[^\w\s]/g, '')
+    .replace(/\s+/g, ' ')
     .trim();
   const cleanCorrect = correct
-    .replace(/[^\w\s]/g, "")
-    .replace(/\s+/g, " ")
+    .replace(/[^\w\s]/g, '')
+    .replace(/\s+/g, ' ')
     .trim();
 
   // Only return true if the cleaned versions match exactly.
@@ -4138,24 +4149,24 @@ async function generateListeningFillInTheBlanksAIFeedback(
   ).length;
   const totalBlanks = Object.keys(blankResults).length;
 
-  let feedback = "";
+  let feedback = '';
   const suggestions: string[] = [];
 
   if (score >= 80) {
     feedback = `Excellent listening comprehension! You correctly identified ${correctCount} out of ${totalBlanks} words.`;
-    suggestions.push("Continue practicing with varied audio content");
-    suggestions.push("Focus on maintaining this level of accuracy");
+    suggestions.push('Continue practicing with varied audio content');
+    suggestions.push('Focus on maintaining this level of accuracy');
   } else if (score >= 60) {
     feedback = `Good listening skills! You got ${correctCount} out of ${totalBlanks} words correct.`;
-    suggestions.push("Listen for context clues to help identify missing words");
-    suggestions.push("Pay attention to grammatical patterns");
-    suggestions.push("Practice with similar audio content");
+    suggestions.push('Listen for context clues to help identify missing words');
+    suggestions.push('Pay attention to grammatical patterns');
+    suggestions.push('Practice with similar audio content');
   } else {
     feedback = `Keep practicing your listening skills. You identified ${correctCount} out of ${totalBlanks} words correctly.`;
-    suggestions.push("Listen to the audio multiple times if allowed");
-    suggestions.push("Focus on understanding the overall meaning first");
-    suggestions.push("Pay attention to word stress and pronunciation");
-    suggestions.push("Practice with shorter audio clips to build confidence");
+    suggestions.push('Listen to the audio multiple times if allowed');
+    suggestions.push('Focus on understanding the overall meaning first');
+    suggestions.push('Pay attention to word stress and pronunciation');
+    suggestions.push('Practice with shorter audio clips to build confidence');
   }
 
   // Add specific feedback for incorrect answers
@@ -4164,11 +4175,11 @@ async function generateListeningFillInTheBlanksAIFeedback(
     .slice(0, 2); // Limit to first 2 incorrect answers
 
   if (incorrectBlanks.length > 0) {
-    feedback += "\n\nSpecific areas to focus on:\n";
+    feedback += '\n\nSpecific areas to focus on:\n';
     incorrectBlanks.forEach(([blankKey, result]: [string, any]) => {
-      const blankNumber = blankKey.replace("blank", "");
+      const blankNumber = blankKey.replace('blank', '');
       feedback += `• Blank ${blankNumber}: You wrote "${
-        result.userAnswer || "(empty)"
+        result.userAnswer || '(empty)'
       }", but the correct answer is "${result.correctAnswer}"\n`;
     });
   }
@@ -4205,16 +4216,16 @@ You are an expert PTE Academic tutor providing detailed explanations for reading
 **Question Type:** ${questionType}
 
 **Passage/Text:**
-${textContent || "No passage provided"}
+${textContent || 'No passage provided'}
 
 **Question Statement:**
-${questionStatement || "No specific question statement"}
+${questionStatement || 'No specific question statement'}
 
 **All Answer Options:**
 ${
   allOptions
-    ? allOptions.map((opt: any) => `• ${opt.text}`).join("\n")
-    : "Options not available"
+    ? allOptions.map((opt: any) => `• ${opt.text}`).join('\n')
+    : 'Options not available'
 }
 
 **Your Answer:** ${selectedAnswer}
@@ -4241,15 +4252,15 @@ Use line breaks to separate the two points.
 `;
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: 'gpt-4o-mini',
       messages: [
         {
-          role: "system",
+          role: 'system',
           content:
-            "You are an expert PTE Academic tutor specializing in reading comprehension questions.",
+            'You are an expert PTE Academic tutor specializing in reading comprehension questions.',
         },
         {
-          role: "user",
+          role: 'user',
           content: prompt,
         },
       ],
@@ -4259,10 +4270,10 @@ Use line breaks to separate the two points.
 
     return (
       response.choices[0]?.message?.content?.trim() ||
-      "Unable to generate explanation."
+      'Unable to generate explanation.'
     );
   } catch (error) {
-    console.error("Error generating dynamic explanation:", error);
+    console.error('Error generating dynamic explanation:', error);
     throw error;
   }
 }
@@ -4298,25 +4309,25 @@ You are an expert PTE Academic tutor providing detailed explanations for multipl
 **Question Type:** ${questionType}
 
 **Passage/Text:**
-${textContent || "No passage provided"}
+${textContent || 'No passage provided'}
 
 **Question Statement:**
-${questionStatement || "No specific question statement"}
+${questionStatement || 'No specific question statement'}
 
 **All Answer Options:**
 ${
   allOptions
-    ? allOptions.map((opt: any) => `• ${opt.text}`).join("\n")
-    : "Options not available"
+    ? allOptions.map((opt: any) => `• ${opt.text}`).join('\n')
+    : 'Options not available'
 }
 
-**Your Selected Answers:** ${selectedAnswers.join(", ")}
-**Correct Answers:** ${correctAnswers.join(", ")}
+**Your Selected Answers:** ${selectedAnswers.join(', ')}
+**Correct Answers:** ${correctAnswers.join(', ')}
 **Incorrectly Selected:** ${
-      incorrectlySelected.length > 0 ? incorrectlySelected.join(", ") : "None"
+      incorrectlySelected.length > 0 ? incorrectlySelected.join(', ') : 'None'
     }
 **Answers You Missed:** ${
-      missedCorrect.length > 0 ? missedCorrect.join(", ") : "None"
+      missedCorrect.length > 0 ? missedCorrect.join(', ') : 'None'
     }
 
 Provide a brief explanation (3-4 lines maximum) that:
@@ -4337,15 +4348,15 @@ Be direct and focus only on what is correct and what is wrong. No tips or additi
 `;
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: 'gpt-4o-mini',
       messages: [
         {
-          role: "system",
+          role: 'system',
           content:
-            "You are an expert PTE Academic tutor specializing in multiple choice multiple answers reading questions.",
+            'You are an expert PTE Academic tutor specializing in multiple choice multiple answers reading questions.',
         },
         {
-          role: "user",
+          role: 'user',
           content: prompt,
         },
       ],
@@ -4355,11 +4366,11 @@ Be direct and focus only on what is correct and what is wrong. No tips or additi
 
     return (
       response.choices[0]?.message?.content?.trim() ||
-      "Unable to generate explanation."
+      'Unable to generate explanation.'
     );
   } catch (error) {
     console.error(
-      "Error generating dynamic explanation for multiple choice:",
+      'Error generating dynamic explanation for multiple choice:',
       error,
     );
     throw error;
@@ -4380,7 +4391,7 @@ async function generateDynamicExplanationReorder(params: {
     // Format the correct paragraph order with full text and indexes
     const correctOrderFormatted = correctOrderText
       .map((item, index) => `Paragraph ${index + 1}: "${item.text}"`)
-      .join("\n\n");
+      .join('\n\n');
 
     const prompt = `
 You are an expert PTE Academic tutor explaining reading comprehension concepts.
@@ -4417,15 +4428,15 @@ Do NOT return JSON. Return plain text explanation only.
 `;
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: 'gpt-4o-mini',
       messages: [
         {
-          role: "system",
+          role: 'system',
           content:
-            "You are an expert PTE Academic tutor. Explain why paragraph orders are correct by focusing on logical flow, connections, and coherence using the ACTUAL paragraph content. Never use ordinal numbers like first/second/third. Always reference what the paragraphs actually SAY.",
+            'You are an expert PTE Academic tutor. Explain why paragraph orders are correct by focusing on logical flow, connections, and coherence using the ACTUAL paragraph content. Never use ordinal numbers like first/second/third. Always reference what the paragraphs actually SAY.',
         },
         {
-          role: "user",
+          role: 'user',
           content: prompt,
         },
       ],
@@ -4435,11 +4446,11 @@ Do NOT return JSON. Return plain text explanation only.
 
     return (
       response.choices[0]?.message?.content?.trim() ||
-      "The paragraphs are arranged in a logical sequence that creates coherent meaning through their connections and flow."
+      'The paragraphs are arranged in a logical sequence that creates coherent meaning through their connections and flow.'
     );
   } catch (error) {
     console.error(
-      "Error generating dynamic explanation for reorder paragraphs:",
+      'Error generating dynamic explanation for reorder paragraphs:',
       error,
     );
     throw error;
@@ -4475,16 +4486,16 @@ You are an expert PTE Academic tutor providing detailed explanations for listeni
 **Question Type:** ${questionType}
 
 **Question Statement:**
-${questionStatement || "No specific question statement"}
+${questionStatement || 'No specific question statement'}
 
 **Audio Transcript:**
-${audioTranscript || "Transcript not available"}
+${audioTranscript || 'Transcript not available'}
 
 **All Answer Options:**
 ${
   allOptions
-    ? allOptions.map((opt: any) => `• ${opt.text}`).join("\n")
-    : "Options not available"
+    ? allOptions.map((opt: any) => `• ${opt.text}`).join('\n')
+    : 'Options not available'
 }
 
 **Your Answer:** ${selectedAnswer}
@@ -4520,15 +4531,15 @@ Use line breaks to separate the two points.
 `;
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: 'gpt-4o-mini',
       messages: [
         {
-          role: "system",
+          role: 'system',
           content:
-            "You are an expert PTE Academic tutor specializing in listening comprehension questions.",
+            'You are an expert PTE Academic tutor specializing in listening comprehension questions.',
         },
         {
-          role: "user",
+          role: 'user',
           content: prompt,
         },
       ],
@@ -4538,10 +4549,10 @@ Use line breaks to separate the two points.
 
     return (
       response.choices[0]?.message?.content?.trim() ||
-      "Unable to generate explanation."
+      'Unable to generate explanation.'
     );
   } catch (error) {
-    console.error("Error generating dynamic explanation for listening:", error);
+    console.error('Error generating dynamic explanation for listening:', error);
     throw error;
   }
 }
@@ -4574,8 +4585,8 @@ async function generateDynamicExplanationListeningFillBlanks(params: {
               (b: any) =>
                 `• You wrote: "${b.userAnswer}", Correct: "${b.correctAnswer}"`,
             )
-            .join("\n")}`
-        : "";
+            .join('\n')}`
+        : '';
 
     const prompt = `
 You are an expert PTE Academic tutor providing detailed explanations for listening fill in the blanks questions.
@@ -4583,10 +4594,10 @@ You are an expert PTE Academic tutor providing detailed explanations for listeni
 **Question Type:** ${questionType}
 
 **Question Context:**
-${blankContext || "Context not available"}
+${blankContext || 'Context not available'}
 
 **Audio Transcript:**
-${audioTranscript || "Transcript not available"}
+${audioTranscript || 'Transcript not available'}
 
 **This Blank:**
 • Your Answer: "${userAnswer}"
@@ -4612,15 +4623,15 @@ Use line breaks to separate the two points.
 `;
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: 'gpt-4o-mini',
       messages: [
         {
-          role: "system",
+          role: 'system',
           content:
-            "You are an expert PTE Academic tutor specializing in listening fill in the blanks questions.",
+            'You are an expert PTE Academic tutor specializing in listening fill in the blanks questions.',
         },
         {
-          role: "user",
+          role: 'user',
           content: prompt,
         },
       ],
@@ -4630,11 +4641,11 @@ Use line breaks to separate the two points.
 
     return (
       response.choices[0]?.message?.content?.trim() ||
-      "Unable to generate explanation."
+      'Unable to generate explanation.'
     );
   } catch (error) {
     console.error(
-      "Error generating dynamic explanation for listening fill in the blanks:",
+      'Error generating dynamic explanation for listening fill in the blanks:',
       error,
     );
     throw error;
@@ -4672,37 +4683,37 @@ You are an expert PTE Academic tutor providing detailed explanations for listeni
 **Question Type:** ${questionType}
 
 **Question Statement:**
-${questionStatement || "No specific question statement"}
+${questionStatement || 'No specific question statement'}
 
 **Audio Transcript:**
-${audioTranscript || "Transcript not available"}
+${audioTranscript || 'Transcript not available'}
 
 **All Answer Options:**
 ${
   allOptions
-    ? allOptions.map((opt: any) => `• ${opt.text}`).join("\n")
-    : "Options not available"
+    ? allOptions.map((opt: any) => `• ${opt.text}`).join('\n')
+    : 'Options not available'
 }
 
 **Correct Answers:** ${correctAnswers
       .map((ans: string) => `"${ans}"`)
-      .join(", ")}
+      .join(', ')}
 **Your Selected Answers:** ${selectedAnswers
       .map((ans: string) => `"${ans}"`)
-      .join(", ")}
+      .join(', ')}
 ${
   incorrectlySelected && incorrectlySelected.length > 0
     ? `**Incorrectly Selected:** ${incorrectlySelected
         .map((ans: string) => `"${ans}"`)
-        .join(", ")}`
-    : ""
+        .join(', ')}`
+    : ''
 }
 ${
   missedCorrect && missedCorrect.length > 0
     ? `**Answers You Missed:** ${missedCorrect
         .map((ans: string) => `"${ans}"`)
-        .join(", ")}`
-    : ""
+        .join(', ')}`
+    : ''
 }
 
 Provide a brief explanation (2-3 lines maximum) that:
@@ -4724,15 +4735,15 @@ Use line breaks to separate the two points.
 `;
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: 'gpt-4o-mini',
       messages: [
         {
-          role: "system",
+          role: 'system',
           content:
-            "You are an expert PTE Academic tutor specializing in listening comprehension questions with multiple answers.",
+            'You are an expert PTE Academic tutor specializing in listening comprehension questions with multiple answers.',
         },
         {
-          role: "user",
+          role: 'user',
           content: prompt,
         },
       ],
@@ -4742,34 +4753,13 @@ Use line breaks to separate the two points.
 
     return (
       response.choices[0]?.message?.content?.trim() ||
-      "Unable to generate explanation."
+      'Unable to generate explanation.'
     );
   } catch (error) {
     console.error(
-      "Error generating dynamic explanation for listening multiple answers:",
+      'Error generating dynamic explanation for listening multiple answers:',
       error,
     );
     throw error;
   }
-}
-
-/**
- * Helper function to add IDs to options if they don't already have them
- * This ensures proper option identification across frontend and backend
- */
-function addIdToOptionsIfMissing(options: any[]): any[] {
-  if (!options || !Array.isArray(options)) {
-    return options || [];
-  }
-
-  return options.map((option: any, index: number) => {
-    if (option.id || option.option_id) {
-      return option; // Already has an ID
-    }
-    // Generate ID based on position (option_0, option_1, etc.)
-    return {
-      ...option,
-      id: `option_${index}`,
-    };
-  });
 }

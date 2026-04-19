@@ -13,6 +13,8 @@ import {
   DollarSign,
   LifeBuoy,
   FileText,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -187,6 +189,24 @@ const Navbar: React.FC = () => {
   const handleLogout = () => {
     logout();
     setIsMenuOpen(false);
+  };
+
+  const handleMenuToggle = () => {
+    if (isMenuOpen) {
+      setIsPortalMenuOpen(false);
+      setIsAdminMenuOpen(false);
+    }
+    setIsMenuOpen(!isMenuOpen);
+  };
+
+  const togglePortalMenu = () => {
+    setIsPortalMenuOpen((prev) => !prev);
+    setIsAdminMenuOpen(false);
+  };
+
+  const toggleAdminMenu = () => {
+    setIsAdminMenuOpen((prev) => !prev);
+    setIsPortalMenuOpen(false);
   };
 
   useEffect(() => {
@@ -409,7 +429,7 @@ const Navbar: React.FC = () => {
               )}
             </button>
             <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              onClick={handleMenuToggle}
               className='rounded-full border border-slate-200 bg-white p-2 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300'
             >
               {isMenuOpen ? (
@@ -424,102 +444,142 @@ const Navbar: React.FC = () => {
         {/* Mobile menu */}
         {isMenuOpen && (
           <div className='lg:hidden'>
-            <div className='space-y-1 border-t border-slate-200 bg-white px-2 pb-3 pt-3 sm:px-3 dark:border-slate-800 dark:bg-slate-950'>
+            <div className='border-t border-slate-200 bg-white px-2 pb-3 pt-3 dark:border-slate-800 dark:bg-slate-950'>
+              <div className='max-h-[calc(100vh-5.5rem)] overflow-y-auto pr-1'>
+                <div className='space-y-2'>
               <Link
                 to='/'
-                className='block rounded-xl px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
+                className='block rounded-2xl border border-transparent bg-slate-50 px-4 py-3 text-base font-medium text-slate-700 shadow-sm transition-colors hover:border-slate-200 hover:bg-white hover:text-slate-950 dark:bg-slate-900/70 dark:text-slate-200 dark:hover:border-slate-700 dark:hover:bg-slate-900 dark:hover:text-white'
                 onClick={() => setIsMenuOpen(false)}
               >
                 Home
               </Link>
               <Link
                 to='/courses'
-                className='block rounded-xl px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
+                className='block rounded-2xl border border-transparent bg-slate-50 px-4 py-3 text-base font-medium text-slate-700 shadow-sm transition-colors hover:border-slate-200 hover:bg-white hover:text-slate-950 dark:bg-slate-900/70 dark:text-slate-200 dark:hover:border-slate-700 dark:hover:bg-slate-900 dark:hover:text-white'
                 onClick={() => setIsMenuOpen(false)}
               >
                 Courses
               </Link>
               <Link
                 to='/about'
-                className='block rounded-xl px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
+                className='block rounded-2xl border border-transparent bg-slate-50 px-4 py-3 text-base font-medium text-slate-700 shadow-sm transition-colors hover:border-slate-200 hover:bg-white hover:text-slate-950 dark:bg-slate-900/70 dark:text-slate-200 dark:hover:border-slate-700 dark:hover:bg-slate-900 dark:hover:text-white'
                 onClick={() => setIsMenuOpen(false)}
               >
                 About
               </Link>
               {user && (
-                <Link
-                  to='/portal'
-                  className='block rounded-xl px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Portal
-                </Link>
+                <div className='rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm dark:border-slate-800 dark:bg-slate-950'>
+                  <button
+                    type='button'
+                    className='flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-base font-semibold text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white'
+                    onClick={togglePortalMenu}
+                  >
+                    <span>Portal</span>
+                    {isPortalMenuOpen ? (
+                      <ChevronUp className='h-4 w-4' />
+                    ) : (
+                      <ChevronDown className='h-4 w-4' />
+                    )}
+                  </button>
+                  {isPortalMenuOpen && (
+                    <div className='mt-2 space-y-3 px-2 pb-2'>
+                      <Link
+                        to='/portal'
+                        onClick={() => setIsMenuOpen(false)}
+                        className='block rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-blue-200 hover:bg-white hover:text-blue-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-emerald-700 dark:hover:text-emerald-300'
+                      >
+                        Portal Home
+                      </Link>
+                      {orderedSections.map(([sectionName, sectionData]) => (
+                        <div
+                          key={sectionName}
+                          className='rounded-xl border border-slate-200 bg-slate-50 p-2.5 dark:border-slate-800 dark:bg-slate-900/80'
+                        >
+                          <p className='mb-1 px-2 text-sm font-semibold text-slate-900 dark:text-white'>
+                            {sectionName}
+                          </p>
+                          <ul className='space-y-0.5'>
+                            {sectionData.questionTypes.map((questionType) => {
+                              const typeName =
+                                questionType.name as PteQuestionTypeName;
+                              const label =
+                                questionTypeLabelMap[typeName] ||
+                                questionType.name
+                                  .toLowerCase()
+                                  .replace(/_/g, ' ')
+                                  .replace(/\b\w/g, (char) =>
+                                    char.toUpperCase(),
+                                  );
+
+                              return (
+                                <li key={questionType.id}>
+                                  <Link
+                                    to={getPracticePagePath(typeName)}
+                                    onClick={() => setIsMenuOpen(false)}
+                                    className='block rounded-lg px-2.5 py-2 text-sm text-slate-600 transition-colors hover:bg-white hover:text-blue-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-emerald-300'
+                                  >
+                                    {label}
+                                  </Link>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
               {user && user.role === 'ADMIN' && (
-                <>
-                  <Link
-                    to='/admin'
-                    className='block rounded-xl px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
-                    onClick={() => setIsMenuOpen(false)}
+                <div className='rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm dark:border-slate-800 dark:bg-slate-950'>
+                  <button
+                    type='button'
+                    className='flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-base font-semibold text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white'
+                    onClick={toggleAdminMenu}
                   >
-                    Admin Dashboard
-                  </Link>
-                  <Link
-                    to='/admin/courses'
-                    className='block rounded-xl px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Manage Courses
-                  </Link>
-                  <Link
-                    to='/admin/users'
-                    className='block rounded-xl px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Manage Users
-                  </Link>
-                  <Link
-                    to='/admin/support-tickets'
-                    className='block rounded-xl px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Support Tickets
-                  </Link>
-                  <Link
-                    to='/admin/payments'
-                    className='block rounded-xl px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Payments
-                  </Link>
-                  <Link
-                    to='/admin/questions'
-                    className='block rounded-xl px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Questions
-                  </Link>
-                  <Link
-                    to='/admin/categories'
-                    className='block rounded-xl px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Manage Categories
-                  </Link>
-                </>
+                    <span>Admin</span>
+                    {isAdminMenuOpen ? (
+                      <ChevronUp className='h-4 w-4' />
+                    ) : (
+                      <ChevronDown className='h-4 w-4' />
+                    )}
+                  </button>
+                  {isAdminMenuOpen && (
+                    <div className='mt-2 space-y-1 px-2 pb-2'>
+                      {adminLinks.map((link) => (
+                        <Link
+                          key={link.to}
+                          to={link.to}
+                          className='block rounded-xl px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
+                          onClick={() => setIsMenuOpen(false)}
+                        >
+                          {link.title}
+                        </Link>
+                      ))}
+                      <Link
+                        to='/admin/categories'
+                        className='block rounded-xl px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        Manage Categories
+                      </Link>
+                    </div>
+                  )}
+                </div>
               )}
               {user ? (
                 <>
                   <Link
                     to='/dashboard'
-                    className='block rounded-xl px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
+                    className='block rounded-2xl border border-transparent bg-slate-50 px-4 py-3 text-base font-medium text-slate-700 shadow-sm transition-colors hover:border-slate-200 hover:bg-white hover:text-slate-950 dark:bg-slate-900/70 dark:text-slate-200 dark:hover:border-slate-700 dark:hover:bg-slate-900 dark:hover:text-white'
                     onClick={() => setIsMenuOpen(false)}
                   >
                     Dashboard
                   </Link>
                   <button
                     onClick={handleLogout}
-                    className='block w-full rounded-xl px-3 py-2 text-left text-base font-medium text-slate-700 hover:bg-rose-50 hover:text-rose-600 dark:text-slate-300 dark:hover:bg-rose-950/30 dark:hover:text-rose-300'
+                    className='block w-full rounded-2xl border border-transparent bg-slate-50 px-4 py-3 text-left text-base font-medium text-slate-700 shadow-sm transition-colors hover:border-rose-100 hover:bg-rose-50 hover:text-rose-600 dark:bg-slate-900/70 dark:text-slate-200 dark:hover:border-rose-900/40 dark:hover:bg-rose-950/30 dark:hover:text-rose-300'
                   >
                     Logout
                   </button>
@@ -528,20 +588,22 @@ const Navbar: React.FC = () => {
                 <>
                   <Link
                     to='/login'
-                    className='block rounded-xl px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
+                    className='block rounded-2xl border border-transparent bg-slate-50 px-4 py-3 text-base font-medium text-slate-700 shadow-sm transition-colors hover:border-slate-200 hover:bg-white hover:text-slate-950 dark:bg-slate-900/70 dark:text-slate-200 dark:hover:border-slate-700 dark:hover:bg-slate-900 dark:hover:text-white'
                     onClick={() => setIsMenuOpen(false)}
                   >
                     Login
                   </Link>
                   <Link
                     to='/register'
-                    className='block rounded-xl px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
+                    className='block rounded-2xl bg-slate-900 px-4 py-3 text-base font-medium text-white shadow-sm transition-colors hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100'
                     onClick={() => setIsMenuOpen(false)}
                   >
                     Sign Up
                   </Link>
                 </>
               )}
+                </div>
+              </div>
             </div>
           </div>
         )}

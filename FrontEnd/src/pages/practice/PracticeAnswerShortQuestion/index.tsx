@@ -10,19 +10,19 @@ import {
   Info,
   XCircle,
 } from 'lucide-react';
-import InlinePreviousAttempts from '../../../components/InlinePreviousAttempts';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AudioRecorder from '../../../components/AudioRecorder';
+import InlinePreviousAttempts from '../../../components/InlinePreviousAttempts';
 import MiniAudioPlayer from '../../../components/MiniAudioPlayer';
 import PreviousResponses from '../../../components/PreviousResponses';
 import QuestionSidebar from '../../../components/QuestionSidebar';
-import ResponseDetailModal from './ResponseDetailModal';
 import api from '../../../services/api';
 import { getPracticeQuestions } from '../../../services/portal';
 import { Data } from '../../../types/AnswerShortQuestionEvaluationResult';
 import { PteQuestionTypeName } from '../../../types/pte';
-import { playBeep, renderHighlightedText } from '../../../utils/Helpers';
+import { playBeep } from '../../../utils/Helpers';
+import ResponseDetailModal from './ResponseDetailModal';
 
 export interface QuestionsData {
   id: string;
@@ -406,7 +406,7 @@ const PracticeAnswerShortQuestion: React.FC = () => {
                   disabled={
                     isSubmitting || (!isAudioReady && !uploadedAudioUrl)
                   }
-                  className='px-6 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 font-semibold transition'
+                  className='px-6 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 font-semibold transition dark:text-white'
                 >
                   Reset
                 </button>
@@ -535,7 +535,9 @@ const PracticeAnswerShortQuestion: React.FC = () => {
                       ?.contentErrors?.length === 0 && (
                       <div className='rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'>
                         <div className='p-5 border-b dark:border-gray-700'>
-                          <h4 className='font-semibold'>Your Answer</h4>
+                          <h4 className='font-semibold dark:text-white'>
+                            Your Answer
+                          </h4>
                         </div>
                         <div className='p-5 text-sm leading-relaxed'>
                           {
@@ -561,7 +563,7 @@ const PracticeAnswerShortQuestion: React.FC = () => {
                         <AlertCircle className='w-6 h-6 text-rose-600' />
                       )}
                       <div>
-                        <h3 className='font-bold text-lg'>
+                        <h3 className='font-bold text-lg dark:text-white'>
                           {evaluationResult.evaluation.feedback}
                         </h3>
                         <p className='text-sm text-gray-600 dark:text-gray-400'>
@@ -580,26 +582,32 @@ const PracticeAnswerShortQuestion: React.FC = () => {
                       ?.contentErrors?.length > 0 && (
                       <div className='rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'>
                         <div className='p-5 border-b dark:border-gray-700'>
-                          <h4 className='font-semibold'>Your Answer</h4>
-                          <p className='text-xs text-gray-500 dark:text-gray-400'>
-                            Click highlighted words for explanation
-                          </p>
+                          <h4 className='font-semibold dark:text-white'>
+                            Your Answer
+                          </h4>
                         </div>
-                        <div className='p-5 text-sm leading-relaxed'>
-                          {renderHighlightedText(
+                        <div className='p-5 text-sm dark:text-white leading-relaxed'>
+                          {/* {renderHighlightedText(
                             evaluationResult.evaluation.detailedAnalysis
                               .userText,
                             evaluationResult.evaluation.detailedAnalysis
                               .errorAnalysis,
                             (err: string) => setSelectedError(err),
-                          )}
+                          )} */}
+
+                          {
+                            evaluationResult.evaluation.detailedAnalysis
+                              .userText
+                          }
                         </div>
                       </div>
                     ))}
 
                   {!evaluationResult.evaluation.isCorrect && (
                     <div className='rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 p-5'>
-                      <h4 className='font-semibold mb-2'>Correct Answer</h4>
+                      <h4 className='font-semibold mb-2 dark:text-white'>
+                        Correct Answer
+                      </h4>
                       <p className='text-emerald-700 dark:text-emerald-300'>
                         {evaluationResult.evaluation.detailedAnalysis
                           ?.correctAnswer || 'Expected answer'}
@@ -614,12 +622,14 @@ const PracticeAnswerShortQuestion: React.FC = () => {
       )}
 
       {
-      <InlinePreviousAttempts
-        questionId={currentQuestion?.id} question={currentQuestion}
-        onViewResponse={handleViewResponse}
-        className='mt-6'
-      />
-      /* FOOTER NAVIGATION */}
+        <InlinePreviousAttempts
+          questionId={currentQuestion?.id}
+          question={currentQuestion}
+          onViewResponse={handleViewResponse}
+          className='mt-6'
+        />
+        /* FOOTER NAVIGATION */
+      }
       <div className='border-t dark:border-gray-700 px-6 py-4 flex justify-between items-center dark:bg-gray-800'>
         <button
           onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
@@ -790,7 +800,7 @@ const PracticeAnswerShortQuestion: React.FC = () => {
 
       {/* Previous Attempts Modal Drawer (Mobile/Tablet) */}
       <PreviousResponses
-        questionId={currentQuestion?.id} question={currentQuestion}
+        questionId={currentQuestion?.id}
         onViewResponse={handleViewResponse}
         isOpen={showPreviousResponses}
         onClose={() => setShowPreviousResponses(false)}

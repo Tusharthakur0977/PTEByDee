@@ -477,7 +477,7 @@ const PracticeSummarizeGroupDiscussion: React.FC = () => {
                   disabled={
                     isSubmitting || (!isAudioReady && !uploadedAudioUrl)
                   }
-                  className='px-6 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 font-semibold transition'
+                  className='px-6 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 font-semibold transition dark:text-white'
                 >
                   Reset
                 </button>
@@ -597,8 +597,7 @@ const PracticeSummarizeGroupDiscussion: React.FC = () => {
                         <h4 className='font-bold text-gray-800 dark:text-gray-200'>
                           Your Response
                         </h4>
-                        <div className='flex flex-wrap items-center gap-4 text-sm'>
-                          {/* Speaking error types */}
+                        {/* <div className='flex flex-wrap items-center gap-4 text-sm'>
                           <div className='flex items-center space-x-2'>
                             <div className='w-3 h-3 bg-orange-500 rounded-full'></div>
                             <span className='text-gray-600 dark:text-gray-400'>
@@ -627,15 +626,16 @@ const PracticeSummarizeGroupDiscussion: React.FC = () => {
                           <span className='text-gray-500 dark:text-gray-400 text-xs'>
                             * Click colored words for explanation
                           </span>
-                        </div>
+                        </div> */}
                       </div>
                       <div className='p-6 text-base leading-relaxed text-gray-700 dark:text-gray-300 italic'>
-                        {renderHighlightedText(
+                        {/* {renderHighlightedText(
                           evaluationResult.evaluation.detailedAnalysis.userText,
                           evaluationResult.evaluation.detailedAnalysis
                             .errorAnalysis,
                           (err: any) => setSelectedError(err),
-                        )}
+                        )} */}
+                        {evaluationResult.evaluation.detailedAnalysis.userText}
                       </div>
                     </div>
                   )}
@@ -707,12 +707,14 @@ const PracticeSummarizeGroupDiscussion: React.FC = () => {
       )}
 
       {
-      <InlinePreviousAttempts
-        questionId={currentQuestion?.id} question={currentQuestion}
-        onViewResponse={handleViewResponse}
-        className='mt-6'
-      />
-      /* FOOTER NAVIGATION */}
+        <InlinePreviousAttempts
+          questionId={currentQuestion?.id}
+          question={currentQuestion}
+          onViewResponse={handleViewResponse}
+          className='mt-6'
+        />
+        /* FOOTER NAVIGATION */
+      }
       <div className='border-t dark:border-gray-700 px-6 py-4 flex justify-between items-center dark:bg-gray-800'>
         <button
           onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
@@ -883,7 +885,7 @@ const PracticeSummarizeGroupDiscussion: React.FC = () => {
 
       {/* Previous Attempts Modal Drawer (Mobile/Tablet) */}
       <PreviousResponses
-        questionId={currentQuestion?.id} question={currentQuestion}
+        questionId={currentQuestion?.id}
         onViewResponse={handleViewResponse}
         isOpen={showPreviousResponses}
         onClose={() => setShowPreviousResponses(false)}

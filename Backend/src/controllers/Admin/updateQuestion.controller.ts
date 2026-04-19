@@ -14,7 +14,7 @@ const getCorrectOptionTexts = (options: any): string[] => {
       (option: any) =>
         option?.isCorrect === true &&
         typeof option?.text === 'string' &&
-        option.text.trim().length > 0
+        option.text.trim().length > 0,
     )
     .map((option: any) => option.text.trim());
 };
@@ -48,8 +48,6 @@ export const updateQuestion = asyncHandler(
       tags,
     } = req.body;
 
-    console.log('SSSSSSSS');
-
     try {
       // Validate ObjectId format
       if (!id || id.length !== 24) {
@@ -57,7 +55,7 @@ export const updateQuestion = asyncHandler(
           res,
           STATUS_CODES.BAD_REQUEST,
           null,
-          'Invalid question ID format.'
+          'Invalid question ID format.',
         );
       }
 
@@ -74,7 +72,7 @@ export const updateQuestion = asyncHandler(
           res,
           STATUS_CODES.NOT_FOUND,
           null,
-          'Question not found.'
+          'Question not found.',
         );
       }
 
@@ -89,16 +87,16 @@ export const updateQuestion = asyncHandler(
         });
 
         if (!nextQuestionType) {
-        return sendResponse(
-          res,
-          STATUS_CODES.BAD_REQUEST,
-          null,
-          'Question type not found.'
-        );
-      }
+          return sendResponse(
+            res,
+            STATUS_CODES.BAD_REQUEST,
+            null,
+            'Question type not found.',
+          );
+        }
 
-      effectiveQuestionTypeName = nextQuestionType.name;
-    }
+        effectiveQuestionTypeName = nextQuestionType.name;
+      }
 
       const normalizedTagsForUpdate =
         tags !== undefined ? normalizeTags(tags) : undefined;
@@ -112,7 +110,7 @@ export const updateQuestion = asyncHandler(
           res,
           STATUS_CODES.BAD_REQUEST,
           null,
-          'Describe Image questions must have at least one image type tag.'
+          'Describe Image questions must have at least one image type tag.',
         );
       }
 
@@ -130,20 +128,22 @@ export const updateQuestion = asyncHandler(
             res,
             STATUS_CODES.CONFLICT,
             null,
-            'Question code already exists. Please use a unique code.'
+            'Question code already exists. Please use a unique code.',
           );
         }
       }
-
-      console.log('WWWWWWWWWWWWWWWWWW');
 
       // Prepare update data
       const updateData: any = {};
 
       if (questionCode) updateData.questionCode = questionCode;
-      if (questionTypeId) updateData.questionTypeId = questionTypeId;
-      if (testId) updateData.testId = testId;
-      if (orderInTest !== undefined) updateData.orderInTest = orderInTest;
+      if (questionTypeId) {
+        updateData.questionType = {
+          connect: {
+            id: questionTypeId,
+          },
+        };
+      }
       if (textContent !== undefined)
         updateData.textContent = textContent || null;
       if (questionStatement !== undefined)
@@ -168,7 +168,7 @@ export const updateQuestion = asyncHandler(
             acc[`blank${index + 1}`] = blank.correctAnswer;
             return acc;
           },
-          {}
+          {},
         );
         updateData.correctAnswers = processedCorrectAnswers;
       } else if (paragraphs !== undefined && Array.isArray(paragraphs)) {
@@ -200,7 +200,7 @@ export const updateQuestion = asyncHandler(
       if (effectiveQuestionTypeName.includes('MULTIPLE_CHOICE')) {
         const selectedCorrectOptions = getCorrectOptionTexts(effectiveOptions);
         const isSingleAnswerQuestion = effectiveQuestionTypeName.includes(
-          'MULTIPLE_CHOICE_SINGLE_ANSWER'
+          'MULTIPLE_CHOICE_SINGLE_ANSWER',
         );
 
         if (isSingleAnswerQuestion && selectedCorrectOptions.length !== 1) {
@@ -208,7 +208,7 @@ export const updateQuestion = asyncHandler(
             res,
             STATUS_CODES.BAD_REQUEST,
             null,
-            'Single-answer multiple choice questions must have exactly one correct option selected.'
+            'Single-answer multiple choice questions must have exactly one correct option selected.',
           );
         }
 
@@ -217,7 +217,7 @@ export const updateQuestion = asyncHandler(
             res,
             STATUS_CODES.BAD_REQUEST,
             null,
-            'Multiple-answer multiple choice questions must have at least one correct option selected.'
+            'Multiple-answer multiple choice questions must have at least one correct option selected.',
           );
         }
 
@@ -233,7 +233,7 @@ export const updateQuestion = asyncHandler(
             res,
             STATUS_CODES.BAD_REQUEST,
             null,
-            'Single-answer multiple choice questions must store exactly one correct answer.'
+            'Single-answer multiple choice questions must store exactly one correct answer.',
           );
         }
       }
@@ -282,7 +282,7 @@ export const updateQuestion = asyncHandler(
         res,
         STATUS_CODES.OK,
         updatedQuestion,
-        'Question updated successfully.'
+        'Question updated successfully.',
       );
     } catch (error: any) {
       console.error('Update question error:', error);
@@ -292,7 +292,7 @@ export const updateQuestion = asyncHandler(
           res,
           STATUS_CODES.NOT_FOUND,
           null,
-          'Question not found.'
+          'Question not found.',
         );
       }
 
@@ -301,7 +301,7 @@ export const updateQuestion = asyncHandler(
           res,
           STATUS_CODES.CONFLICT,
           null,
-          'Question code already exists.'
+          'Question code already exists.',
         );
       }
 
@@ -309,8 +309,8 @@ export const updateQuestion = asyncHandler(
         res,
         STATUS_CODES.INTERNAL_SERVER_ERROR,
         null,
-        'An error occurred while updating the question. Please try again.'
+        'An error occurred while updating the question. Please try again.',
       );
     }
-  }
+  },
 );

@@ -10,10 +10,10 @@ import {
   Info,
   XCircle,
 } from 'lucide-react';
-import InlinePreviousAttempts from '../../../components/InlinePreviousAttempts';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AudioRecorder from '../../../components/AudioRecorder';
+import InlinePreviousAttempts from '../../../components/InlinePreviousAttempts';
 import MiniAudioPlayer from '../../../components/MiniAudioPlayer';
 import PreviousResponses from '../../../components/PreviousResponses';
 import QuestionSidebar from '../../../components/QuestionSidebar';
@@ -22,8 +22,7 @@ import { getPracticeQuestions } from '../../../services/portal';
 import { PteQuestionTypeName } from '../../../types/pte';
 import {
   formatScoringText,
-  playBeep,
-  renderSpeakingWordAnalysisInline,
+  playBeep
 } from '../../../utils/Helpers';
 import ResponseDetailModal from './ResponseDetailModal';
 
@@ -406,7 +405,7 @@ const PracticeRepeatSentence: React.FC = () => {
                     disabled={
                       isSubmitting || (!isAudioReady && !uploadedAudioUrl)
                     }
-                    className='px-6 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 font-semibold transition'
+                    className='px-6 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 font-semibold transition dark:text-white'
                   >
                     Reset
                   </button>
@@ -528,7 +527,7 @@ const PracticeRepeatSentence: React.FC = () => {
                           <h4 className='font-bold text-gray-800 dark:text-gray-200'>
                             Your Response
                           </h4>
-                          <div className='flex flex-wrap items-center gap-4 text-sm'>
+                          {/* <div className='flex flex-wrap items-center gap-4 text-sm'>
                             <span className='flex items-center gap-1'>
                               <span className='h-2 w-2 rounded-full bg-red-100 border border-red-200 dark:bg-red-900/20 dark:border-red-800' />
                               Missing word
@@ -541,14 +540,18 @@ const PracticeRepeatSentence: React.FC = () => {
                               <span className='h-2 w-2 rounded-full bg-blue-100 border border-blue-200 dark:bg-blue-900/20 dark:border-blue-800' />
                               Extra word
                             </span>
-                          </div>
+                          </div> */}
                         </div>
                         <div className='p-6 text-base leading-relaxed text-gray-700 dark:text-gray-300 italic'>
                           <p className='leading-relaxed'>
-                            {renderSpeakingWordAnalysisInline(
+                            {/* {renderSpeakingWordAnalysisInline(
                               evaluationResult.evaluation.detailedAnalysis
                                 .wordByWordAnalysis,
-                            )}
+                            )} */}
+                            {
+                              evaluationResult?.evaluation?.detailedAnalysis
+                                ?.userText
+                            }
                           </p>
                         </div>
                       </div>
@@ -617,12 +620,14 @@ const PracticeRepeatSentence: React.FC = () => {
         )
       )}
       {
-      <InlinePreviousAttempts
-        questionId={currentQuestion?.id} question={currentQuestion}
-        onViewResponse={handleViewResponse}
-        className='mt-6'
-      />
-      /* FOOTER NAVIGATION */}
+        <InlinePreviousAttempts
+          questionId={currentQuestion?.id}
+          question={currentQuestion}
+          onViewResponse={handleViewResponse}
+          className='mt-6'
+        />
+        /* FOOTER NAVIGATION */
+      }
       <div className='border-t dark:border-gray-700 px-6 py-4 flex justify-between items-center dark:bg-gray-800'>
         <button
           onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
@@ -793,7 +798,7 @@ const PracticeRepeatSentence: React.FC = () => {
 
       {/* Previous Attempts Modal Drawer (Mobile/Tablet) */}
       <PreviousResponses
-        questionId={currentQuestion?.id} question={currentQuestion}
+        questionId={currentQuestion?.id}
         onViewResponse={handleViewResponse}
         isOpen={showPreviousResponses}
         onClose={() => setShowPreviousResponses(false)}

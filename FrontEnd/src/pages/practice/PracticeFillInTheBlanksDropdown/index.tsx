@@ -559,7 +559,7 @@ const PracticeFillInTheBlanksDropdown: React.FC = () => {
               <button
                 onClick={handleResetRecording}
                 disabled={isSubmitting}
-                className='px-6 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 font-semibold transition'
+               className="px-6 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 font-semibold transition dark:text-white"
               >
                 Reset
               </button>

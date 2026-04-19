@@ -478,7 +478,7 @@ const PracticeReadAloud: React.FC = () => {
                     disabled={
                       isSubmitting || (!isAudioReady && !uploadedAudioUrl)
                     }
-                    className='px-6 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 font-semibold transition'
+                    className='className="px-6 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 font-semibold transition dark:text-white"'
                   >
                     Reset
                   </button>
@@ -629,7 +629,7 @@ const PracticeReadAloud: React.FC = () => {
 
                             <span className="text-gray-500 dark:text-gray-400 text-xs">
                               * Click colored words for explanation
-                            </span> */}
+                            </span> 
                             <span className='flex items-center gap-1'>
                               <span className='h-2 w-2 rounded-full bg-red-300 border border-red-200 dark:bg-red-900/20 dark:border-red-800' />
                               Missing word
@@ -641,21 +641,25 @@ const PracticeReadAloud: React.FC = () => {
                             <span className='flex items-center gap-1'>
                               <span className='h-2 w-2 rounded-full bg-blue-300 border border-blue-200 dark:bg-blue-900/20 dark:border-blue-800' />
                               Extra word
-                            </span>
+                            </span> */}
                           </div>
                         </div>
                         <div className='p-6 text-base leading-relaxed text-gray-700 dark:text-gray-300 italic'>
                           <p className='leading-relaxed'>
                             {evaluationResult.evaluation.detailedAnalysis
+                              ?.wordByWordAnalysis?.length > 0 &&
+                              evaluationResult.evaluation.detailedAnalysis
+                                .userText}
+                          </p>
+                          {/* <p className='leading-relaxed'>
+                            {evaluationResult.evaluation.detailedAnalysis
                               ?.wordByWordAnalysis?.length > 0 && (
-                              <>
-                                {renderSpeakingWordAnalysisInline(
+                                renderSpeakingWordAnalysisInline(
                                   evaluationResult.evaluation.detailedAnalysis
                                     .wordByWordAnalysis as any,
-                                )}{' '}
-                              </>
+                                )
                             )}
-                          </p>
+                          </p> */}
                         </div>
                       </div>
                     )}
@@ -746,12 +750,14 @@ const PracticeReadAloud: React.FC = () => {
         )
       )}
       {
-      <InlinePreviousAttempts
-        questionId={currentQuestion?.id} question={currentQuestion}
-        onViewResponse={handleViewResponse}
-        className='mt-6'
-      />
-      /* FOOTER NAVIGATION */}
+        <InlinePreviousAttempts
+          questionId={currentQuestion?.id}
+          question={currentQuestion}
+          onViewResponse={handleViewResponse}
+          className='mt-6'
+        />
+        /* FOOTER NAVIGATION */
+      }
       <div className='border-t dark:border-gray-700 px-6 py-4 flex justify-between items-center dark:bg-gray-800'>
         <button
           onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
@@ -923,7 +929,7 @@ const PracticeReadAloud: React.FC = () => {
 
       {/* Previous Attempts Modal Drawer (Mobile/Tablet) */}
       <PreviousResponses
-        questionId={currentQuestion?.id} question={currentQuestion}
+        questionId={currentQuestion?.id}
         onViewResponse={handleViewResponse}
         isOpen={showPreviousResponses}
         onClose={() => setShowPreviousResponses(false)}
