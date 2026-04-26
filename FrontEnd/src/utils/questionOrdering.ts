@@ -1,5 +1,3 @@
-import { PteQuestionTypeName } from '../types/pte';
-
 export const sectionOrder = ['Speaking', 'Writing', 'Reading', 'Listening'];
 
 export const questionTypeOrder: Record<string, number> = {
@@ -14,10 +12,10 @@ export const questionTypeOrder: Record<string, number> = {
   summarize_written_text: 1,
   write_essay: 2,
 
-  fill_in_the_blanks_drag_and_drop: 1,
+  reading_fill_in_the_blanks: 1,
   multiple_choice_multiple_answers_reading: 2,
   re_order_paragraphs: 3,
-  reading_fill_in_the_blanks: 4,
+  fill_in_the_blanks_drag_and_drop: 4,
   multiple_choice_single_answer_reading: 5,
 
   summarize_spoken_text: 1,

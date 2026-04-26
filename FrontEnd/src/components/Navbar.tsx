@@ -114,10 +114,10 @@ const Navbar: React.FC = () => {
     SUMMARIZE_WRITTEN_TEXT: 'Summarize Written Text',
     WRITE_ESSAY: 'Write Essay',
 
-    FILL_IN_THE_BLANKS_DRAG_AND_DROP: 'Fill in the Blanks (Drag and Drop)',
+    READING_FILL_IN_THE_BLANKS: 'Fill in the Blanks (Dropdown)',
     MULTIPLE_CHOICE_MULTIPLE_ANSWERS_READING: 'Multiple Choice (Multiple)',
     RE_ORDER_PARAGRAPHS: 'Reorder Paragraph',
-    READING_FILL_IN_THE_BLANKS: 'Fill in the Blanks (Dropdown)',
+    FILL_IN_THE_BLANKS_DRAG_AND_DROP: 'Fill in the Blanks (Drag and Drop)',
     MULTIPLE_CHOICE_SINGLE_ANSWER_READING: 'Multiple Choice (Single)',
 
     SUMMARIZE_SPOKEN_TEXT: 'Summarize Spoken Text',

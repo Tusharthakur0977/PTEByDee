@@ -19,7 +19,7 @@ const getCorrectOptionTexts = (options: any): string[] => {
       (option: any) =>
         option?.isCorrect === true &&
         typeof option?.text === 'string' &&
-        option.text.trim().length > 0
+        option.text.trim().length > 0,
     )
     .map((option: any) => option.text.trim());
 };
@@ -49,6 +49,7 @@ export const createQuestion = asyncHandler(
       blanks,
       paragraphs, // For RE_ORDER_PARAGRAPHS questions
       tags,
+      manualTranscript, // NEW: Manual transcript for SUMMARIZE_GROUP_DISCUSSION and other speaking questions
     } = req.body;
 
     try {
@@ -58,7 +59,7 @@ export const createQuestion = asyncHandler(
           res,
           STATUS_CODES.BAD_REQUEST,
           null,
-          'Question type ID is required.'
+          'Question type ID is required.',
         );
       }
 
@@ -68,7 +69,7 @@ export const createQuestion = asyncHandler(
           res,
           STATUS_CODES.BAD_REQUEST,
           null,
-          'Invalid question type ID'
+          'Invalid question type ID',
         );
       }
 
@@ -85,7 +86,7 @@ export const createQuestion = asyncHandler(
             res,
             STATUS_CODES.CONFLICT,
             null,
-            'Question code already exists. Please use a unique code.'
+            'Question code already exists. Please use a unique code.',
           );
         }
         questionCode = providedQuestionCode.trim();
@@ -104,7 +105,7 @@ export const createQuestion = asyncHandler(
           res,
           STATUS_CODES.NOT_FOUND,
           null,
-          'Question type not found.'
+          'Question type not found.',
         );
       }
 
@@ -133,7 +134,7 @@ export const createQuestion = asyncHandler(
           res,
           STATUS_CODES.BAD_REQUEST,
           null,
-          validationResult.message
+          validationResult.message,
         );
       }
 
@@ -165,16 +166,16 @@ export const createQuestion = asyncHandler(
 
           console.log(
             'Final correct answers for question:',
-            finalCorrectAnswers
+            finalCorrectAnswers,
           );
         } catch (error) {
           console.error(
             'Error transcribing audio for Answer Short Question:',
-            error
+            error,
           );
           // Continue with question creation even if transcription fails
           console.log(
-            'Continuing with question creation without auto-generated answers'
+            'Continuing with question creation without auto-generated answers',
           );
         }
       }
@@ -187,18 +188,42 @@ export const createQuestion = asyncHandler(
           questionType.name === 'RESPOND_TO_A_SITUATION') &&
         audioKey
       ) {
-        try {
-          console.log(`Transcribing audio for ${questionType.name}...`);
-          const transcriptionResult = await transcribeAudioWithRetry(audioKey);
-          const transcribedText = transcriptionResult.text;
+        // For SUMMARIZE_GROUP_DISCUSSION, check if manual transcript is provided first
+        if (
+          questionType.name === 'SUMMARIZE_GROUP_DISCUSSION' &&
+          manualTranscript &&
+          manualTranscript.trim()
+        ) {
+          // Use the manual transcript
+          audioTranscript = manualTranscript.trim();
+          console.log('Using manual transcript for SUMMARIZE_GROUP_DISCUSSION');
+        } else {
+          // Auto-transcribe the audio
+          try {
+            console.log(`Transcribing audio for ${questionType.name}...`);
+            const transcriptionResult =
+              await transcribeAudioWithRetry(audioKey);
+            const transcribedText = transcriptionResult.text;
 
-          audioTranscript = transcribedText;
-        } catch (error) {
-          console.error(
-            `Error transcribing audio for ${questionType.name}:`,
-            error
-          );
+            audioTranscript = transcribedText;
+          } catch (error) {
+            console.error(
+              `Error transcribing audio for ${questionType.name}:`,
+              error,
+            );
+          }
         }
+      } else if (
+        questionType.name === 'SUMMARIZE_GROUP_DISCUSSION' &&
+        manualTranscript &&
+        manualTranscript.trim() &&
+        !audioKey
+      ) {
+        // Use manual transcript even without audio
+        audioTranscript = manualTranscript.trim();
+        console.log(
+          'Using manual transcript for SUMMARIZE_GROUP_DISCUSSION (no audio provided)',
+        );
       }
 
       // Transcribe audio for ALL Listening question types that use audio
@@ -224,16 +249,16 @@ export const createQuestion = asyncHandler(
 
           audioTranscript = transcribedText;
           console.log(
-            `Audio transcription completed for ${questionType.name}. Length: ${transcribedText.length} characters`
+            `Audio transcription completed for ${questionType.name}. Length: ${transcribedText.length} characters`,
           );
         } catch (error) {
           console.error(
             `Error transcribing audio for ${questionType.name}:`,
-            error
+            error,
           );
           // Continue with question creation even if transcription fails
           console.log(
-            `Continuing with question creation for ${questionType.name} without transcript`
+            `Continuing with question creation for ${questionType.name} without transcript`,
           );
         }
       }
@@ -248,20 +273,19 @@ export const createQuestion = asyncHandler(
       ) {
         try {
           console.log(
-            'Auto-generating fill-in-the-blanks content from transcript...'
+            'Auto-generating fill-in-the-blanks content from transcript...',
           );
-          const blanksResult = await generateFillInTheBlanksFromTranscript(
-            audioTranscript
-          );
+          const blanksResult =
+            await generateFillInTheBlanksFromTranscript(audioTranscript);
           autoGeneratedTextWithBlanks = blanksResult.textWithBlanks;
           autoGeneratedBlanks = blanksResult.blanks;
           console.log(
-            `Generated ${autoGeneratedBlanks.length} blanks from transcript`
+            `Generated ${autoGeneratedBlanks.length} blanks from transcript`,
           );
         } catch (error) {
           console.error(
             'Error auto-generating fill-in-the-blanks content:',
-            error
+            error,
           );
           // Continue without auto-generation
         }
@@ -278,7 +302,7 @@ export const createQuestion = asyncHandler(
       ) {
         try {
           console.log(
-            'Auto-generating incorrect words content from transcript...'
+            'Auto-generating incorrect words content from transcript...',
           );
           const incorrectWordsResult =
             await generateIncorrectWordsFromTranscript(audioTranscript);
@@ -286,12 +310,12 @@ export const createQuestion = asyncHandler(
           autoGeneratedIncorrectWords = incorrectWordsResult.incorrectWords;
           autoGeneratedWordMapping = incorrectWordsResult.wordMapping;
           console.log(
-            `Generated ${autoGeneratedIncorrectWords.length} incorrect words with word mapping from transcript`
+            `Generated ${autoGeneratedIncorrectWords.length} incorrect words with word mapping from transcript`,
           );
         } catch (error) {
           console.error(
             'Error auto-generating incorrect words content:',
-            error
+            error,
           );
           // Continue without auto-generation
         }
@@ -346,7 +370,7 @@ export const createQuestion = asyncHandler(
           });
 
           console.log(
-            'Created Describe Image question without AI analysis due to error'
+            'Created Describe Image question without AI analysis due to error',
           );
         }
       }
@@ -379,7 +403,7 @@ export const createQuestion = asyncHandler(
               acc[`blank${index + 1}`] = blank.correctAnswer;
               return acc;
             },
-            {}
+            {},
           );
           finalCorrectAnswers = processedCorrectAnswers;
         }
@@ -410,6 +434,12 @@ export const createQuestion = asyncHandler(
       let finalTextContent =
         autoGeneratedTextWithBlanks || finalContent || audioTranscript || null;
 
+      // For SUMMARIZE_GROUP_DISCUSSION, prioritize the manual/auto transcript
+      if (questionType.name === 'SUMMARIZE_GROUP_DISCUSSION') {
+        // Use audioTranscript (manual or auto-generated) as the discussion content
+        finalTextContent = audioTranscript || textContent || null;
+      }
+
       // Use auto-generated content for HIGHLIGHT_INCORRECT_WORDS if available
       if (
         autoGeneratedTextWithErrors &&
@@ -437,7 +467,7 @@ export const createQuestion = asyncHandler(
               acc[`blank${index + 1}`] = blank.correctAnswer;
               return acc;
             },
-            {}
+            {},
           );
           finalCorrectAnswers = autoCorrectAnswers;
         }
@@ -494,7 +524,7 @@ export const createQuestion = asyncHandler(
         res,
         STATUS_CODES.CREATED,
         question,
-        'Question created successfully.'
+        'Question created successfully.',
       );
     } catch (error: any) {
       console.error('Create question error:', error);
@@ -504,7 +534,7 @@ export const createQuestion = asyncHandler(
           res,
           STATUS_CODES.CONFLICT,
           null,
-          'Question code already exists.'
+          'Question code already exists.',
         );
       }
 
@@ -512,10 +542,10 @@ export const createQuestion = asyncHandler(
         res,
         STATUS_CODES.INTERNAL_SERVER_ERROR,
         null,
-        'An error occurred while creating the question. Please try again.'
+        'An error occurred while creating the question. Please try again.',
       );
     }
-  }
+  },
 );
 
 /**
@@ -523,7 +553,7 @@ export const createQuestion = asyncHandler(
  */
 function validateQuestionContent(
   questionType: PteQuestionTypeName,
-  content: any
+  content: any,
 ): { isValid: boolean; message: string } {
   const {
     textContent,
@@ -574,7 +604,8 @@ function validateQuestionContent(
       if (!tags || (Array.isArray(tags) && tags.length === 0)) {
         return {
           isValid: false,
-          message: 'Select the image type before creating this Describe Image question.',
+          message:
+            'Select the image type before creating this Describe Image question.',
         };
       }
       break;
@@ -622,7 +653,7 @@ function validateQuestionContent(
       }
       const selectedCorrectOptions = getCorrectOptionTexts(options);
       const isSingleAnswerQuestion = questionType.includes(
-        'MULTIPLE_CHOICE_SINGLE_ANSWER'
+        'MULTIPLE_CHOICE_SINGLE_ANSWER',
       );
 
       if (isSingleAnswerQuestion && selectedCorrectOptions.length !== 1) {
@@ -655,10 +686,7 @@ function validateQuestionContent(
         };
       }
 
-      if (
-        !correctAnswers &&
-        selectedCorrectOptions.length === 0
-      ) {
+      if (!correctAnswers && selectedCorrectOptions.length === 0) {
         return {
           isValid: false,
           message:
@@ -833,7 +861,7 @@ function validateQuestionContent(
  * Extract correct answers from transcribed audio text for Answer Short Question using OpenAI
  */
 async function extractCorrectAnswers(
-  transcribedText: string
+  transcribedText: string,
 ): Promise<string[]> {
   if (!transcribedText || typeof transcribedText !== 'string') {
     return [];
@@ -892,7 +920,7 @@ Examples:
         // Clean and validate the answers
         const cleanedAnswers = extractedAnswers
           .filter(
-            (answer) => typeof answer === 'string' && answer.trim().length > 0
+            (answer) => typeof answer === 'string' && answer.trim().length > 0,
           )
           .map((answer) => answer.trim().toLowerCase())
           .filter((answer) => answer.length <= 50) // Reasonable length limit
@@ -902,7 +930,7 @@ Examples:
         return cleanedAnswers;
       } else {
         console.log(
-          'OpenAI response is not an array, falling back to empty array'
+          'OpenAI response is not an array, falling back to empty array',
         );
         return [];
       }
@@ -953,7 +981,7 @@ function extractAnswersFromText(text: string): string[] {
       return answer
         .replace(
           /^(the|a|an|is|are|was|were|will|would|could|should|may|might)\s+/i,
-          ''
+          '',
         )
         .replace(/[.!?]+$/, '')
         .trim();
@@ -1043,7 +1071,7 @@ async function analyzeImageForKeyElements(imageUrl: string): Promise<{
  * Generate fill-in-the-blanks content from audio transcript using OpenAI
  */
 async function generateFillInTheBlanksFromTranscript(
-  transcript: string
+  transcript: string,
 ): Promise<{ textWithBlanks: string; blanks: any[] }> {
   if (!transcript || typeof transcript !== 'string') {
     throw new Error('Invalid transcript provided');
@@ -1206,7 +1234,7 @@ function generateSimpleFillInTheBlanks(transcript: string): {
   // Select 4-6 words to remove (or fewer if not enough content words)
   const numBlanks = Math.min(
     Math.max(4, Math.floor(contentWords.length * 0.15)),
-    6
+    6,
   );
   const selectedIndices: number[] = [];
 
@@ -1304,8 +1332,12 @@ function generateSimpleFillInTheBlanks(transcript: string): {
  * Generate incorrect words content from audio transcript using OpenAI
  */
 async function generateIncorrectWordsFromTranscript(
-  transcript: string
-): Promise<{ textWithErrors: string; incorrectWords: string[]; wordMapping: Array<{ correct: string; incorrect: string }> }> {
+  transcript: string,
+): Promise<{
+  textWithErrors: string;
+  incorrectWords: string[];
+  wordMapping: Array<{ correct: string; incorrect: string }>;
+}> {
   if (!transcript || typeof transcript !== 'string') {
     throw new Error('Invalid transcript provided');
   }
@@ -1393,15 +1425,19 @@ Return only the JSON object, no additional text or explanations.`;
       });
 
       // Validate the response structure
-      if (!result.textWithErrors || !Array.isArray(result.incorrectWords) || !Array.isArray(result.wordMapping)) {
+      if (
+        !result.textWithErrors ||
+        !Array.isArray(result.incorrectWords) ||
+        !Array.isArray(result.wordMapping)
+      ) {
         console.log(
-          `Attempt ${attempts}: Invalid response structure from OpenAI. Expected textWithErrors, incorrectWords, and wordMapping`
+          `Attempt ${attempts}: Invalid response structure from OpenAI. Expected textWithErrors, incorrectWords, and wordMapping`,
         );
         if (attempts < maxAttempts) {
           continue; // Try again
         } else {
           throw new Error(
-            'Invalid response structure from OpenAI after all attempts'
+            'Invalid response structure from OpenAI after all attempts',
           );
         }
       }
@@ -1409,13 +1445,13 @@ Return only the JSON object, no additional text or explanations.`;
       // Validate that we have enough incorrect words
       if (result.incorrectWords.length < 3) {
         console.log(
-          `Attempt ${attempts}: OpenAI generated only ${result.incorrectWords.length} incorrect words, minimum 3 required`
+          `Attempt ${attempts}: OpenAI generated only ${result.incorrectWords.length} incorrect words, minimum 3 required`,
         );
         if (attempts < maxAttempts) {
           continue; // Try again
         } else {
           throw new Error(
-            `OpenAI generated only ${result.incorrectWords.length} incorrect words after ${maxAttempts} attempts, minimum 3 required`
+            `OpenAI generated only ${result.incorrectWords.length} incorrect words after ${maxAttempts} attempts, minimum 3 required`,
           );
         }
       }
@@ -1423,13 +1459,13 @@ Return only the JSON object, no additional text or explanations.`;
       // Validate wordMapping
       if (result.wordMapping.length !== result.incorrectWords.length) {
         console.log(
-          `Attempt ${attempts}: WordMapping length (${result.wordMapping.length}) doesn't match incorrectWords length (${result.incorrectWords.length})`
+          `Attempt ${attempts}: WordMapping length (${result.wordMapping.length}) doesn't match incorrectWords length (${result.incorrectWords.length})`,
         );
         if (attempts < maxAttempts) {
           continue; // Try again
         } else {
           throw new Error(
-            `WordMapping validation failed after ${maxAttempts} attempts`
+            `WordMapping validation failed after ${maxAttempts} attempts`,
           );
         }
       }
@@ -1443,14 +1479,14 @@ Return only the JSON object, no additional text or explanations.`;
 
       // Success! Return the result
       console.log(
-        `Successfully generated ${result.incorrectWords.length} incorrect words with word mapping on attempt ${attempts}`
+        `Successfully generated ${result.incorrectWords.length} incorrect words with word mapping on attempt ${attempts}`,
       );
       return result;
     }
 
     // If we get here, all attempts failed
     throw new Error(
-      `Failed to generate enough incorrect words after ${maxAttempts} attempts`
+      `Failed to generate enough incorrect words after ${maxAttempts} attempts`,
     );
   } catch (error) {
     console.error('Error using OpenAI to generate incorrect words:', error);
@@ -1503,7 +1539,7 @@ function generateSimpleIncorrectWords(transcript: string): {
   const minReplacements = 3;
   const maxReplacements = Math.min(
     4,
-    Math.max(minReplacements, Math.floor(words.length / 15))
+    Math.max(minReplacements, Math.floor(words.length / 15)),
   );
   let replacements_made = 0;
 
@@ -1520,12 +1556,12 @@ function generateSimpleIncorrectWords(transcript: string): {
       const originalWord = cleanWord;
       modifiedWords[i] = words[i].replace(
         new RegExp(cleanWord, 'i'),
-        replacement
+        replacement,
       );
       incorrectWords.push(replacement);
       wordMapping.push({
         correct: originalWord,
-        incorrect: replacement
+        incorrect: replacement,
       });
       replacements_made++;
     }
@@ -1549,19 +1585,19 @@ function generateSimpleIncorrectWords(transcript: string): {
     if (
       originalWord.length > 3 &&
       !incorrectWords.some((word) =>
-        modifiedWords[randomIndex].toLowerCase().includes(word.toLowerCase())
+        modifiedWords[randomIndex].toLowerCase().includes(word.toLowerCase()),
       )
     ) {
       const replacement =
         additionalReplacements[additionalIndex % additionalReplacements.length];
       modifiedWords[randomIndex] = words[randomIndex].replace(
         new RegExp(originalWord, 'i'),
-        replacement
+        replacement,
       );
       incorrectWords.push(replacement);
       wordMapping.push({
         correct: originalWord,
-        incorrect: replacement
+        incorrect: replacement,
       });
       additionalIndex++;
     }
