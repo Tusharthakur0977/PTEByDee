@@ -22,7 +22,6 @@ import { PteQuestionTypeName } from '../../../types/pte';
 import {
   formatScoringText,
   playBeep,
-  renderSpeakingWordAnalysisInline,
 } from '../../../utils/Helpers';
 import ResponseDetailModal from './ResponseDetailModal';
 
@@ -83,6 +82,163 @@ const PracticeReadAloud: React.FC = () => {
       clearInterval(prepTimerRef.current);
       prepTimerRef.current = null;
     }
+  };
+
+  const formatPauseSeverity = (severity: PauseMarker['severity']) => {
+    if (severity === 'long_pause') return 'Long pause';
+    if (severity === 'pause') return 'Pause';
+    return 'Hesitation';
+  };
+
+  const getPauseGapClass = (severity: PauseMarker['severity']) => {
+    if (severity === 'long_pause') {
+      return 'border-rose-500/70 bg-rose-500/10 dark:border-rose-400/90 dark:bg-rose-400/20';
+    }
+    if (severity === 'pause') {
+      return 'border-amber-500/70 bg-amber-500/10 dark:border-amber-400/90 dark:bg-amber-400/20';
+    }
+    return 'border-yellow-500/70 bg-yellow-500/10 dark:border-yellow-400/90 dark:bg-yellow-400/20';
+  };
+
+  const getPauseGapWidthClass = (severity: PauseMarker['severity']) => {
+    if (severity === 'long_pause') return 'w-14 sm:w-16';
+    if (severity === 'pause') return 'w-10 sm:w-12';
+    return 'w-8 sm:w-10';
+  };
+
+  const getPauseWordClass = (severity: PauseMarker['severity']) => {
+    if (severity === 'long_pause') return 'text-rose-700 dark:text-rose-300';
+    if (severity === 'pause') return 'text-amber-700 dark:text-amber-300';
+    return 'text-yellow-700 dark:text-yellow-300';
+  };
+
+  const getWordStatusClass = (statusRaw: string) => {
+    const status = String(statusRaw || '').toLowerCase();
+    if (status === 'omitted') {
+      return 'bg-rose-500/10 text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-200 dark:border-rose-800';
+    }
+    if (status === 'mispronounced') {
+      return 'bg-orange-500/10 text-orange-700 border border-orange-200 dark:bg-orange-500/10 dark:text-orange-200 dark:border-orange-800';
+    }
+    if (status === 'inserted') {
+      return 'bg-sky-500/10 text-sky-700 border border-sky-200 dark:bg-sky-500/10 dark:text-sky-200 dark:border-sky-800';
+    }
+    return '';
+  };
+
+  const renderCombinedTranscript = (
+    spokenText: string,
+    wordAnalysis: WordByWordAnalysi[],
+    pauseMarkers: PauseMarker[],
+  ) => {
+    const spokenWords = String(spokenText || '')
+      .split(/\s+/)
+      .filter((word) => word.length > 0);
+
+    if (!spokenWords.length && (!wordAnalysis || wordAnalysis.length === 0)) return null;
+
+    const pauseMap = new Map<number, PauseMarker[]>();
+    const pauseWordSeverity = new Map<number, PauseMarker['severity']>();
+    const analysisWords = Array.isArray(wordAnalysis) ? wordAnalysis : [];
+
+    pauseMarkers.forEach((pause) => {
+      const existing = pauseMap.get(pause.afterWordIndex) || [];
+      existing.push(pause);
+      pauseMap.set(pause.afterWordIndex, existing);
+
+      const currentAfter = pauseWordSeverity.get(pause.afterWordIndex);
+      const currentBefore = pauseWordSeverity.get(pause.beforeWordIndex);
+      const severityRank = { hesitation: 1, pause: 2, long_pause: 3 } as const;
+      if (!currentAfter || severityRank[pause.severity] > severityRank[currentAfter]) {
+        pauseWordSeverity.set(pause.afterWordIndex, pause.severity);
+      }
+      if (!currentBefore || severityRank[pause.severity] > severityRank[currentBefore]) {
+        pauseWordSeverity.set(pause.beforeWordIndex, pause.severity);
+      }
+    });
+
+    const result: React.ReactNode[] = [];
+
+    const pushWord = (
+      word: string,
+      status: string,
+      keyPrefix: string,
+      wordIndex?: number,
+    ) => {
+      const pauseList = wordIndex !== undefined ? pauseMap.get(wordIndex) || [] : [];
+      const pause =
+        pauseList.length > 0
+          ? [...pauseList].sort((a, b) => b.durationMs - a.durationMs)[0]
+          : null;
+
+      const isPunctuationOnly = /^[\s.,!?;:'"()\-]+$/.test(word);
+      const wordSeverity = wordIndex !== undefined ? pauseWordSeverity.get(wordIndex) : undefined;
+
+      result.push(
+        <span
+          key={keyPrefix}
+          className={`whitespace-pre-wrap ${
+            !isPunctuationOnly
+              ? `rounded-md px-1 py-0.5 ${getWordStatusClass(status)} ${
+                  wordSeverity ? `${getPauseWordClass(wordSeverity)} font-medium` : ''
+                }`
+              : ''
+          }`}
+        >
+          {word}
+        </span>,
+      );
+
+      if (pause) {
+        result.push(
+          <span
+            key={`${keyPrefix}-pause`}
+            className={`group relative mx-1 inline-flex align-baseline items-end border-b-2 border-dashed ${getPauseGapClass(
+              pause.severity,
+            )} ${getPauseGapWidthClass(pause.severity)}`}
+            title={`${formatPauseSeverity(pause.severity)} - ${pause.durationSeconds.toFixed(2)}s`}
+          >
+            <span className='sr-only'>
+              {formatPauseSeverity(pause.severity)} pause of{' '}
+              {pause.durationSeconds.toFixed(2)} seconds
+            </span>
+            <span className='pointer-events-none absolute -top-5 left-1/2 hidden -translate-x-1/2 whitespace-nowrap rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600 shadow-sm group-hover:block dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200'>
+              {formatPauseSeverity(pause.severity)} {pause.durationSeconds.toFixed(2)}s
+            </span>
+          </span>,
+        );
+      }
+    };
+
+    if (analysisWords.length > 0) {
+      analysisWords.forEach((entry, index) => {
+        const status = String(entry?.status || '').toLowerCase();
+        pushWord(String(entry?.word || ''), status, `analysis-${index}`, index);
+
+        if (index < analysisWords.length - 1) {
+          result.push(
+            <span key={`space-${index}`} className='whitespace-pre-wrap'>
+              {' '}
+            </span>,
+          );
+        }
+      });
+      return <span>{result}</span>;
+    }
+
+    spokenWords.forEach((word, index) => {
+      pushWord(word, '', `spoken-${index}`, index);
+
+      if (index < spokenWords.length - 1) {
+        result.push(
+          <span key={`space-${index}`} className='whitespace-pre-wrap'>
+            {' '}
+          </span>,
+        );
+      }
+    });
+
+    return <span>{result}</span>;
   };
 
   const loadQuestions = useCallback(async () => {
@@ -600,66 +756,56 @@ const PracticeReadAloud: React.FC = () => {
                           <h4 className='font-bold text-gray-800 dark:text-gray-200'>
                             Your Response
                           </h4>
-                          <div className='flex flex-wrap items-center gap-4 text-sm'>
-                            {/* Speaking error types */}
-                            {/* <div className="flex items-center space-x-2">
-                              <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-                              <span className="text-gray-600 dark:text-gray-400">
-                                Pronunciation
-                              </span>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                              <span className="text-gray-600 dark:text-gray-400">
-                                Fluency
-                              </span>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <div className="w-3 h-3 bg-pink-500 rounded-full"></div>
-                              <span className="text-gray-600 dark:text-gray-400">
-                                Content
-                              </span>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                              <span className="text-gray-600 dark:text-gray-400">
-                                Grammar
-                              </span>
-                            </div>
-
-                            <span className="text-gray-500 dark:text-gray-400 text-xs">
-                              * Click colored words for explanation
-                            </span> 
-                            <span className='flex items-center gap-1'>
-                              <span className='h-2 w-2 rounded-full bg-red-300 border border-red-200 dark:bg-red-900/20 dark:border-red-800' />
-                              Missing word
+                          <div className='mt-3 flex flex-wrap items-center gap-2 text-xs lg:mt-0 lg:gap-3'>
+                            <span className='flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300'>
+                              <span className='h-2 w-2 rounded-full bg-red-500' />
+                              Omitted
                             </span>
-                            <span className='flex items-center gap-1'>
-                              <span className='h-2 w-2 rounded-full bg-orange-300 border border-orange-200 dark:bg-orange-900/20 dark:border-orange-800' />
+                            <span className='flex items-center gap-1 rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-orange-700 dark:border-orange-900/50 dark:bg-orange-950/30 dark:text-orange-300'>
+                              <span className='h-2 w-2 rounded-full bg-orange-500' />
                               Mispronounced
                             </span>
-                            <span className='flex items-center gap-1'>
-                              <span className='h-2 w-2 rounded-full bg-blue-300 border border-blue-200 dark:bg-blue-900/20 dark:border-blue-800' />
-                              Extra word
-                            </span> */}
+                            <span className='flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-300'>
+                              <span className='h-2 w-2 rounded-full bg-blue-500' />
+                              Inserted
+                            </span>
+                            <span className='flex items-center gap-1 rounded-full border border-yellow-200 bg-yellow-50 px-2.5 py-1 text-yellow-700 dark:border-yellow-900/50 dark:bg-yellow-950/30 dark:text-yellow-300'>
+                              <span className='h-2 w-2 rounded-full bg-yellow-500' />
+                              Pause / hesitation
+                            </span>
                           </div>
                         </div>
-                        <div className='p-6 text-base leading-relaxed text-gray-700 dark:text-gray-300 italic'>
-                          <p className='leading-relaxed'>
-                            {evaluationResult.evaluation.detailedAnalysis
-                              ?.wordByWordAnalysis?.length > 0 &&
-                              evaluationResult.evaluation.detailedAnalysis
-                                .userText}
-                          </p>
-                          {/* <p className='leading-relaxed'>
-                            {evaluationResult.evaluation.detailedAnalysis
-                              ?.wordByWordAnalysis?.length > 0 && (
-                                renderSpeakingWordAnalysisInline(
-                                  evaluationResult.evaluation.detailedAnalysis
-                                    .wordByWordAnalysis as any,
-                                )
-                            )}
-                          </p> */}
+                        <div className='p-6 text-base leading-relaxed text-gray-700 dark:text-gray-300'>
+                          {evaluationResult.evaluation.detailedAnalysis
+                            ?.wordByWordAnalysis?.length > 0 ? (
+                            <div className='space-y-3 not-italic'>
+                              <div className='rounded-2xl border border-gray-200 bg-white px-4 py-4 text-base leading-8 text-gray-900 shadow-inner dark:border-gray-700 dark:bg-gray-950/40 dark:text-gray-100'>
+                                <p className='leading-8 break-words whitespace-normal'>
+                                  {renderCombinedTranscript(
+                                    evaluationResult.evaluation.detailedAnalysis
+                                      .userText,
+                                    evaluationResult.evaluation.detailedAnalysis
+                                      .wordByWordAnalysis as any,
+                                    evaluationResult.evaluation.detailedAnalysis
+                                      .speechFlow?.pauseMarkers || [],
+                                  )}
+                                </p>
+                              </div>
+
+                              <p className='text-xs text-gray-500 dark:text-gray-400'>
+                                Colored words show pronunciation and content
+                                differences in the spoken response. Underlined
+                                gaps mark detected hesitations or pauses.
+                              </p>
+                            </div>
+                          ) : (
+                            <p className='leading-relaxed text-gray-700 dark:text-gray-300'>
+                              {
+                                evaluationResult.evaluation.detailedAnalysis
+                                  .userText
+                              }
+                            </p>
+                          )}
                         </div>
                       </div>
                     )}
@@ -978,6 +1124,7 @@ export interface DetailedAnalysis {
   correctAnswer: string;
   wordByWordAnalysis: WordByWordAnalysi[];
   errorAnalysis: ErrorAnalysis;
+  speechFlow?: SpeechFlow;
 }
 
 export interface Scores {
@@ -1017,6 +1164,27 @@ export interface ErrorAnalysis {
   pronunciationErrors: PronunciationError[];
   fluencyErrors: any[];
   contentErrors: any[];
+}
+
+export interface SpeechFlow {
+  pauseMarkers?: PauseMarker[];
+  totalPauseCount?: number;
+  totalPausedMs?: number;
+  longestPauseMs?: number;
+  timingAvailable?: boolean;
+  timedWordCount?: number;
+  mappedWordCount?: number;
+  aiInferredFluencyCount?: number;
+}
+
+export interface PauseMarker {
+  afterWord: string;
+  beforeWord: string;
+  afterWordIndex: number;
+  beforeWordIndex: number;
+  durationMs: number;
+  durationSeconds: number;
+  severity: 'hesitation' | 'pause' | 'long_pause';
 }
 
 export interface PronunciationError {

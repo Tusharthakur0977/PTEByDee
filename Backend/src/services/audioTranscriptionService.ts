@@ -6,11 +6,27 @@ import { promisify } from 'util';
 import { generateAudioSignedUrl } from '../config/cloudFrontConfig';
 import openai from '../config/openAi';
 
+export interface TranscriptionWord {
+  word: string;
+  start: number;
+  end: number;
+  confidence?: number;
+}
+
+export interface TranscriptionSegment {
+  text?: string;
+  start?: number;
+  end?: number;
+  confidence?: number;
+}
+
 interface TranscriptionResult {
   text: string;
   confidence?: number;
   language?: string;
   duration?: number;
+  words?: TranscriptionWord[];
+  segments?: TranscriptionSegment[];
 }
 
 /**
@@ -18,14 +34,14 @@ interface TranscriptionResult {
  */
 async function downloadAudioFromSecureUrl(audioKey: string): Promise<string> {
   try {
-    console.log(`Attempting to download audio file: ${audioKey}`);
+    
 
     // Generate secure URL for the audio file
     const secureUrlResponse = generateAudioSignedUrl(audioKey, 5);
 
-    console.log(secureUrlResponse, 'secureUrlResponseXXXX');
+    
 
-    console.log(`Generated secure URL for audio download`);
+    
 
     // Create temporary file path
     const tempDir = path.join(process.cwd(), 'temp');
@@ -73,10 +89,10 @@ async function downloadAudioFromSecureUrl(audioKey: string): Promise<string> {
       });
     });
 
-    console.log(`Audio file downloaded successfully to: ${tempFilePath}`);
+    
     return tempFilePath;
   } catch (error: any) {
-    console.error('Error downloading audio from secure URL:', error);
+    
 
     // Provide specific error messages based on error type
     if (error.message?.includes('CloudFront')) {
@@ -112,7 +128,7 @@ async function cleanupTempFile(filePath: string): Promise<void> {
       await promisify(fs.unlink)(filePath);
     }
   } catch (error) {
-    console.error('Error cleaning up temp file:', error);
+    
     // Don't throw error for cleanup failures
   }
 }
@@ -142,29 +158,72 @@ export async function transcribeAudio(audioKey: string): Promise<TranscriptionRe
     // 4. Construct a File object with the data and metadata.
     const audioFile = new File([audioData], fileName, { type: contentType });
 
-    console.log(`Created file object: ${fileName}, Type: ${contentType}`);
-    console.log('Sending file to OpenAI Whisper...');
+    
+    
 
     // 5. Pass the newly created File object to the OpenAI SDK.
     const transcription = await openai.audio.transcriptions.create({
       file: audioFile,
       model: 'whisper-1',
       language: 'en',
+      // Ask for verbatim disfluencies so downstream fluency evaluation can
+      // detect hesitations/fillers even when timestamps are sparse.
+      prompt:
+        'Transcribe verbatim. Keep filler words (um, uh, er), repetitions, false starts, and incomplete words exactly as spoken.',
       response_format: 'verbose_json',
+      timestamp_granularities: ['word', 'segment'],
       temperature: 0.0,
-    });
+    } as any);
 
     console.log(
       `Transcription completed. Text length: ${transcription.text.length} characters`
     );
 
+    const parsedWords: TranscriptionWord[] = Array.isArray(
+      (transcription as any).words
+    )
+      ? (transcription as any).words
+          .map((word: any) => ({
+            word: String(word?.word || '').trim(),
+            start: Number(word?.start),
+            end: Number(word?.end),
+            confidence:
+              typeof word?.confidence === 'number' ? word.confidence : undefined,
+          }))
+          .filter(
+            (word: TranscriptionWord) =>
+              word.word.length > 0 &&
+              Number.isFinite(word.start) &&
+              Number.isFinite(word.end) &&
+              word.end >= word.start
+          )
+      : [];
+
+    const parsedSegments: TranscriptionSegment[] = Array.isArray(
+      (transcription as any).segments
+    )
+      ? (transcription as any).segments.map((segment: any) => ({
+          text:
+            typeof segment?.text === 'string' ? segment.text.trim() : undefined,
+          start:
+            typeof segment?.start === 'number' ? Number(segment.start) : undefined,
+          end: typeof segment?.end === 'number' ? Number(segment.end) : undefined,
+          confidence:
+            typeof segment?.confidence === 'number'
+              ? segment.confidence
+              : undefined,
+        }))
+      : [];
+
     return {
       text: transcription.text.trim(),
-      language: transcription.language,
-      duration: transcription.duration,
+      language: (transcription as any).language,
+      duration: (transcription as any).duration,
+      words: parsedWords,
+      segments: parsedSegments,
     };
   } catch (error: any) {
-    console.error('Error transcribing audio:', error);
+    
     // Your existing error handling logic remains valid
     throw new Error(
       `Failed to transcribe audio: ${error.message || 'Unknown error'}`
@@ -186,7 +245,7 @@ export async function transcribeAudioWithRetry(
       return await transcribeAudio(audioKey);
     } catch (error: any) {
       lastError = error;
-      console.error(`Transcription attempt ${attempt} failed:`, error.message);
+      
 
       // Don't retry for certain types of errors
       if (
@@ -212,11 +271,11 @@ export async function transcribeAudioWithRetry(
  * Validate audio file before transcription
  */
 export function validateAudioFile(audioKey: string): boolean {
-  console.log('Validating audio file:', audioKey);
+  
 
   // Check if audio key has valid format
   if (!audioKey || typeof audioKey !== 'string') {
-    console.log('Validation failed: audioKey is not a valid string');
+    
     return false;
   }
 
@@ -225,7 +284,7 @@ export function validateAudioFile(audioKey: string): boolean {
     console.log(
       'Validation failed: audioKey does not start with "audio/user-recordings/"'
     );
-    console.log('Actual start:', audioKey.substring(0, 30));
+    
     return false;
   }
 
@@ -236,11 +295,11 @@ export function validateAudioFile(audioKey: string): boolean {
   );
 
   if (!hasValidExtension) {
-    console.log('Validation failed: invalid file extension');
-    console.log('Valid extensions:', validExtensions);
-    console.log('Actual ending:', audioKey.substring(audioKey.length - 10));
+    
+    
+    
   }
 
-  console.log('Validation result:', hasValidExtension);
+  
   return hasValidExtension;
 }

@@ -14,6 +14,9 @@ export interface QuestionResponseData {
     highlightedWords?: string[];
     blanks?: { [key: string]: string };
     text?: string;
+    evaluationOptions?: {
+      enableFluencyInsights?: boolean;
+    };
   };
   timeTakenSeconds?: number;
   testAttemptId?: string; // Optional: if part of a test

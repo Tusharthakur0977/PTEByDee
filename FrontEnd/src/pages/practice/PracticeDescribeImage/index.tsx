@@ -21,10 +21,10 @@ import { PteQuestionTypeName } from "../../../types/pte";
 import {
   formatScoringText,
   playBeep,
-  renderHighlightedText,
 } from "../../../utils/Helpers";
 import ResponseDetailModal from "./ResponseDetailModal";
 import { describeImageTypeOptions } from "../../../constants/describeImageTypes";
+import InlinePreviousAttempts from "../../../components/InlinePreviousAttempts";
 
 export interface QuestionsData {
   id: string;
@@ -90,12 +90,189 @@ const PracticeDescribeImage: React.FC = () => {
     }
   };
 
+  const normalizeTranscriptWord = (value: string) =>
+    String(value || "")
+      .toLowerCase()
+      .replace(/^[^\w]+|[^\w]+$/g, "");
+
+  const renderDescribeImageTranscript = (
+    text: string,
+    pronunciationErrors: any[] = [],
+    fluencyErrors: any[] = [],
+    pauseMarkers: PauseMarker[] = [],
+  ) => {
+    const words = String(text || "")
+      .split(/\s+/)
+      .filter((word) => word.length > 0);
+
+    if (!words.length) return null;
+
+    const pauseMap = new Map<number, PauseMarker[]>();
+    const pauseWordSeverity = new Map<number, PauseMarker["severity"]>();
+    pauseMarkers.forEach((pause) => {
+      const existing = pauseMap.get(pause.afterWordIndex) || [];
+      existing.push(pause);
+      pauseMap.set(pause.afterWordIndex, existing);
+
+      const currentAfter = pauseWordSeverity.get(pause.afterWordIndex);
+      const currentBefore = pauseWordSeverity.get(pause.beforeWordIndex);
+      const severityRank = { hesitation: 1, pause: 2, long_pause: 3 } as const;
+      if (!currentAfter || severityRank[pause.severity] > severityRank[currentAfter]) {
+        pauseWordSeverity.set(pause.afterWordIndex, pause.severity);
+      }
+      if (!currentBefore || severityRank[pause.severity] > severityRank[currentBefore]) {
+        pauseWordSeverity.set(pause.beforeWordIndex, pause.severity);
+      }
+    });
+
+    const statusMap = new Map<number, "pronunciation" | "fluency">();
+    const usedPronunciation = new Set<number>();
+    const usedFluency = new Set<number>();
+
+    const markErrors = (
+      errors: any[],
+      kind: "pronunciation" | "fluency",
+      usedSet: Set<number>,
+    ) => {
+      errors.forEach((error) => {
+        const targetTokens = String(error?.text || "")
+          .split(/\s+/)
+          .map(normalizeTranscriptWord)
+          .filter((token) => token.length > 0);
+
+        if (!targetTokens.length) return;
+
+        let foundIndex = -1;
+        for (let start = 0; start <= words.length - targetTokens.length; start += 1) {
+          let matches = true;
+          for (let offset = 0; offset < targetTokens.length; offset += 1) {
+            const spokenIndex = start + offset;
+            if (usedSet.has(spokenIndex)) {
+              matches = false;
+              break;
+            }
+            if (normalizeTranscriptWord(words[spokenIndex]) !== targetTokens[offset]) {
+              matches = false;
+              break;
+            }
+          }
+          if (matches) {
+            foundIndex = start;
+            break;
+          }
+        }
+
+        if (foundIndex >= 0) {
+          targetTokens.forEach((_, offset) => {
+            const spokenIndex = foundIndex + offset;
+            usedSet.add(spokenIndex);
+            if (kind === "pronunciation" || !statusMap.has(spokenIndex)) {
+              statusMap.set(spokenIndex, kind);
+            }
+          });
+        }
+      });
+    };
+
+    markErrors(pronunciationErrors, "pronunciation", usedPronunciation);
+    markErrors(fluencyErrors, "fluency", usedFluency);
+
+  const wordClass = (kind?: "pronunciation" | "fluency") => {
+    if (kind === "pronunciation") {
+      return "bg-orange-100 text-orange-800 border border-orange-200 dark:bg-orange-900/20 dark:text-orange-200 dark:border-orange-800";
+    }
+    if (kind === "fluency") {
+      return "bg-yellow-100 text-yellow-800 border border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-200 dark:border-yellow-800";
+    }
+    return "";
+  };
+
+  const getPauseWordClass = (severity: PauseMarker["severity"]) => {
+    if (severity === "long_pause") return "text-yellow-800 dark:text-yellow-300";
+    if (severity === "pause") return "text-amber-700 dark:text-amber-300";
+    return "text-yellow-700 dark:text-yellow-300";
+  };
+
+  const formatPauseSeverity = (severity: PauseMarker["severity"]) => {
+    if (severity === "long_pause") return "Long pause";
+    if (severity === "pause") return "Pause";
+    return "Hesitation";
+  };
+
+    const gapClass = (severity: PauseMarker["severity"]) => {
+      if (severity === "long_pause") return "border-yellow-600/80 bg-yellow-500/20";
+      if (severity === "pause") return "border-amber-500/80 bg-amber-500/20";
+      return "border-yellow-500/80 bg-yellow-500/20";
+    };
+
+    const gapWidth = (severity: PauseMarker["severity"]) => {
+      if (severity === "long_pause") return "w-14 sm:w-16";
+      if (severity === "pause") return "w-10 sm:w-12";
+      return "w-8 sm:w-10";
+    };
+
+    const result: React.ReactNode[] = [];
+
+    words.forEach((word, index) => {
+      const isPunctuationOnly = /^[\s.,!?;:'"()\-]+$/.test(word);
+      const wordSeverity = pauseWordSeverity.get(index);
+      const status = statusMap.get(index);
+
+      result.push(
+        <span
+          key={`word-${index}`}
+          className={`whitespace-pre-wrap ${
+            !isPunctuationOnly
+              ? `rounded-md px-1 py-0.5 ${wordClass(status)} ${
+                  wordSeverity ? `${getPauseWordClass(wordSeverity)} font-medium` : ""
+                }`
+              : ""
+          }`}
+        >
+          {word}
+        </span>,
+      );
+
+      const pauseList = pauseMap.get(index);
+      if (pauseList && pauseList.length > 0) {
+        const pause = [...pauseList].sort((a, b) => b.durationMs - a.durationMs)[0];
+        result.push(
+          <span
+            key={`pause-${index}`}
+            className={`group relative mx-1 inline-flex align-baseline items-end border-b-2 border-dashed ${gapClass(
+              pause.severity,
+            )} ${gapWidth(pause.severity)}`}
+            title={`${formatPauseSeverity(pause.severity)} - ${pause.durationSeconds.toFixed(2)}s`}
+          >
+            <span className="sr-only">
+              {formatPauseSeverity(pause.severity)} pause of{" "}
+              {pause.durationSeconds.toFixed(2)} seconds
+            </span>
+            <span className="pointer-events-none absolute -top-5 left-1/2 hidden -translate-x-1/2 whitespace-nowrap rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600 shadow-sm group-hover:block dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
+              {formatPauseSeverity(pause.severity)} {pause.durationSeconds.toFixed(2)}s
+            </span>
+          </span>,
+        );
+      }
+
+      if (index < words.length - 1) {
+        result.push(
+          <span key={`space-${index}`} className="whitespace-pre-wrap">
+            {" "}
+          </span>,
+        );
+      }
+    });
+
+    return <span>{result}</span>;
+  };
+
   const loadQuestions = useCallback(async () => {
     try {
       setIsLoading(true);
       const options: any = {
         limit: 100,
-        random: true,
+        random: false,
       };
 
       if (difficultyLevel !== "all") {
@@ -581,7 +758,10 @@ const PracticeDescribeImage: React.FC = () => {
                       {Object.entries(
                         evaluationResult.evaluation.detailedAnalysis.scores,
                       ).map(([component, scroeData]) => (
-                        <tr className='hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition'>
+                        <tr
+                          key={component}
+                          className='hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition'
+                        >
                           <td className='px-6 py-4'>
                             <div className='flex items-center gap-2'>
                               <span className='font-semibold text-gray-700 dark:text-gray-200'>
@@ -655,49 +835,34 @@ const PracticeDescribeImage: React.FC = () => {
                 {/* Error Highlight Area */}
                 {evaluationResult.evaluation.detailedAnalysis?.userText && (
                   <div className='rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm'>
-                    <div className='px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center flex-col lg:flex-row'>
+                    <div className='px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center flex-col lg:flex-row gap-3'>
                       <h4 className='font-bold text-gray-800 dark:text-gray-200'>
-                        Your Response
+                        Spoken Response
                       </h4>
-                      {/* <div className='flex flex-wrap items-center gap-4 text-sm'>
-                        <div className='flex items-center space-x-2'>
-                          <div className='w-3 h-3 bg-orange-500 rounded-full'></div>
-                          <span className='text-gray-600 dark:text-gray-400'>
-                            Pronunciation
-                          </span>
-                        </div>
-                        <div className='flex items-center space-x-2'>
-                          <div className='w-3 h-3 bg-yellow-500 rounded-full'></div>
-                          <span className='text-gray-600 dark:text-gray-400'>
-                            Fluency
-                          </span>
-                        </div>
-                        <div className='flex items-center space-x-2'>
-                          <div className='w-3 h-3 bg-pink-500 rounded-full'></div>
-                          <span className='text-gray-600 dark:text-gray-400'>
-                            Content
-                          </span>
-                        </div>
-                        <div className='flex items-center space-x-2'>
-                          <div className='w-3 h-3 bg-red-500 rounded-full'></div>
-                          <span className='text-gray-600 dark:text-gray-400'>
-                            Grammar
-                          </span>
-                        </div>
-
-                        <span className='text-gray-500 dark:text-gray-400 text-xs'>
-                          * Click colored words for explanation
+                      <div className='flex flex-wrap items-center gap-4 text-xs'>
+                        <span className='inline-flex items-center gap-2 text-gray-600 dark:text-gray-400'>
+                          <span className='h-3 w-3 rounded-full bg-orange-500' />
+                          Pronunciation
                         </span>
-                      </div> */}
+                        <span className='inline-flex items-center gap-2 text-gray-600 dark:text-gray-400'>
+                          <span className='h-3 w-3 rounded-full bg-yellow-500' />
+                          Hesitations/Pauses
+                        </span>
+                        <span className='text-gray-500 dark:text-gray-400'>
+                          Content is summarized below
+                        </span>
+                      </div>
                     </div>
-                    <div className='p-6 text-base leading-relaxed text-gray-700 dark:text-gray-300 italic'>
-                      {/* {renderHighlightedText(
+                    <div className='p-6 text-base leading-relaxed text-gray-700 dark:text-gray-300'>
+                      {renderDescribeImageTranscript(
                         evaluationResult.evaluation.detailedAnalysis.userText,
                         evaluationResult.evaluation.detailedAnalysis
-                          .errorAnalysis,
-                        (err: any) => setSelectedError(err),
-                      )} */}
-                      {evaluationResult.evaluation.detailedAnalysis.userText}
+                          .errorAnalysis?.pronunciationErrors || [],
+                        evaluationResult.evaluation.detailedAnalysis
+                          .errorAnalysis?.fluencyErrors || [],
+                        evaluationResult.evaluation.detailedAnalysis.speechFlow
+                          ?.pauseMarkers || [],
+                      )}
                     </div>
                   </div>
                 )}
@@ -781,30 +946,37 @@ const PracticeDescribeImage: React.FC = () => {
           </>
         )
       )}
-
+      <InlinePreviousAttempts
+        questionId={currentQuestion?.id}
+        question={currentQuestion}
+        onViewResponse={handleViewResponse}
+        className='mt-6'
+      />
       {/* FOOTER NAVIGATION */}
-      <div className='border-t dark:border-gray-700 px-6 py-4 flex justify-between items-center dark:bg-gray-800'>
-        <button
-          onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
-          className='flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded-lg'
-        >
-          <ChevronLeft className='w-4 h-4' />
-          Previous
-        </button>
+      <div className='border-t dark:border-gray-700 px-6 py-4 space-y-3 dark:bg-gray-800'>
+        <div className='flex items-center justify-between'>
+          <button
+            onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
+            className='flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded-lg'
+          >
+            <ChevronLeft className='w-4 h-4' />
+            Previous
+          </button>
 
-        <span className='text-gray-400 text-sm'>
-          {currentIndex + 1} / {questions.length}
-        </span>
+          <span className='text-gray-400 text-sm'>
+            {currentIndex + 1} / {questions.length}
+          </span>
 
-        <button
-          onClick={() =>
-            setCurrentIndex((i) => Math.min(questions.length - 1, i + 1))
-          }
-          className='flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg'
-        >
-          Next
-          <ChevronRight className='w-4 h-4' />
-        </button>
+          <button
+            onClick={() =>
+              setCurrentIndex((i) => Math.min(questions.length - 1, i + 1))
+            }
+            className='flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg'
+          >
+            Next
+            <ChevronRight className='w-4 h-4' />
+          </button>
+        </div>
       </div>
 
       {selectedError && (
@@ -966,6 +1138,7 @@ const PracticeDescribeImage: React.FC = () => {
         onClose={handleCloseResponseModal}
         questionType={PteQuestionTypeName.DESCRIBE_IMAGE}
         questionNumber={currentIndex + 1}
+        questionImageUrl={currentQuestion?.content?.imageUrl}
       />
     </div>
   );
@@ -1017,6 +1190,7 @@ export interface DetailedAnalysis {
   pronunciationFeedback: string;
   errorAnalysis: ErrorAnalysis;
   userText: string;
+  speechFlow?: SpeechFlow;
 }
 
 export interface Scores {
@@ -1061,6 +1235,27 @@ export interface ErrorAnalysis {
   fluencyErrors: FluencyError[];
   grammarErrors: any[];
   contentErrors: any[];
+}
+
+export interface SpeechFlow {
+  pauseMarkers?: PauseMarker[];
+  totalPauseCount?: number;
+  totalPausedMs?: number;
+  longestPauseMs?: number;
+  timingAvailable?: boolean;
+  timedWordCount?: number;
+  mappedWordCount?: number;
+  aiInferredFluencyCount?: number;
+}
+
+export interface PauseMarker {
+  afterWord: string;
+  beforeWord: string;
+  afterWordIndex: number;
+  beforeWordIndex: number;
+  durationMs: number;
+  durationSeconds: number;
+  severity: "hesitation" | "pause" | "long_pause";
 }
 
 export interface FluencyError {

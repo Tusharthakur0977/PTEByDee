@@ -75,6 +75,9 @@ export const submitQuestionResponse = asyncHandler(
       // Handle audio transcription for speaking questions
       let processedUserResponse = userResponse;
       let transcribedText: string | null = null;
+      const enableFluencyInsights =
+        question.questionType.name === PteQuestionTypeName.REPEAT_SENTENCE &&
+        Boolean(userResponse?.evaluationOptions?.enableFluencyInsights);
 
       // Check if this is an audio-based question that needs transcription
       const audioBasedQuestions = [
@@ -117,6 +120,17 @@ export const submitQuestionResponse = asyncHandler(
             processedUserResponse = {
               ...userResponse,
               textResponse: transcribedText,
+              evaluationOptions: {
+                ...(userResponse?.evaluationOptions || {}),
+                // For now this option is supported only for Repeat Sentence.
+                enableFluencyInsights,
+              },
+              transcriptionMeta: {
+                language: transcriptionResult.language,
+                duration: transcriptionResult.duration,
+                words: transcriptionResult.words || [],
+                segments: transcriptionResult.segments || [],
+              },
             };
           } catch (error: any) {
             console.error('Audio transcription failed:', error);

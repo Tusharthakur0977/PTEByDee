@@ -63,6 +63,26 @@ export interface EvaluationDetail {
     contentErrors?: ErrorItem[];
   };
 
+  /** Speaking timing analysis (Repeat Sentence / Read Aloud) */
+  speechFlow?: {
+    pauseMarkers: Array<{
+      afterWord: string;
+      beforeWord: string;
+      afterWordIndex: number;
+      beforeWordIndex: number;
+      durationMs: number;
+      durationSeconds: number;
+      severity: 'hesitation' | 'pause' | 'long_pause';
+    }>;
+    totalPauseCount: number;
+    totalPausedMs: number;
+    longestPauseMs: number;
+    timingAvailable?: boolean;
+    timedWordCount?: number;
+    mappedWordCount?: number;
+    aiInferredFluencyCount?: number;
+  };
+
   /** MCQ single/multiple, HighlightCorrectSummary, SelectMissingWord */
   choiceResult?: {
     selectedTexts: string[];

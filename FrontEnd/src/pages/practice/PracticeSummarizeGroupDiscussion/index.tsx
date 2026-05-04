@@ -24,8 +24,11 @@ import { PteQuestionTypeName } from '../../../types/pte';
 import {
   formatScoringText,
   playBeep,
-  renderHighlightedText,
 } from '../../../utils/Helpers';
+import {
+  renderSpeechTranscriptWithPauses,
+  SpeechPauseMarker,
+} from '../../../utils/speakingTranscriptRenderer';
 
 export interface QuestionsData {
   id: string;
@@ -590,52 +593,53 @@ const PracticeSummarizeGroupDiscussion: React.FC = () => {
                     </h4>
                   </div>
 
-                  {/* Error Highlight Area */}
+                  {/* Spoken Response */}
                   {evaluationResult.evaluation.detailedAnalysis?.userText && (
-                    <div className='rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm'>
-                      <div className='px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center flex-col lg:flex-row'>
-                        <h4 className='font-bold text-gray-800 dark:text-gray-200'>
-                          Your Response
-                        </h4>
-                        {/* <div className='flex flex-wrap items-center gap-4 text-sm'>
-                          <div className='flex items-center space-x-2'>
-                            <div className='w-3 h-3 bg-orange-500 rounded-full'></div>
-                            <span className='text-gray-600 dark:text-gray-400'>
+                    <div className='rounded-3xl border border-slate-200 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-slate-700/70 dark:bg-slate-900/80 dark:shadow-[0_18px_60px_rgba(15,23,42,0.24)]'>
+                      <div className='border-b border-slate-200 px-5 py-4 dark:border-white/10'>
+                        <div className='flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between'>
+                          <h4 className='font-bold text-slate-800 dark:text-slate-200'>
+                            Spoken Response
+                          </h4>
+                          <div className='flex flex-wrap items-center gap-3 text-[11px]'>
+                            <span className='inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-orange-700 dark:border-orange-500/20 dark:bg-orange-500/10 dark:text-orange-200'>
+                              <span className='h-2 w-2 rounded-full bg-orange-500 dark:bg-orange-400' />
                               Pronunciation
                             </span>
-                          </div>
-                          <div className='flex items-center space-x-2'>
-                            <div className='w-3 h-3 bg-yellow-500 rounded-full'></div>
-                            <span className='text-gray-600 dark:text-gray-400'>
-                              Fluency
+                            <span className='inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200'>
+                              <span className='h-2 w-2 rounded-full bg-amber-500 dark:bg-amber-400' />
+                              Pause / hesitation
                             </span>
                           </div>
-                          <div className='flex items-center space-x-2'>
-                            <div className='w-3 h-3 bg-pink-500 rounded-full'></div>
-                            <span className='text-gray-600 dark:text-gray-400'>
-                              Content
-                            </span>
-                          </div>
-                          <div className='flex items-center space-x-2'>
-                            <div className='w-3 h-3 bg-red-500 rounded-full'></div>
-                            <span className='text-gray-600 dark:text-gray-400'>
-                              Grammar
-                            </span>
-                          </div>
-
-                          <span className='text-gray-500 dark:text-gray-400 text-xs'>
-                            * Click colored words for explanation
-                          </span>
-                        </div> */}
+                        </div>
                       </div>
-                      <div className='p-6 text-base leading-relaxed text-gray-700 dark:text-gray-300 italic'>
-                        {/* {renderHighlightedText(
-                          evaluationResult.evaluation.detailedAnalysis.userText,
-                          evaluationResult.evaluation.detailedAnalysis
-                            .errorAnalysis,
-                          (err: any) => setSelectedError(err),
-                        )} */}
-                        {evaluationResult.evaluation.detailedAnalysis.userText}
+                      <div className='p-5'>
+                        <div className='rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-base leading-8 text-slate-900 dark:border-slate-700/70 dark:bg-slate-950 dark:text-slate-100'>
+                          <p className='leading-8 break-words whitespace-normal'>
+                            {renderSpeechTranscriptWithPauses({
+                              spokenText:
+                                evaluationResult.evaluation.detailedAnalysis
+                                  .userText,
+                              pronunciationErrors:
+                                evaluationResult.evaluation.detailedAnalysis
+                                  .errorAnalysis.pronunciationErrors || [],
+                              fluencyErrors:
+                                evaluationResult.evaluation.detailedAnalysis
+                                  .errorAnalysis.fluencyErrors || [],
+                              pauseMarkers:
+                                (
+                                  evaluationResult.evaluation.detailedAnalysis
+                                    .speechFlow?.pauseMarkers || []
+                                ) as SpeechPauseMarker[],
+                            })}
+                          </p>
+                        </div>
+                        {!evaluationResult.evaluation.detailedAnalysis.speechFlow
+                          ?.pauseMarkers?.length && (
+                          <p className='mt-3 text-xs text-slate-500 dark:text-slate-400'>
+                            No pause gaps were detected for this attempt.
+                          </p>
+                        )}
                       </div>
                     </div>
                   )}
@@ -936,6 +940,7 @@ export interface DetailedAnalysis {
   recognizedText: string;
   timeTaken: number;
   errorAnalysis: ErrorAnalysis;
+  speechFlow?: SpeechFlow;
   userText: string;
 }
 
@@ -1003,4 +1008,15 @@ export interface Question {
   questionCode: string;
   questionType: string;
   sectionName: string;
+}
+
+export interface SpeechFlow {
+  pauseMarkers: SpeechPauseMarker[];
+  totalPauseCount?: number;
+  totalPausedMs?: number;
+  longestPauseMs?: number;
+  timingAvailable?: boolean;
+  timedWordCount?: number;
+  mappedWordCount?: number;
+  aiInferredFluencyCount?: number;
 }

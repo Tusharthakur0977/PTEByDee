@@ -373,6 +373,432 @@ function correctAudioErrorPositions(errorAnalysis: any, userText: string): any {
   };
 }
 
+function normalizeSpokenToken(token: string): string {
+  return token
+    .toLowerCase()
+    .replace(/[.,!?;:\-()[\]{}""'']/g, '')
+    .trim();
+}
+
+function getTranscriptionWordsFromResponse(userResponse: any): Array<{
+  word: string;
+  start: number;
+  end: number;
+}> {
+  const candidates =
+    userResponse?.transcriptionMeta?.words ||
+    userResponse?.transcriptionWords ||
+    [];
+
+  if (!Array.isArray(candidates)) return [];
+
+  const normalizedWords = candidates
+    .map((word: any) => ({
+      word: String(word?.word || '').trim(),
+      start: Number(word?.start),
+      end: Number(word?.end),
+    }))
+    .filter(
+      (word) =>
+        word.word.length > 0 &&
+        Number.isFinite(word.start) &&
+        Number.isFinite(word.end) &&
+        word.end >= word.start,
+    );
+
+  if (normalizedWords.length > 0) {
+    return normalizedWords;
+  }
+
+  // Fallback: some transcriptions return only segment-level timestamps.
+  // Build approximate per-word timing so pause detection can still work.
+  const segments = Array.isArray(userResponse?.transcriptionMeta?.segments)
+    ? userResponse.transcriptionMeta.segments
+    : [];
+  const approximatedWords: Array<{ word: string; start: number; end: number }> =
+    [];
+
+  segments.forEach((segment: any) => {
+    const text = String(segment?.text || '').trim();
+    const start = Number(segment?.start);
+    const end = Number(segment?.end);
+    if (!text || !Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+      return;
+    }
+
+    const tokens = text.split(/\s+/).filter((token: string) => token.length > 0);
+    if (!tokens.length) return;
+
+    const duration = end - start;
+    const slice = duration / tokens.length;
+
+    tokens.forEach((token: string, index: number) => {
+      const tokenStart = start + slice * index;
+      const tokenEnd =
+        index === tokens.length - 1 ? end : start + slice * (index + 1);
+      approximatedWords.push({
+        word: token,
+        start: tokenStart,
+        end: tokenEnd,
+      });
+    });
+  });
+
+  return approximatedWords.filter(
+    (word) =>
+      word.word.length > 0 &&
+      Number.isFinite(word.start) &&
+      Number.isFinite(word.end) &&
+      word.end >= word.start,
+  );
+}
+
+function detectPauseMarkers(
+  transcribedText: string,
+  transcriptionWords: Array<{ word: string; start: number; end: number }>,
+  options?: {
+    pauseSeconds?: number;
+    longPauseSeconds?: number;
+  },
+) {
+  const PAUSE_SECONDS = options?.pauseSeconds ?? 1.3;
+  const LONG_PAUSE_SECONDS = options?.longPauseSeconds ?? 1.8;
+
+  const transcriptWords = transcribedText
+    .split(/\s+/)
+    .filter((word: string) => word.length > 0);
+  const normalizedTranscript = transcriptWords.map(normalizeSpokenToken);
+
+  const mappedWords: Array<{
+    word: string;
+    start: number;
+    end: number;
+    transcriptIndex: number;
+  }> = [];
+
+  let cursor = 0;
+  transcriptionWords.forEach((timedWord) => {
+    const normalizedTimedWord = normalizeSpokenToken(timedWord.word);
+    if (!normalizedTimedWord) return;
+
+    for (let idx = cursor; idx < normalizedTranscript.length; idx++) {
+      if (normalizedTranscript[idx] === normalizedTimedWord) {
+        mappedWords.push({
+          ...timedWord,
+          transcriptIndex: idx,
+        });
+        cursor = idx + 1;
+        return;
+      }
+    }
+  });
+
+  const pauseMarkers: Array<{
+    afterWord: string;
+    beforeWord: string;
+    afterWordIndex: number;
+    beforeWordIndex: number;
+    durationMs: number;
+    durationSeconds: number;
+    severity: 'pause' | 'long_pause';
+  }> = [];
+
+  const pauseErrors: any[] = [];
+  let totalPausedMs = 0;
+  let longestPauseMs = 0;
+
+  for (let idx = 1; idx < mappedWords.length; idx++) {
+    const previousWord = mappedWords[idx - 1];
+    const currentWord = mappedWords[idx];
+    const pauseSeconds = currentWord.start - previousWord.end;
+
+    if (!Number.isFinite(pauseSeconds) || pauseSeconds < PAUSE_SECONDS) {
+      continue;
+    }
+
+    const severity: 'pause' | 'long_pause' =
+      pauseSeconds >= LONG_PAUSE_SECONDS ? 'long_pause' : 'pause';
+
+    const durationMs = Math.round(pauseSeconds * 1000);
+    totalPausedMs += durationMs;
+    longestPauseMs = Math.max(longestPauseMs, durationMs);
+
+    pauseMarkers.push({
+      afterWord: previousWord.word,
+      beforeWord: currentWord.word,
+      afterWordIndex: previousWord.transcriptIndex,
+      beforeWordIndex: currentWord.transcriptIndex,
+      durationMs,
+      durationSeconds: Number(pauseSeconds.toFixed(2)),
+      severity,
+    });
+
+    pauseErrors.push({
+      text: currentWord.word,
+      type: 'fluency',
+      position: {
+        start: currentWord.transcriptIndex,
+        end: currentWord.transcriptIndex + 1,
+      },
+      correction: '',
+      explanation: `A ${pauseSeconds.toFixed(2)}s ${severity.replace('_', ' ')} before "${currentWord.word}" interrupted your fluency.`,
+      context: {
+        before: previousWord.word,
+        after: mappedWords[idx + 1]?.word || '',
+      },
+      meta: {
+        category: 'pause',
+        severity,
+        durationMs,
+        durationSeconds: Number(pauseSeconds.toFixed(2)),
+      },
+    });
+  }
+
+  return {
+    pauseErrors,
+    speechFlow: {
+      pauseMarkers,
+      totalPauseCount: pauseMarkers.length,
+      totalPausedMs,
+      longestPauseMs,
+      timingAvailable: transcriptionWords.length > 0,
+      timedWordCount: transcriptionWords.length,
+      mappedWordCount: mappedWords.length,
+    },
+  };
+}
+
+function mergePauseErrorsIntoErrorAnalysis(errorAnalysis: any, pauseErrors: any[]) {
+  const merged = {
+    pronunciationErrors: [...(errorAnalysis?.pronunciationErrors || [])],
+    fluencyErrors: [...(errorAnalysis?.fluencyErrors || [])],
+    contentErrors: [...(errorAnalysis?.contentErrors || [])],
+  };
+
+  if (!pauseErrors.length) return merged;
+
+  const existingFluencySignature = new Set(
+    merged.fluencyErrors.map((error: any) => {
+      const start =
+        typeof error?.position?.start === 'number' ? error.position.start : -1;
+      return `${String(error?.text || '').toLowerCase()}::${start}`;
+    }),
+  );
+
+  pauseErrors.forEach((pauseError) => {
+    const signature = `${String(pauseError?.text || '').toLowerCase()}::${
+      pauseError?.position?.start
+    }`;
+    if (!existingFluencySignature.has(signature)) {
+      merged.fluencyErrors.push(pauseError);
+      existingFluencySignature.add(signature);
+    }
+  });
+
+  return merged;
+}
+
+function mergeAdditionalFluencyErrors(
+  errorAnalysis: any,
+  additionalFluencyErrors: any[],
+) {
+  const merged = {
+    pronunciationErrors: [...(errorAnalysis?.pronunciationErrors || [])],
+    fluencyErrors: [...(errorAnalysis?.fluencyErrors || [])],
+    contentErrors: [...(errorAnalysis?.contentErrors || [])],
+  };
+
+  if (!additionalFluencyErrors.length) return merged;
+
+  const existingSignatures = new Set(
+    merged.fluencyErrors.map((error: any) => {
+      const start =
+        typeof error?.position?.start === 'number' ? error.position.start : -1;
+      return `${String(error?.text || '').toLowerCase()}::${start}`;
+    }),
+  );
+
+  additionalFluencyErrors.forEach((error) => {
+    const signature = `${String(error?.text || '').toLowerCase()}::${
+      error?.position?.start
+    }`;
+    if (!existingSignatures.has(signature)) {
+      merged.fluencyErrors.push(error);
+      existingSignatures.add(signature);
+    }
+  });
+
+  return merged;
+}
+
+function buildRepeatSentenceFluencyFeedback(params: {
+  fluencyErrors: any[];
+  pauseMarkers?: Array<{
+    severity: 'hesitation' | 'pause' | 'long_pause';
+    durationSeconds: number;
+  }>;
+}): string {
+  const { fluencyErrors, pauseMarkers = [] } = params;
+  const fillerErrors = fluencyErrors.filter((error) => {
+    const text = String(error?.text || '').toLowerCase();
+    const explanation = String(error?.explanation || '').toLowerCase();
+    return (
+      /um|uh|er|ah|oh/.test(text) ||
+      /filler|hesitation|pause|false start|repetition/.test(explanation)
+    );
+  });
+
+  const pauseCount = pauseMarkers.length;
+  const hasBriefPause = pauseMarkers.some(
+    (pause) => pause.severity === 'hesitation',
+  );
+  const hasLongerPause = pauseMarkers.some(
+    (pause) => pause.severity === 'pause' || pause.severity === 'long_pause',
+  );
+
+  if (fillerErrors.length === 0 && pauseCount === 0) {
+    return 'Speech was smooth and continuous, with no major fluency issues detected.';
+  }
+
+  const parts: string[] = [];
+  if (fillerErrors.length > 0) {
+    parts.push(
+      `Speech included ${fillerErrors.length} fluency signal${
+        fillerErrors.length > 1 ? 's' : ''
+      } such as fillers or self-corrections.`,
+    );
+  }
+  if (hasLongerPause) {
+    parts.push('A noticeable pause briefly interrupted the flow.');
+  } else if (hasBriefPause) {
+    parts.push('A brief hesitation slightly affected rhythm.');
+  } else if (pauseCount > 0) {
+    parts.push('Minor pauses slightly affected rhythm.');
+  }
+
+  if (parts.length === 0) {
+    return 'Speech was mostly smooth, with minor fluency variation.';
+  }
+
+  return `${parts.join(' ')} It did not significantly disrupt the overall flow.`;
+}
+
+async function inferFluencyFromTranscriptWithAI(params: {
+  originalSentence: string;
+  transcribedText: string;
+  existingFluencyErrors?: any[];
+}): Promise<any[]> {
+  const { originalSentence, transcribedText, existingFluencyErrors = [] } =
+    params;
+
+  const trimmedTranscript = String(transcribedText || '').trim();
+  if (!trimmedTranscript) return [];
+
+  const prompt = `
+You are evaluating PTE Repeat Sentence oral fluency from transcript text only.
+
+Goal:
+- Detect likely hesitations, fillers, repetitions, false starts, self-corrections, and pause-like breaks from textual evidence.
+- If evidence is weak, return empty list.
+
+Rules:
+- Word index starts at 0 based on splitting Transcribed User Text by whitespace.
+- Return only JSON with this exact shape:
+{
+  "fluencyErrors": [
+    {
+      "text": "word or short phrase at issue",
+      "type": "fluency",
+      "position": { "start": 0, "end": 1 },
+      "correction": "",
+      "explanation": "what hesitation/disfluency happened",
+      "meta": {
+        "category": "hesitation|pause|filler|repetition|false_start",
+        "source": "ai_inferred",
+        "estimated": true,
+        "confidence": 0.0
+      }
+    }
+  ]
+}
+
+Constraints:
+- Do not invent many items. Max 4 errors.
+- Confidence must be between 0 and 1.
+- If transcript is fluent and no textual evidence exists, return {"fluencyErrors":[]}.
+
+Original Sentence: "${originalSentence}"
+Transcribed User Text: "${trimmedTranscript}"
+Existing Fluency Errors (if any): ${JSON.stringify(existingFluencyErrors)}
+`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are a strict JSON generator for fluency error extraction.',
+        },
+        { role: 'user', content: prompt },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.1,
+    });
+
+    const parsed = JSON.parse(response.choices[0].message.content || '{}');
+    const words = trimmedTranscript
+      .split(/\s+/)
+      .filter((word: string) => word.length > 0);
+    const maxIndex = Math.max(words.length - 1, 0);
+
+    const errors = Array.isArray(parsed?.fluencyErrors) ? parsed.fluencyErrors : [];
+
+    return errors
+      .map((error: any) => {
+        const rawStart =
+          typeof error?.position?.start === 'number'
+            ? Math.floor(error.position.start)
+            : -1;
+        const rawEnd =
+          typeof error?.position?.end === 'number'
+            ? Math.floor(error.position.end)
+            : rawStart + 1;
+
+        if (rawStart < 0 || rawStart > maxIndex) return null;
+        const clampedEnd = Math.max(rawStart + 1, Math.min(rawEnd, words.length));
+        if (clampedEnd <= rawStart) return null;
+
+        const confidence =
+          typeof error?.meta?.confidence === 'number'
+            ? Math.max(0, Math.min(1, error.meta.confidence))
+            : 0.6;
+
+        return {
+          text: String(error?.text || words[rawStart] || '').trim(),
+          type: 'fluency',
+          position: { start: rawStart, end: clampedEnd },
+          correction: '',
+          explanation: String(
+            error?.explanation || 'Likely hesitation or pause affecting fluency.',
+          ).trim(),
+          meta: {
+            category: String(error?.meta?.category || 'hesitation'),
+            source: 'ai_inferred',
+            estimated: true,
+            confidence,
+          },
+        };
+      })
+      .filter((error: any) => error && error.text);
+  } catch (error) {
+    console.error('AI fluency inference failed:', error);
+    return [];
+  }
+}
+
 /**
  * Evaluate Read Aloud responses (audio-based)
  */
@@ -382,6 +808,30 @@ async function evaluateReadAloud(
   timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
   const transcribedText = userResponse.textResponse;
+  const transcriptionWords = getTranscriptionWordsFromResponse(userResponse);
+  const timingAnalysis =
+    transcriptionWords.length > 0
+      ? detectPauseMarkers(transcribedText, transcriptionWords)
+      : {
+          pauseErrors: [] as any[],
+          speechFlow: {
+            pauseMarkers: [] as Array<{
+              afterWord: string;
+              beforeWord: string;
+              afterWordIndex: number;
+              beforeWordIndex: number;
+              durationMs: number;
+              durationSeconds: number;
+              severity: 'hesitation' | 'pause' | 'long_pause';
+            }>,
+            totalPauseCount: 0,
+            totalPausedMs: 0,
+            longestPauseMs: 0,
+            timingAvailable: false,
+            timedWordCount: 0,
+            mappedWordCount: 0,
+          },
+        };
 
   const prompt = `
     **Your Role:** You are an expert AI evaluator for the PTE Academic test. Your task is to analyze a user's "Read Aloud" speaking performance with extreme precision.
@@ -583,6 +1033,14 @@ async function evaluateReadAloud(
           evaluation.errorAnalysis,
           transcribedText,
         ),
+        speechFlow: {
+          ...timingAnalysis.speechFlow,
+          aiInferredFluencyCount: Array.isArray(
+            evaluation.errorAnalysis?.fluencyErrors,
+          )
+            ? evaluation.errorAnalysis.fluencyErrors.length
+            : 0,
+        },
       },
     };
   } catch (error) {
@@ -610,6 +1068,16 @@ async function evaluateReadAloud(
           fluencyErrors: [],
           contentErrors: [],
         },
+        speechFlow: {
+          pauseMarkers: [],
+          totalPauseCount: 0,
+          totalPausedMs: 0,
+          longestPauseMs: 0,
+          timingAvailable: transcriptionWords.length > 0,
+          timedWordCount: transcriptionWords.length,
+          mappedWordCount: 0,
+          aiInferredFluencyCount: 0,
+        },
       },
     };
   }
@@ -623,9 +1091,23 @@ async function evaluateRepeatSentence(
   userResponse: any,
   timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
-  const transcribedText = userResponse.textResponse;
+  const transcribedText = String(userResponse?.textResponse || '').trim();
   const originalSentence =
     question.textContent || question.correctAnswers?.[0] || '';
+  const enableFluencyInsights = Boolean(
+    userResponse?.evaluationOptions?.enableFluencyInsights,
+  );
+  const transcriptionWords = enableFluencyInsights
+    ? getTranscriptionWordsFromResponse(userResponse)
+    : [];
+  const { pauseErrors, speechFlow } = enableFluencyInsights
+    ? detectPauseMarkers(transcribedText, transcriptionWords)
+    : {
+        pauseErrors: [] as any[],
+        speechFlow: undefined as
+          | ReturnType<typeof detectPauseMarkers>['speechFlow']
+          | undefined,
+      };
 
   const prompt = `
   **Your Role:** You are an expert AI evaluator for the PTE Academic test. Your task is to analyze a user's "Repeat Sentence" speaking performance with extreme precision.
@@ -638,28 +1120,28 @@ async function evaluateRepeatSentence(
   **1. Content Analysis:**
   * Compare the transcribedText to the originalText to perform a wordAnalysis.
   * For each word, assign a status: 'correct', 'mispronounced', 'omitted', or 'inserted'.
-  * **Important**: Hesitations, filled or unfilled pauses, and leading or trailing material are **ignored** in the scoring of content.
+  * **Important**: Hesitations, mispronounced, filled or unfilled pauses, and leading or trailing material are **ignored** in the scoring of content.
   * **Errors = replacements, omissions and insertions only**
     
   **Content Scoring (0-3 scale):**
-  * **3 points** - All words in the response are from the prompt and in the correct sequence.
-  * **2 points** - At least 50% of the words in the response are from the prompt and in the correct sequence.
-  * **1 point** - Less than 50% of the words in the response are from the prompt and in the correct sequence.
+  * **3 points** - All words in the response are from the prompt and in 90% correct sequence..
+  * **2 points** - At least 50% of the words in the response are from the prompt.
+  * **1 point** - Less than 30% of the words in the response are from the prompt.
   * **0 points** - Almost nothing from the prompt is in the response.
 
   **2. Pronunciation and Oral Fluency Scoring (0-5 scale):**
-  * **Pronunciation:** Score based on the accuracy of the transcribed words.
-      * 5: Perfect transcription with all words correct.
-      * 4: One or two minor errors in transcription.
-      * 3: Several errors that suggest pronunciation issues but text is mostly understandable.
-      * 2: Many errors, making the text difficult to follow.
-      * 1: The transcription is mostly incorrect, indicating very poor pronunciation.
-  * **Oral Fluency:** Score based on filler words, hesitations, and natural flow.
-      * 5: Smooth, natural flow with no fillers or hesitations.
-      * 4: Mostly smooth with one minor hesitation.
-      * 3: Noticeable hesitations or filler words that disrupt the flow.
-      * 2: Uneven, slow, or fragmented speech.
-      * 1: Very halting speech with many pauses or fillers.
+  * **Pronunciation:** 
+      * 5: Speech is very clear. Most words are pronounced accurately, and sounds are easy to understand.
+      * 4: Speech is generally clear, with a few minor pronunciation issues, but meaning is still easy to follow.
+      * 3: Speech is understandable, but several words sound unclear or mispronounced.
+      * 2: Speech has many unclear sounds, making it difficult to understand several words.
+      * 1: Speech is mostly unclear, with poor sound formation and very low intelligibility.
+  * **Oral Fluency:**
+      * 5: Speech is smooth, natural, and continuous. Minor self-corrections or tiny slips are acceptable if they do not break the flow.
+      * 4: Speech is mostly smooth, with slight hesitation, uneven rhythm, or minor pauses, but still easy to follow.
+      * 3: Speech has noticeable pauses, fillers, or repeated corrections that interrupt the flow.
+      * 2: Speech is slow, broken, or frequently interrupted by long pauses.
+      * 1: Speech is very halting, unnatural, and difficult to follow.
 
   ---
   ### **Required Output Format**
@@ -749,10 +1231,39 @@ async function evaluateRepeatSentence(
     // Parse the actual OpenAI response format
     // Handle the actual response structure from OpenAI
     const contentScore = evaluation.evaluation?.content?.score || 0;
-    const maxContentScore = evaluation.scores?.content?.maxScore || 3;
+    const maxContentScore = evaluation.evaluation?.content?.maxScore || 3;
     const pronunciationScore = evaluation.evaluation?.pronunciation?.score || 0;
     const fluencyScore = evaluation.evaluation?.oralFluency?.score || 0;
     const wordAnalysis = evaluation.evaluation?.content?.wordAnalysis || [];
+    const baseErrorAnalysis = {
+      pronunciationErrors: [...(evaluation.errorAnalysis?.pronunciationErrors || [])],
+      fluencyErrors: [...(evaluation.errorAnalysis?.fluencyErrors || [])],
+      contentErrors: [...(evaluation.errorAnalysis?.contentErrors || [])],
+    };
+
+    const timestampMergedErrorAnalysis = enableFluencyInsights
+      ? mergePauseErrorsIntoErrorAnalysis(baseErrorAnalysis, pauseErrors)
+      : baseErrorAnalysis;
+    const aiInferredFluencyErrors = enableFluencyInsights
+      ? await inferFluencyFromTranscriptWithAI({
+          originalSentence,
+          transcribedText,
+          existingFluencyErrors: timestampMergedErrorAnalysis.fluencyErrors,
+        })
+      : [];
+    const mergedErrorAnalysis = enableFluencyInsights
+      ? mergeAdditionalFluencyErrors(
+          timestampMergedErrorAnalysis,
+          aiInferredFluencyErrors,
+        )
+      : timestampMergedErrorAnalysis;
+    const repeatSentenceOralFluencyFeedback =
+      buildRepeatSentenceFluencyFeedback({
+        fluencyErrors: mergedErrorAnalysis.fluencyErrors,
+        pauseMarkers: enableFluencyInsights
+          ? speechFlow?.pauseMarkers || []
+          : [],
+      });
 
     // Calculate overall score as sum of component scores (points)
     const overallScore = Math.round(
@@ -769,9 +1280,7 @@ async function evaluateRepeatSentence(
       score: { scored: overallScore, max: maxPossibleScore },
       isCorrect: percentageScore >= 65,
       feedback:
-        evaluation.feedback?.summary ||
-        evaluation.feedback?.content ||
-        'Audio response evaluated successfully.',
+        evaluation.feedback?.summary,
       suggestions: evaluation.feedback?.suggestions || [
         'Practice repeating sentences clearly',
         'Focus on accurate pronunciation',
@@ -786,16 +1295,24 @@ async function evaluateRepeatSentence(
         feedback: {
           content: evaluation.feedback?.content || '',
           pronunciation: evaluation.feedback?.pronunciation || '',
-          oralFluency: evaluation.feedback?.oralFluency || '',
+          oralFluency:
+            repeatSentenceOralFluencyFeedback ||
+            evaluation.feedback?.oralFluency ||
+            '',
         },
         timeTaken: timeTakenSeconds || 0,
         userText: transcribedText,
         correctAnswer: originalSentence || undefined,
         wordByWordAnalysis: wordAnalysis,
-        errorAnalysis: correctAudioErrorPositions(
-          evaluation.errorAnalysis,
-          transcribedText,
-        ),
+        ...(enableFluencyInsights && speechFlow
+          ? {
+              speechFlow: {
+                ...speechFlow,
+                aiInferredFluencyCount: aiInferredFluencyErrors.length,
+              },
+            }
+          : {}),
+        errorAnalysis: correctAudioErrorPositions(mergedErrorAnalysis, transcribedText),
       },
     };
   } catch (error) {
@@ -816,9 +1333,17 @@ async function evaluateRepeatSentence(
         userText: transcribedText,
         correctAnswer: originalSentence || undefined,
         wordByWordAnalysis: [],
+        ...(enableFluencyInsights && speechFlow
+          ? {
+              speechFlow: {
+                ...speechFlow,
+                aiInferredFluencyCount: 0,
+              },
+            }
+          : {}),
         errorAnalysis: {
           pronunciationErrors: [],
-          fluencyErrors: [],
+          fluencyErrors: enableFluencyInsights ? pauseErrors : [],
           contentErrors: [],
         },
       },
@@ -835,6 +1360,7 @@ async function evaluateDescribeImage(
   timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
   const transcribedText = userResponse.textResponse;
+  const transcriptionWords = getTranscriptionWordsFromResponse(userResponse);
 
   // Parse the stored image analysis data
   let imageAnalysis = null;
@@ -990,6 +1516,39 @@ async function evaluateDescribeImage(
     });
 
     const evaluation = JSON.parse(response.choices[0].message.content || '{}');
+    const timingAnalysis =
+      transcriptionWords.length > 0
+        ? detectPauseMarkers(transcribedText, transcriptionWords)
+        : {
+            pauseErrors: [] as any[],
+            speechFlow: {
+              pauseMarkers: [] as Array<{
+                afterWord: string;
+                beforeWord: string;
+                afterWordIndex: number;
+                beforeWordIndex: number;
+                durationMs: number;
+                durationSeconds: number;
+                severity: 'hesitation' | 'pause' | 'long_pause';
+              }>,
+              totalPauseCount: 0,
+              totalPausedMs: 0,
+              longestPauseMs: 0,
+              timingAvailable: false,
+              timedWordCount: 0,
+              mappedWordCount: 0,
+            },
+          };
+
+    const mergedErrorAnalysis = mergePauseErrorsIntoErrorAnalysis(
+      {
+        pronunciationErrors: evaluation?.errorAnalysis?.pronunciationErrors || [],
+        fluencyErrors: evaluation?.errorAnalysis?.fluencyErrors || [],
+        grammarErrors: evaluation?.errorAnalysis?.grammarErrors || [],
+        contentErrors: evaluation?.errorAnalysis?.contentErrors || [],
+      },
+      timingAnalysis.pauseErrors,
+    );
 
     // Parse the OpenAI response format for Describe Image
     const contentScore = evaluation?.scores?.content || 0;
@@ -1041,11 +1600,14 @@ async function evaluateDescribeImage(
         },
         timeTaken: timeTakenSeconds || 0,
         userText: transcribedText,
-        errorAnalysis: evaluation.errorAnalysis || {
-          pronunciationErrors: [],
-          fluencyErrors: [],
-          grammarErrors: [],
-          contentErrors: [],
+        errorAnalysis: mergedErrorAnalysis,
+        speechFlow: {
+          ...timingAnalysis.speechFlow,
+          aiInferredFluencyCount: Array.isArray(
+            evaluation?.errorAnalysis?.fluencyErrors,
+          )
+            ? evaluation.errorAnalysis.fluencyErrors.length
+            : 0,
         },
       },
     };
@@ -1075,6 +1637,16 @@ async function evaluateDescribeImage(
           grammarErrors: [],
           contentErrors: [],
         },
+        speechFlow: {
+          pauseMarkers: [],
+          totalPauseCount: 0,
+          totalPausedMs: 0,
+          longestPauseMs: 0,
+          timingAvailable: transcriptionWords.length > 0,
+          timedWordCount: transcriptionWords.length,
+          mappedWordCount: transcriptionWords.length,
+          aiInferredFluencyCount: 0,
+        },
       },
     };
   }
@@ -1088,8 +1660,10 @@ async function evaluateRetellLecture(
   userResponse: any,
   timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
-  const transcribedText = userResponse.textResponse;
+  const transcribedText = String(userResponse?.textResponse || '').trim();
   const originalLecture = question.textContent || '';
+  const transcriptionWords = getTranscriptionWordsFromResponse(userResponse);
+  const timingAnalysis = detectPauseMarkers(transcribedText, transcriptionWords);
 
   const prompt = `
 **Your Role:** You are an expert AI evaluator for the PTE Academic test.
@@ -1201,6 +1775,18 @@ async function evaluateRetellLecture(
 
     const evaluation = JSON.parse(response.choices[0].message.content || '{}');
 
+    const mergedErrorAnalysis = mergePauseErrorsIntoErrorAnalysis(
+      correctAudioErrorPositions(
+        evaluation.errorAnalysis || {
+          pronunciationErrors: [],
+          fluencyErrors: [],
+          contentErrors: [],
+        },
+        transcribedText,
+      ),
+      timingAnalysis.pauseErrors,
+    );
+
     // Parse the OpenAI response format for Re-tell Lecture
     // Handle the actual response structure from OpenAI
     const contentScore = evaluation.Content || 0;
@@ -1247,17 +1833,24 @@ async function evaluateRetellLecture(
             'Focus on main ideas and key points',
           oralFluency:
             evaluation.feedback?.oralFluency ||
-            'Practice smooth, natural speech rhythm',
+            buildRepeatSentenceFluencyFeedback({
+              fluencyErrors: mergedErrorAnalysis.fluencyErrors,
+              pauseMarkers: timingAnalysis.speechFlow.pauseMarkers,
+            }),
           pronunciation:
             evaluation.feedback?.pronunciation ||
             'Work on clear articulation and stress patterns',
         },
         timeTaken: timeTakenSeconds || 0,
         userText: transcribedText,
-        errorAnalysis: evaluation.errorAnalysis || {
-          pronunciationErrors: [],
-          fluencyErrors: [],
-          contentErrors: [],
+        errorAnalysis: mergedErrorAnalysis,
+        speechFlow: {
+          ...timingAnalysis.speechFlow,
+          aiInferredFluencyCount: Array.isArray(
+            mergedErrorAnalysis.fluencyErrors,
+          )
+            ? mergedErrorAnalysis.fluencyErrors.length
+            : 0,
         },
       },
     };
@@ -1286,6 +1879,16 @@ async function evaluateRetellLecture(
           fluencyErrors: [],
           contentErrors: [],
         },
+        speechFlow: {
+          pauseMarkers: [],
+          totalPauseCount: 0,
+          totalPausedMs: 0,
+          longestPauseMs: 0,
+          timingAvailable: transcriptionWords.length > 0,
+          timedWordCount: transcriptionWords.length,
+          mappedWordCount: transcriptionWords.length,
+          aiInferredFluencyCount: 0,
+        },
       },
     };
   }
@@ -1300,8 +1903,10 @@ async function evaluateSummarizeGroupDiscussion(
   userResponse: any,
   timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
-  const transcribedText = userResponse.textResponse;
+  const transcribedText = String(userResponse?.textResponse || '').trim();
   const discussionTranscript = question.textContent || '';
+  const transcriptionWords = getTranscriptionWordsFromResponse(userResponse);
+  const timingAnalysis = detectPauseMarkers(transcribedText, transcriptionWords);
 
   const prompt = `
   **Your Role:** You are an expert AI evaluator for the PTE Academic test. Your task is to analyze a user's "Summarize Group Discussion" speaking performance with extreme precision.
@@ -1513,6 +2118,18 @@ async function evaluateSummarizeGroupDiscussion(
 
     const evaluation = JSON.parse(response.choices[0].message.content || '{}');
 
+    const mergedErrorAnalysis = mergePauseErrorsIntoErrorAnalysis(
+      correctAudioErrorPositions(
+        evaluation.errorAnalysis || {
+          pronunciationErrors: [],
+          fluencyErrors: [],
+          contentErrors: [],
+        },
+        transcribedText,
+      ),
+      timingAnalysis.pauseErrors,
+    );
+
     const contentScore = evaluation.Content || 0;
     const contentMaxScore = 6;
     const oralFluencyScore = evaluation['Oral Fluency'] || 0;
@@ -1553,17 +2170,24 @@ async function evaluateSummarizeGroupDiscussion(
             'Focus on main ideas and diverse viewpoints',
           oralFluency:
             evaluation.feedback?.oralFluency ||
-            'Practice smooth, natural speech rhythm',
+            buildRepeatSentenceFluencyFeedback({
+              fluencyErrors: mergedErrorAnalysis.fluencyErrors,
+              pauseMarkers: timingAnalysis.speechFlow.pauseMarkers,
+            }),
           pronunciation:
             evaluation.feedback?.pronunciation ||
             'Work on clear articulation and stress patterns',
         },
         timeTaken: timeTakenSeconds || 0,
         userText: transcribedText,
-        errorAnalysis: evaluation.errorAnalysis || {
-          pronunciationErrors: [],
-          fluencyErrors: [],
-          contentErrors: [],
+        errorAnalysis: mergedErrorAnalysis,
+        speechFlow: {
+          ...timingAnalysis.speechFlow,
+          aiInferredFluencyCount: Array.isArray(
+            mergedErrorAnalysis.fluencyErrors,
+          )
+            ? mergedErrorAnalysis.fluencyErrors.length
+            : 0,
         },
       },
     };
@@ -1595,6 +2219,16 @@ async function evaluateSummarizeGroupDiscussion(
           fluencyErrors: [],
           contentErrors: [],
         },
+        speechFlow: {
+          pauseMarkers: [],
+          totalPauseCount: 0,
+          totalPausedMs: 0,
+          longestPauseMs: 0,
+          timingAvailable: transcriptionWords.length > 0,
+          timedWordCount: transcriptionWords.length,
+          mappedWordCount: transcriptionWords.length,
+          aiInferredFluencyCount: 0,
+        },
       },
     };
   }
@@ -1609,8 +2243,35 @@ async function evaluateRespondToASituation(
   userResponse: any,
   timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
-  const transcribedText = userResponse.textResponse;
+  const transcribedText = String(userResponse?.textResponse || '').trim();
   const situationPrompt = question.textContent || '';
+  const transcriptionWords = getTranscriptionWordsFromResponse(userResponse);
+  const timingAnalysis =
+    transcriptionWords.length > 0
+      ? detectPauseMarkers(transcribedText, transcriptionWords, {
+          pauseSeconds: 1,
+          longPauseSeconds: 1.6,
+        })
+      : {
+          pauseErrors: [] as any[],
+          speechFlow: {
+            pauseMarkers: [] as Array<{
+              afterWord: string;
+              beforeWord: string;
+              afterWordIndex: number;
+              beforeWordIndex: number;
+              durationMs: number;
+              durationSeconds: number;
+              severity: 'hesitation' | 'pause' | 'long_pause';
+            }>,
+            totalPauseCount: 0,
+            totalPausedMs: 0,
+            longestPauseMs: 0,
+            timingAvailable: false,
+            timedWordCount: 0,
+            mappedWordCount: 0,
+          },
+        };
   const prompt = `
     **Your Role:** You are an expert AI evaluator for the PTE Academic test. Your task is to analyze a user's "Respond to a Situation" speaking performance with extreme precision.
 
@@ -1648,10 +2309,10 @@ async function evaluateRespondToASituation(
       ### 0 pts
       - The response is relevant but too limited to assign a higher score.
 
-    * **Pronunciation (0-5 scale):** Score based on the accuracy of the transcribed words.
-      ### 5 pts
-      - Speech is clear and understandable throughout.
-      - Minor pronunciation errors may exist but do not affect understanding.
+      * **Pronunciation (0-5 scale):** Score based on the accuracy of the transcribed words.
+        ### 5 pts
+        - Speech is clear and understandable throughout.
+        - Minor pronunciation errors may exist but do not affect understanding.
       ### 4 pts
       - Some pronunciation errors are noticeable.
       - The response is understandable without significant effort.
@@ -1664,10 +2325,16 @@ async function evaluateRespondToASituation(
       ### 1 pt
       - Very poor pronunciation.
       - Only a few recognizable English words.
-      ### 0 pts
-      - No recognizable English words or meaningful speech.
-        
-    * **Oral Fluency (0-5 scale):** Score based on filler words, hesitations, and natural flow.
+        ### 0 pts
+        - No recognizable English words or meaningful speech.
+
+      **Pronunciation Error Detection Guidance:**
+        - If any word or short phrase appears distorted, substituted, or unusually unclear in the transcript, include it in 
+          pronunciationErrors.
+        - Do not leave pronunciationErrors empty if there is evidence of articulation issues, even if the overall meaning is clear.
+        - Keep each pronunciation error focused on a single word or a very short phrase.
+          
+      * **Oral Fluency (0-5 scale):** Score based on filler words, hesitations, and natural flow.
       ### 5 pts
       - Speech is mostly smooth and continuous.
       - Some hesitations or fillers may occur but do not seriously disrupt flow.
@@ -1799,12 +2466,20 @@ async function evaluateRespondToASituation(
     const maxPossibleScore =
       contentMaxScore + oralFluencyMaxScore + pronunciationMaxScore;
 
-    const percentageScore = Math.round((overallScore / maxPossibleScore) * 100);
-
-    return {
-      score: { scored: overallScore, max: maxPossibleScore },
-      isCorrect: percentageScore >= 65,
-      feedback: evaluation.feedback?.summary,
+      const percentageScore = Math.round((overallScore / maxPossibleScore) * 100);
+      const correctedErrorAnalysis = correctAudioErrorPositions(
+        evaluation.errorAnalysis,
+        transcribedText,
+      );
+      const mergedErrorAnalysis = mergePauseErrorsIntoErrorAnalysis(
+        correctedErrorAnalysis,
+        timingAnalysis.pauseErrors,
+      );
+  
+      return {
+        score: { scored: overallScore, max: maxPossibleScore },
+        isCorrect: percentageScore >= 65,
+        feedback: evaluation.feedback?.summary,
       suggestions: evaluation.feedback?.suggestions || [
         'Address all aspects of the situation',
         'Use clear and appropriate language',
@@ -1828,18 +2503,26 @@ async function evaluateRespondToASituation(
             'Practice smooth, natural speech rhythm',
           pronunciation:
             evaluation.feedback?.pronunciation || 'Work on clear articulation',
+          },
+          timeTaken: timeTakenSeconds || 0,
+          userText: transcribedText,
+          errorAnalysis: {
+            pronunciationErrors:
+              mergedErrorAnalysis?.pronunciationErrors || [],
+            fluencyErrors: mergedErrorAnalysis?.fluencyErrors || [],
+            contentErrors: mergedErrorAnalysis?.contentErrors || [],
+          },
+          speechFlow: {
+            ...timingAnalysis.speechFlow,
+            aiInferredFluencyCount: Array.isArray(
+              evaluation.errorAnalysis?.fluencyErrors,
+            )
+              ? evaluation.errorAnalysis.fluencyErrors.length
+              : 0,
+          },
         },
-        timeTaken: timeTakenSeconds || 0,
-        userText: transcribedText,
-        errorAnalysis: {
-          pronunciationErrors:
-            evaluation.errorAnalysis?.pronunciationErrors || [],
-          fluencyErrors: evaluation.errorAnalysis?.fluencyErrors || [],
-          contentErrors: evaluation.errorAnalysis?.contentErrors || [],
-        },
-      },
-    };
-  } catch (error) {
+      };
+    } catch (error) {
     console.error('OpenAI evaluation error for Respond to a Situation:', error);
     return {
       score: { scored: 0, max: 16 },
@@ -1863,6 +2546,16 @@ async function evaluateRespondToASituation(
           pronunciationErrors: [],
           fluencyErrors: [],
           contentErrors: [],
+        },
+        speechFlow: {
+          pauseMarkers: [],
+          totalPauseCount: 0,
+          totalPausedMs: 0,
+          longestPauseMs: 0,
+          timingAvailable: transcriptionWords.length > 0,
+          timedWordCount: transcriptionWords.length,
+          mappedWordCount: 0,
+          aiInferredFluencyCount: 0,
         },
       },
     };

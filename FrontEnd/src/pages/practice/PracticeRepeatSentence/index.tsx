@@ -20,10 +20,7 @@ import QuestionSidebar from '../../../components/QuestionSidebar';
 import api from '../../../services/api';
 import { getPracticeQuestions } from '../../../services/portal';
 import { PteQuestionTypeName } from '../../../types/pte';
-import {
-  formatScoringText,
-  playBeep
-} from '../../../utils/Helpers';
+import { formatScoringText, playBeep } from '../../../utils/Helpers';
 import ResponseDetailModal from './ResponseDetailModal';
 
 export interface QuestionsData {
@@ -159,6 +156,9 @@ const PracticeRepeatSentence: React.FC = () => {
         questionId: questions[currentIndex]?.id,
         userResponse: {
           audioResponseUrl: uploadedAudioUrl,
+          evaluationOptions: {
+            enableFluencyInsights: true,
+          },
         },
       });
 
@@ -250,6 +250,228 @@ const PracticeRepeatSentence: React.FC = () => {
     return 'text-red-600 dark:text-red-400';
   };
 
+  const fluencySignals = Array.from(
+    new Map(
+      (
+        evaluationResult?.evaluation?.detailedAnalysis?.errorAnalysis
+          ?.fluencyErrors || []
+      )
+        .filter((error: any) => error?.text || error?.explanation)
+        .map((error: any) => [
+          `${String(error?.text || '').toLowerCase()}::${String(
+            error?.explanation || '',
+          ).toLowerCase()}`,
+          {
+            text: String(error?.text || '').trim(),
+            explanation: String(error?.explanation || '').trim(),
+            type: String(error?.type || 'fluency'),
+          },
+        ]),
+    ).values(),
+  );
+
+  const renderCombinedRepeatSentenceTranscript = (
+    spokenText: string,
+    wordAnalysis: WordByWordAnalysi[],
+    pauseMarkers: PauseMarker[],
+  ) => {
+    const spokenWords = String(spokenText || '')
+      .split(/\s+/)
+      .filter((word) => word.length > 0);
+
+    if (!spokenWords.length && (!wordAnalysis || wordAnalysis.length === 0))
+      return null;
+
+    const normalize = (value: string) =>
+      String(value || '')
+        .toLowerCase()
+        .replace(/^[^\w]+|[^\w]+$/g, '');
+
+    const referenceWords = (wordAnalysis || []).filter(
+      (word) => String(word?.status || '').toLowerCase() !== 'inserted',
+    );
+
+    const pauseMap = new Map<number, PauseMarker[]>();
+    pauseMarkers.forEach((pause) => {
+      const existing = pauseMap.get(pause.afterWordIndex) || [];
+      existing.push(pause);
+      pauseMap.set(pause.afterWordIndex, existing);
+    });
+
+    const gapClass = (severity: PauseMarker['severity']) => {
+      if (severity === 'long_pause') return 'border-rose-500/80 bg-rose-500/20';
+      if (severity === 'pause') return 'border-amber-500/80 bg-amber-500/20';
+      return 'border-yellow-500/80 bg-yellow-500/20';
+    };
+
+    const gapWidth = (severity: PauseMarker['severity']) => {
+      if (severity === 'long_pause') return 'w-14 sm:w-16';
+      if (severity === 'pause') return 'w-10 sm:w-12';
+      return 'w-8 sm:w-10';
+    };
+
+    const wordClass = (status: string) => {
+      const normalized = String(status || '').toLowerCase();
+      if (normalized === 'omitted') {
+        return 'bg-red-100 text-red-800 border border-red-200 dark:bg-red-900/20 dark:text-red-200 dark:border-red-800 line-through';
+      }
+      if (normalized === 'mispronounced') {
+        return 'bg-orange-100 text-orange-800 border border-orange-200 dark:bg-orange-900/20 dark:text-orange-200 dark:border-orange-800';
+      }
+      if (normalized === 'inserted') {
+        return 'bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-900/20 dark:text-blue-200 dark:border-blue-800';
+      }
+      return '';
+    };
+
+    const result: React.ReactNode[] = [];
+    let refIndex = 0;
+    let spokenIndex = 0;
+
+    const pushWord = (
+      word: string,
+      status: string,
+      keyPrefix: string,
+      spokenPos?: number,
+    ) => {
+      const pauseList =
+        spokenPos !== undefined ? pauseMap.get(spokenPos) || [] : [];
+      const pause =
+        pauseList.length > 0
+          ? [...pauseList].sort((a, b) => {
+              const rank = { hesitation: 1, pause: 2, long_pause: 3 } as const;
+              return (
+                rank[b.severity] - rank[a.severity] ||
+                b.durationSeconds - a.durationSeconds
+              );
+            })[0]
+          : null;
+
+      result.push(
+        <span
+          key={keyPrefix}
+          className={`whitespace-pre-wrap ${wordClass(status)} px-1 py-0.5 rounded font-medium`}
+        >
+          {word}
+        </span>,
+      );
+
+      if (pause) {
+        result.push(
+          <span
+            key={`${keyPrefix}-pause`}
+            className={`group relative mx-1 inline-flex align-baseline items-end border-b-2 border-dashed ${gapClass(
+              pause.severity,
+            )} ${gapWidth(pause.severity)}`}
+            title={`${pause.severity.replace('_', ' ')} - ${pause.durationSeconds.toFixed(2)}s`}
+          >
+            <span className='pointer-events-none absolute -top-5 left-1/2 hidden -translate-x-1/2 whitespace-nowrap rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600 shadow-sm group-hover:block dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200'>
+              {pause.severity.replace('_', ' ')}{' '}
+              {pause.durationSeconds.toFixed(2)}s
+            </span>
+          </span>,
+        );
+      }
+    };
+
+    while (
+      refIndex < referenceWords.length ||
+      spokenIndex < spokenWords.length
+    ) {
+      const referenceWord = referenceWords[refIndex];
+      const spokenWord = spokenWords[spokenIndex];
+      const normalizedReference = normalize(String(referenceWord?.word || ''));
+      const normalizedSpoken = normalize(spokenWord || '');
+
+      if (
+        referenceWord &&
+        spokenWord &&
+        normalizedReference === normalizedSpoken
+      ) {
+        pushWord(
+          spokenWord,
+          String(referenceWord.status || ''),
+          `spoken-${spokenIndex}`,
+          spokenIndex,
+        );
+        refIndex += 1;
+        spokenIndex += 1;
+        continue;
+      }
+
+      if (
+        referenceWord &&
+        String(referenceWord.status || '').toLowerCase() === 'omitted'
+      ) {
+        pushWord(
+          String(referenceWord.word || ''),
+          'omitted',
+          `omitted-${refIndex}`,
+          spokenIndex > 0 ? spokenIndex - 1 : undefined,
+        );
+        refIndex += 1;
+        continue;
+      }
+
+      const nextMatchIndex =
+        spokenWord && referenceWords
+          ? referenceWords
+              .slice(refIndex + 1)
+              .findIndex(
+                (candidate) =>
+                  normalize(String(candidate?.word || '')) === normalizedSpoken,
+              )
+          : -1;
+
+      if (spokenWord && nextMatchIndex === -1) {
+        pushWord(
+          spokenWord,
+          'inserted',
+          `inserted-${spokenIndex}`,
+          spokenIndex,
+        );
+        spokenIndex += 1;
+        continue;
+      }
+
+      if (referenceWord && spokenWord && nextMatchIndex >= 0) {
+        pushWord(
+          String(referenceWord.word || ''),
+          'omitted',
+          `omitted-${refIndex}`,
+          spokenIndex > 0 ? spokenIndex - 1 : undefined,
+        );
+        refIndex += 1;
+        continue;
+      }
+
+      if (referenceWord && !spokenWord) {
+        pushWord(
+          String(referenceWord.word || ''),
+          'omitted',
+          `omitted-${refIndex}`,
+          spokenIndex > 0 ? spokenIndex - 1 : undefined,
+        );
+        refIndex += 1;
+        continue;
+      }
+
+      if (!referenceWord && spokenWord) {
+        pushWord(
+          spokenWord,
+          'inserted',
+          `inserted-${spokenIndex}`,
+          spokenIndex,
+        );
+        spokenIndex += 1;
+        continue;
+      }
+
+      break;
+    }
+
+    return <span>{result}</span>;
+  };
   return (
     <div className='min-h-[calc(100vh-65px)] bg-gradient-to-br dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex flex-col'>
       {/*  HEADER */}
@@ -337,7 +559,6 @@ const PracticeRepeatSentence: React.FC = () => {
           </button>
         </div>
       </div>
-
       {isLoading && (
         <div className='h-screen dark:bg-gray-900 flex items-center justify-center'>
           <div className='text-center'>
@@ -346,7 +567,6 @@ const PracticeRepeatSentence: React.FC = () => {
           </div>
         </div>
       )}
-
       {questions.length === 0 && !isLoading ? (
         <div className='flex flex-1 items-center justify-center px-6 py-12'>
           <div className='w-full max-w-md rounded-3xl border border-slate-200 bg-white/80 p-8 text-center shadow-lg shadow-slate-900/5 dark:border-slate-700 dark:bg-slate-900/70'>
@@ -527,32 +747,69 @@ const PracticeRepeatSentence: React.FC = () => {
                           <h4 className='font-bold text-gray-800 dark:text-gray-200'>
                             Your Response
                           </h4>
-                          {/* <div className='flex flex-wrap items-center gap-4 text-sm'>
-                            <span className='flex items-center gap-1'>
-                              <span className='h-2 w-2 rounded-full bg-red-100 border border-red-200 dark:bg-red-900/20 dark:border-red-800' />
-                              Missing word
+                          <div className='mt-3 flex flex-wrap items-center gap-2 text-xs lg:mt-0 lg:gap-3'>
+                            <span className='flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300'>
+                              <span className='h-2 w-2 rounded-full bg-red-500' />
+                              Omitted
                             </span>
-                            <span className='flex items-center gap-1'>
-                              <span className='h-2 w-2 rounded-full bg-orange-100 border border-orange-200 dark:bg-orange-900/20 dark:border-orange-800' />
+                            <span className='flex items-center gap-1 rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-orange-700 dark:border-orange-900/50 dark:bg-orange-950/30 dark:text-orange-300'>
+                              <span className='h-2 w-2 rounded-full bg-orange-500' />
                               Mispronounced
                             </span>
-                            <span className='flex items-center gap-1'>
-                              <span className='h-2 w-2 rounded-full bg-blue-100 border border-blue-200 dark:bg-blue-900/20 dark:border-blue-800' />
-                              Extra word
+                            <span className='flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-300'>
+                              <span className='h-2 w-2 rounded-full bg-blue-500' />
+                              Inserted
                             </span>
-                          </div> */}
+                            <span className='flex items-center gap-1 rounded-full border border-yellow-200 bg-yellow-50 px-2.5 py-1 text-yellow-700 dark:border-yellow-900/50 dark:bg-yellow-950/30 dark:text-yellow-300'>
+                              <span className='h-2 w-2 rounded-full bg-yellow-500' />
+                              Pause / hesitation
+                            </span>
+                          </div>
                         </div>
-                        <div className='p-6 text-base leading-relaxed text-gray-700 dark:text-gray-300 italic'>
-                          <p className='leading-relaxed'>
-                            {/* {renderSpeakingWordAnalysisInline(
-                              evaluationResult.evaluation.detailedAnalysis
-                                .wordByWordAnalysis,
+                        <div className='p-6 text-base leading-relaxed text-gray-700 dark:text-gray-300'>
+                          <div className='space-y-3 not-italic'>
+                            <div className='rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm leading-8 text-gray-800 shadow-sm dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-100'>
+                              <p className='leading-8'>
+                                {renderCombinedRepeatSentenceTranscript(
+                                  evaluationResult.evaluation.detailedAnalysis
+                                    .userText,
+                                  evaluationResult.evaluation.detailedAnalysis
+                                    .wordByWordAnalysis,
+                                  (evaluationResult.evaluation.detailedAnalysis
+                                    .speechFlow?.pauseMarkers ||
+                                    []) as PauseMarker[],
+                                )}
+                              </p>
+                            </div>
+
+                            {/* {fluencySignals.length > 0 && (
+                              <div className='rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-900/50'>
+                                <p className='mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400'>
+                                  Fluency signals
+                                </p>
+                                <div className='space-y-2'>
+                                  {fluencySignals.map((signal, index) => (
+                                    <div
+                                      key={`${signal.text}-${index}`}
+                                      className='flex items-start gap-2 text-xs text-slate-700 dark:text-slate-300'
+                                    >
+                                      <span className='mt-1 h-2 w-2 rounded-full bg-yellow-500 flex-none' />
+                                      <div>
+                                        <span className='font-semibold'>
+                                          {signal.text || 'Fluency note'}
+                                        </span>
+                                        {signal.explanation ? (
+                                          <span className='ml-1 text-slate-500 dark:text-slate-400'>
+                                            - {signal.explanation}
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
                             )} */}
-                            {
-                              evaluationResult?.evaluation?.detailedAnalysis
-                                ?.userText
-                            }
-                          </p>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -619,15 +876,13 @@ const PracticeRepeatSentence: React.FC = () => {
           </>
         )
       )}
-      {
-        <InlinePreviousAttempts
-          questionId={currentQuestion?.id}
-          question={currentQuestion}
-          onViewResponse={handleViewResponse}
-          className='mt-6'
-        />
-        /* FOOTER NAVIGATION */
-      }
+      <InlinePreviousAttempts
+        questionId={currentQuestion?.id}
+        question={currentQuestion}
+        onViewResponse={handleViewResponse}
+        className='mt-6'
+      />
+      {/* FOOTER NAVIGATION  */}
       <div className='border-t dark:border-gray-700 px-6 py-4 flex justify-between items-center dark:bg-gray-800'>
         <button
           onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
@@ -651,7 +906,6 @@ const PracticeRepeatSentence: React.FC = () => {
           <ChevronRight className='w-4 h-4' />
         </button>
       </div>
-
       {selectedError && (
         <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4'>
           <div className='bg-white dark:bg-gray-800 rounded-lg p-4 max-w-md w-full border border-gray-200 dark:border-gray-700 shadow-xl'>
@@ -781,7 +1035,6 @@ const PracticeRepeatSentence: React.FC = () => {
           </div>
         </div>
       )}
-
       {/* Question Sidebar */}
       <QuestionSidebar
         isOpen={showQuestionSidebar}
@@ -795,7 +1048,6 @@ const PracticeRepeatSentence: React.FC = () => {
           setDifficultyLevel(filters.difficultyLevel);
         }}
       />
-
       {/* Previous Attempts Modal Drawer (Mobile/Tablet) */}
       <PreviousResponses
         questionId={currentQuestion?.id}
@@ -803,7 +1055,6 @@ const PracticeRepeatSentence: React.FC = () => {
         isOpen={showPreviousResponses}
         onClose={() => setShowPreviousResponses(false)}
       />
-
       {/* Response Detail Modal */}
       <ResponseDetailModal
         response={selectedResponse}
@@ -847,6 +1098,9 @@ export interface DetailedAnalysis {
   correctAnswer: string;
   wordByWordAnalysis: WordByWordAnalysi[];
   errorAnalysis: ErrorAnalysis;
+  speechFlow?: {
+    pauseMarkers?: PauseMarker[];
+  };
 }
 
 export interface Scores {
@@ -879,6 +1133,13 @@ export interface Feedback {
 export interface WordByWordAnalysi {
   word: string;
   status: string;
+}
+
+export interface PauseMarker {
+  afterWordIndex: number;
+  beforeWordIndex: number;
+  durationSeconds: number;
+  severity: 'hesitation' | 'pause' | 'long_pause';
 }
 
 export interface ErrorAnalysis {

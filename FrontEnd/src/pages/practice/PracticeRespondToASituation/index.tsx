@@ -24,6 +24,10 @@ import {
   formatScoringText,
   playBeep
 } from '../../../utils/Helpers';
+import {
+  renderSpeechTranscriptWithPauses,
+  SpeechPauseMarker,
+} from '../../../utils/speakingTranscriptRenderer';
 import ResponseDetailModal from './ResponseDetailModal';
 
 export interface QuestionsData {
@@ -636,17 +640,27 @@ const PracticeRespondToASituation = () => {
                           </span>
                         </div> */}
                       </div>
-                      <div className='p-6 text-base leading-relaxed text-gray-700 dark:text-gray-300 italic'>
-                        {/* {renderHighlightedText(
-                          evaluationResult.evaluation.detailedAnalysis.userText,
-                          evaluationResult.evaluation.detailedAnalysis
-                            .errorAnalysis,
-                          (err: any) => setSelectedError(err),
-                        )} */}
-                        {evaluationResult.evaluation.detailedAnalysis.userText}
+                        <div className='p-6 text-base leading-relaxed text-gray-700 dark:text-gray-300 italic'>
+                          {renderSpeechTranscriptWithPauses({
+                            spokenText:
+                              evaluationResult.evaluation.detailedAnalysis
+                                .userText,
+                            pronunciationErrors:
+                              evaluationResult.evaluation.detailedAnalysis
+                                .errorAnalysis.pronunciationErrors || [],
+                            fluencyErrors:
+                              evaluationResult.evaluation.detailedAnalysis
+                                .errorAnalysis.fluencyErrors || [],
+                            pauseMarkers: (evaluationResult.evaluation
+                              .detailedAnalysis.speechFlow?.pauseMarkers ||
+                              []) as SpeechPauseMarker[],
+                            options: {
+                              pauseSeconds: 1,
+                            },
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
                   {/* Feedback Summary */}
                   {evaluationResult?.evaluation && (
@@ -932,6 +946,7 @@ export interface DetailedAnalysis {
   feedback: Feedback;
   timeTaken: number;
   errorAnalysis: ErrorAnalysis;
+  speechFlow?: SpeechFlow;
   userText: string;
   correctAnswer?: string;
   wordByWordAnalysis?: WordByWordAnalysi[];
@@ -1009,6 +1024,17 @@ export interface ContentError {
 export interface Position2 {
   start: number;
   end: number;
+}
+
+export interface SpeechFlow {
+  pauseMarkers?: SpeechPauseMarker[];
+  totalPauseCount?: number;
+  totalPausedMs?: number;
+  longestPauseMs?: number;
+  timingAvailable?: boolean;
+  timedWordCount?: number;
+  mappedWordCount?: number;
+  aiInferredFluencyCount?: number;
 }
 
 export interface Question {

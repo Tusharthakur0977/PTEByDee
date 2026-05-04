@@ -120,6 +120,32 @@ export interface QuestionResponsesResponse {
   }>;
   total: number;
 }
+
+const practiceQuestionsRequestCache = new Map<
+  string,
+  Promise<PracticeQuestionsResponse>
+>();
+
+const buildPracticeQuestionsCacheKey = (
+  questionType: PteQuestionTypeName,
+  options: {
+    limit?: number;
+    random?: boolean;
+    difficultyLevel?: 'EASY' | 'MEDIUM' | 'HARD';
+    practiceStatus?: 'practiced' | 'unpracticed' | 'all';
+    imageType?: string;
+  } = {},
+) => {
+  const normalizedOptions = {
+    limit: options.limit ?? 10,
+    random: options.random ?? true,
+    difficultyLevel: options.difficultyLevel ?? '',
+    practiceStatus: options.practiceStatus ?? '',
+    imageType: options.imageType ?? '',
+  };
+
+  return `${questionType}:${JSON.stringify(normalizedOptions)}`;
+};
 /**
  * Get all question types for portal practice
  */
@@ -149,6 +175,19 @@ export const getPracticeQuestions = async (
     imageType,
   } = options;
 
+  const cacheKey = buildPracticeQuestionsCacheKey(questionType, {
+    limit,
+    random,
+    difficultyLevel,
+    practiceStatus,
+    imageType,
+  });
+
+  const cachedRequest = practiceQuestionsRequestCache.get(cacheKey);
+  if (cachedRequest) {
+    return cachedRequest;
+  }
+
   const params = new URLSearchParams({
     limit: limit.toString(),
     random: random.toString(),
@@ -166,10 +205,15 @@ export const getPracticeQuestions = async (
     params.append('imageType', imageType);
   }
 
-  const response = await publicApi.get(
-    `/user/practice-questions/${questionType}?${params}`
-  );
-  return response.data.data;
+  const requestPromise = publicApi
+    .get(`/user/practice-questions/${questionType}?${params}`)
+    .then((response) => response.data.data)
+    .finally(() => {
+      practiceQuestionsRequestCache.delete(cacheKey);
+    });
+
+  practiceQuestionsRequestCache.set(cacheKey, requestPromise);
+  return requestPromise;
 };
 
 /**

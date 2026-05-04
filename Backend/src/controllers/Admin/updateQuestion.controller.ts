@@ -32,6 +32,7 @@ export const updateQuestion = asyncHandler(
       questionTypeId,
       testId,
       orderInTest,
+      difficultyLevel,
       textContent,
       questionStatement,
       audioKey,
@@ -46,6 +47,7 @@ export const updateQuestion = asyncHandler(
       blanks,
       paragraphs,
       tags,
+      manualTranscript,
     } = req.body;
 
     try {
@@ -144,12 +146,23 @@ export const updateQuestion = asyncHandler(
           },
         };
       }
+      if (difficultyLevel !== undefined)
+        updateData.difficultyLevel = difficultyLevel || 'MEDIUM';
       if (textContent !== undefined)
         updateData.textContent = textContent || null;
       if (questionStatement !== undefined)
         updateData.questionStatement = questionStatement || null;
       if (audioKey !== undefined) updateData.audioUrl = audioKey || null;
       if (imageKey !== undefined) updateData.imageUrl = imageKey || null;
+
+      // Handle manual transcript for SUMMARIZE_GROUP_DISCUSSION
+      if (
+        manualTranscript !== undefined &&
+        manualTranscript.trim() &&
+        effectiveQuestionTypeName === 'SUMMARIZE_GROUP_DISCUSSION'
+      ) {
+        updateData.textContent = manualTranscript.trim();
+      }
 
       // Handle blanks data for fill-in-the-blanks questions
       if (blanks !== undefined && Array.isArray(blanks)) {
