@@ -18,12 +18,9 @@ import MiniAudioPlayer from '../../../components/MiniAudioPlayer';
 import PreviousResponses from '../../../components/PreviousResponses';
 import QuestionSidebar from '../../../components/QuestionSidebar';
 import api from '../../../services/api';
-import { getPracticeQuestions } from '../../../services/portal';
+import { getPracticeQuestionById, getPracticeQuestions } from '../../../services/portal';
 import { PteQuestionTypeName } from '../../../types/pte';
-import {
-  formatScoringText,
-  playBeep
-} from '../../../utils/Helpers';
+import { formatScoringText, playBeep } from '../../../utils/Helpers';
 import {
   renderSpeechTranscriptWithPauses,
   SpeechPauseMarker,
@@ -36,7 +33,7 @@ export interface QuestionsData {
   difficultyLevel: string;
   title: string;
   instructions: string;
-  hasUserResponses: boolean;
+  hasUserResponses?: boolean;
   content: Content;
 }
 
@@ -73,6 +70,17 @@ const PracticeRespondToASituation = () => {
   const [showPreviousResponses, setShowPreviousResponses] = useState(false);
   const [selectedResponse, setSelectedResponse] = useState<any>(null);
   const [showResponseModal, setShowResponseModal] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [paginationInfo, setPaginationInfo] = useState<{
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+    nextPage: number | null;
+    prevPage: number | null;
+  } | null>(null);
   const [uploadedAudioUrl, setUploadedAudioUrl] = useState<any>({});
 
   const [selectedError, setSelectedError] = useState<any>(null);
@@ -108,6 +116,7 @@ const PracticeRespondToASituation = () => {
         options,
       );
       setQuestions(response.questions);
+      setPaginationInfo(response.pagination);
       setCurrentIndex(0);
     } catch (err) {
       setError('Failed to load questions');
@@ -115,6 +124,41 @@ const PracticeRespondToASituation = () => {
       setIsLoading(false);
     }
   }, [difficultyLevel]);
+
+  const loadMoreQuestions = useCallback(async () => {
+    if (!paginationInfo?.hasNext || isLoadingMore) return 0;
+
+    try {
+      setIsLoadingMore(true);
+      const options: any = {
+        limit: 10,
+        random: true,
+        skip: paginationInfo.page * paginationInfo.limit,
+      };
+
+      if (difficultyLevel !== 'all') {
+        options.difficultyLevel = difficultyLevel;
+      }
+
+      const response = await getPracticeQuestions(
+        PteQuestionTypeName.RESPOND_TO_A_SITUATION,
+        options,
+      );
+
+      if (response.questions && response.questions.length > 0) {
+        setQuestions((prev) => [...prev, ...response.questions]);
+        setPaginationInfo(response.pagination);
+        return response.questions.length;
+      }
+
+      return 0;
+    } catch (err) {
+      console.error('Failed to load more questions:', err);
+      return 0;
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [difficultyLevel, isLoadingMore, paginationInfo?.hasNext, paginationInfo?.limit, paginationInfo?.page]);
 
   useEffect(() => {
     loadQuestions();
@@ -217,6 +261,32 @@ const PracticeRespondToASituation = () => {
     }
   }, [isCompleted, isSubmitting, uploadedAudioUrl, questions, currentIndex]);
 
+  const handleNext = async () => {
+    const isAtEnd = currentIndex >= questions.length - 1;
+
+    if (isAtEnd) {
+      const oldLength = questions.length;
+      const loadedCount = await loadMoreQuestions();
+      if (loadedCount > 0) {
+        setCurrentIndex(oldLength);
+      }
+      return;
+    }
+
+    const nextIndex = Math.min(questions.length - 1, currentIndex + 1);
+    setCurrentIndex(nextIndex);
+
+    if (nextIndex >= questions.length - 2 && paginationInfo?.hasNext) {
+      await loadMoreQuestions();
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1);
+    }
+  };
+
   const handleViewResponse = (resp: any) => {
     setShowPreviousResponses(false);
     setSelectedResponse(resp);
@@ -267,10 +337,31 @@ const PracticeRespondToASituation = () => {
 
   const currentQuestion = questions[currentIndex];
 
-  const handleQuestionSelect = (questionId: string) => {
+  const handleQuestionSelect = async (questionId: string) => {
     const selectedIndex = questions.findIndex((q) => q.id === questionId);
+
     if (selectedIndex !== -1) {
       setCurrentIndex(selectedIndex);
+      setShowQuestionSidebar(false);
+      return;
+    }
+
+    try {
+      const selectedQuestion = await getPracticeQuestionById(questionId);
+      if (!selectedQuestion) {
+        setError('Unable to load the selected question.');
+        return;
+      }
+
+      const updatedQuestions = [...questions, selectedQuestion];
+      setQuestions(updatedQuestions);
+      setCurrentIndex(updatedQuestions.length - 1);
+    } catch (err: any) {
+      console.error('Failed to load selected question:', err);
+      setError(
+        err?.response?.data?.message || 'Failed to load selected question.',
+      );
+    } finally {
       setShowQuestionSidebar(false);
     }
   };
@@ -296,9 +387,6 @@ const PracticeRespondToASituation = () => {
           <div>
             <h1 className='text-2xl font-bold flex items-center gap-2 text-black dark:text-white'>
               Respond To A Situation{' '}
-              <p className='text-gray-400 dark:text-gray-400 text-sm'>
-                (Question {currentIndex + 1} of {questions.length})
-              </p>
             </h1>
 
             <div className='flex flex-row items-center space-x-3 '>
@@ -640,27 +728,27 @@ const PracticeRespondToASituation = () => {
                           </span>
                         </div> */}
                       </div>
-                        <div className='p-6 text-base leading-relaxed text-gray-700 dark:text-gray-300 italic'>
-                          {renderSpeechTranscriptWithPauses({
-                            spokenText:
-                              evaluationResult.evaluation.detailedAnalysis
-                                .userText,
-                            pronunciationErrors:
-                              evaluationResult.evaluation.detailedAnalysis
-                                .errorAnalysis.pronunciationErrors || [],
-                            fluencyErrors:
-                              evaluationResult.evaluation.detailedAnalysis
-                                .errorAnalysis.fluencyErrors || [],
-                            pauseMarkers: (evaluationResult.evaluation
-                              .detailedAnalysis.speechFlow?.pauseMarkers ||
-                              []) as SpeechPauseMarker[],
-                            options: {
-                              pauseSeconds: 1,
-                            },
-                          })}
-                        </div>
+                      <div className='p-6 text-base leading-relaxed text-gray-700 dark:text-gray-300 italic'>
+                        {renderSpeechTranscriptWithPauses({
+                          spokenText:
+                            evaluationResult.evaluation.detailedAnalysis
+                              .userText,
+                          pronunciationErrors:
+                            evaluationResult.evaluation.detailedAnalysis
+                              .errorAnalysis.pronunciationErrors || [],
+                          fluencyErrors:
+                            evaluationResult.evaluation.detailedAnalysis
+                              .errorAnalysis.fluencyErrors || [],
+                          pauseMarkers: (evaluationResult.evaluation
+                            .detailedAnalysis.speechFlow?.pauseMarkers ||
+                            []) as SpeechPauseMarker[],
+                          options: {
+                            pauseSeconds: 1,
+                          },
+                        })}
                       </div>
-                    )}
+                    </div>
+                  )}
 
                   {/* Feedback Summary */}
                   {evaluationResult?.evaluation && (
@@ -733,24 +821,25 @@ const PracticeRespondToASituation = () => {
       }
       <div className='border-t dark:border-gray-700 px-6 py-4 flex justify-between items-center dark:bg-gray-800'>
         <button
-          onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
-          className='flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded-lg'
+          onClick={handlePrevious}
+          disabled={currentIndex === 0}
+          className='flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded-lg disabled:opacity-50'
         >
           <ChevronLeft className='w-4 h-4' />
           Previous
         </button>
 
         <span className='text-gray-400 text-sm'>
-          {currentIndex + 1} / {questions.length}
+          {currentIndex + 1} / {paginationInfo ? Math.min(questions.length, paginationInfo.total) : questions.length}
+          {paginationInfo && paginationInfo.total > questions.length && ` (${paginationInfo.total} total)`}
         </span>
 
         <button
-          onClick={() =>
-            setCurrentIndex((i) => Math.min(questions.length - 1, i + 1))
-          }
-          className='flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg'
+          onClick={handleNext}
+          disabled={isLoadingMore}
+          className='flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50'
         >
-          Next
+          {isLoadingMore ? 'Loading...' : 'Next'}
           <ChevronRight className='w-4 h-4' />
         </button>
       </div>
@@ -894,9 +983,6 @@ const PracticeRespondToASituation = () => {
         onQuestionSelect={handleQuestionSelect}
         practiceStatus='all'
         difficultyLevel={difficultyLevel}
-        onFilterChange={(filters) => {
-          setDifficultyLevel(filters.difficultyLevel);
-        }}
       />
 
       {/* Previous Attempts Modal Drawer (Mobile/Tablet) */}

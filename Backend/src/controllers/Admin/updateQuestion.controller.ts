@@ -33,6 +33,7 @@ export const updateQuestion = asyncHandler(
       testId,
       orderInTest,
       difficultyLevel,
+      predictionLevel,
       textContent,
       questionStatement,
       audioKey,
@@ -148,6 +149,12 @@ export const updateQuestion = asyncHandler(
       }
       if (difficultyLevel !== undefined)
         updateData.difficultyLevel = difficultyLevel || 'MEDIUM';
+      if (predictionLevel !== undefined) {
+        const validLevels = ['NONE', 'LOW', 'MEDIUM', 'HIGH'];
+        if (validLevels.includes(predictionLevel)) {
+          updateData.predictionLevel = predictionLevel;
+        }
+      }
       if (textContent !== undefined)
         updateData.textContent = textContent || null;
       if (questionStatement !== undefined)

@@ -16,11 +16,15 @@ import MiniAudioPlayer from '../../../components/MiniAudioPlayer';
 import PreviousResponses from '../../../components/PreviousResponses';
 import QuestionSidebar from '../../../components/QuestionSidebar';
 import api from '../../../services/api';
-import { getPracticeQuestions } from '../../../services/portal';
+import {
+  getPracticeQuestionById,
+  getPracticeQuestions,
+} from '../../../services/portal';
 import { PteQuestionTypeName } from '../../../types/pte';
 import {
   formatScoringText,
   renderHighlightedText,
+  renderHighlightedTextByWords,
 } from '../../../utils/Helpers';
 import ResponseDetailModal from './ResponseDetailModal';
 
@@ -30,7 +34,7 @@ export interface QuestionsData {
   difficultyLevel: string;
   title: string;
   instructions: string;
-  hasUserResponses: boolean;
+  hasUserResponses?: boolean;
   content: Content;
 }
 
@@ -69,6 +73,8 @@ const PracticeSummarizeSpokenText: React.FC = () => {
     textResponse: string;
   }>({ textResponse: '' });
 
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
   // Evaluation features
   const [isCompleted, setIsCompleted] = useState(false);
   const [evaluationResult, setEvaluationResult] = useState<Data | null>(null);
@@ -83,11 +89,25 @@ const PracticeSummarizeSpokenText: React.FC = () => {
   const [timerActive, setTimerActive] = useState(false);
   const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Pagination state
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [totalAvailable, setTotalAvailable] = useState(0);
+  const [paginationInfo, setPaginationInfo] = useState<{
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+    nextPage: number | null;
+    prevPage: number | null;
+  } | null>(null);
+
   const loadQuestions = useCallback(async () => {
     try {
       setIsLoading(true);
       const options: any = {
-        limit: 100,
+        limit: 10,
         random: false,
       };
 
@@ -100,6 +120,8 @@ const PracticeSummarizeSpokenText: React.FC = () => {
         options,
       );
       setQuestions(response.questions as QuestionsData[]);
+      setTotalAvailable(response.total || 0);
+      setPaginationInfo(response.pagination);
       setCurrentIndex(0);
     } catch (err) {
       setError('Failed to load questions');
@@ -107,6 +129,48 @@ const PracticeSummarizeSpokenText: React.FC = () => {
       setIsLoading(false);
     }
   }, [difficultyLevel]);
+
+  const loadMoreQuestions = useCallback(async () => {
+    if (!paginationInfo?.hasNext) {
+      return 0;
+    }
+
+    try {
+      setIsLoadingMore(true);
+      const options: any = {
+        limit: 10,
+        random: false,
+        skip: paginationInfo.page * paginationInfo.limit,
+      };
+
+      if (difficultyLevel !== 'all') {
+        options.difficultyLevel = difficultyLevel;
+      }
+
+      const response = await getPracticeQuestions(
+        PteQuestionTypeName.SUMMARIZE_SPOKEN_TEXT,
+        options,
+      );
+
+      if (response.questions && response.questions.length > 0) {
+        setQuestions((prev) => [...prev, ...response.questions]);
+        setPaginationInfo(response.pagination);
+        return response.questions.length;
+      }
+
+      return 0;
+    } catch (err) {
+      console.error('Failed to load more questions:', err);
+      return 0;
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [
+    difficultyLevel,
+    paginationInfo?.page,
+    paginationInfo?.limit,
+    paginationInfo?.hasNext,
+  ]);
 
   useEffect(() => {
     loadQuestions();
@@ -185,6 +249,45 @@ const PracticeSummarizeSpokenText: React.FC = () => {
     };
   }, [timerActive]);
 
+  const handleCut = () => {
+    if (!textareaRef.current) return;
+    const { selectionStart, selectionEnd, value } = textareaRef.current;
+    const selectedText = value.substring(selectionStart, selectionEnd);
+
+    if (selectedText) {
+      navigator.clipboard.writeText(selectedText);
+      const newValue =
+        value.substring(0, selectionStart) + value.substring(selectionEnd);
+      setResponse({ textResponse: newValue });
+    }
+  };
+
+  const handleCopy = () => {
+    if (!textareaRef.current) return;
+    const { selectionStart, selectionEnd, value } = textareaRef.current;
+    const selectedText = value.substring(selectionStart, selectionEnd);
+
+    if (selectedText) {
+      navigator.clipboard.writeText(selectedText);
+    }
+  };
+
+  const handlePaste = async () => {
+    if (!textareaRef.current) return;
+    try {
+      const clipboardText = await navigator.clipboard.readText();
+      const { selectionStart, selectionEnd, value } = textareaRef.current;
+
+      const newValue =
+        value.substring(0, selectionStart) +
+        clipboardText +
+        value.substring(selectionEnd);
+      setResponse({ textResponse: newValue });
+    } catch (err) {
+      console.error('Failed to read clipboard contents: ', err);
+    }
+  };
+
   const handleSubmit = useCallback(async () => {
     if (isCompleted || isSubmitting) return;
 
@@ -228,12 +331,6 @@ const PracticeSummarizeSpokenText: React.FC = () => {
     }
   }, [isCompleted, isSubmitting, currentQuestion?.id, response]);
 
-  const handleNext = () => {
-    if (currentIndex < questions.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    }
-  };
-
   const handlePrevious = () => {
     if (currentIndex > 0) {
       setCurrentIndex(currentIndex - 1);
@@ -246,10 +343,31 @@ const PracticeSummarizeSpokenText: React.FC = () => {
     }
   };
 
-  const handleQuestionSelect = (questionId: string) => {
+  const handleQuestionSelect = async (questionId: string) => {
     const selectedIndex = questions.findIndex((q) => q.id === questionId);
+
     if (selectedIndex !== -1) {
       setCurrentIndex(selectedIndex);
+      setShowQuestionSidebar(false);
+      return;
+    }
+
+    try {
+      const selectedQuestion = await getPracticeQuestionById(questionId);
+      if (!selectedQuestion) {
+        setError('Unable to load the selected question.');
+        return;
+      }
+
+      const updatedQuestions = [...questions, selectedQuestion];
+      setQuestions(updatedQuestions);
+      setCurrentIndex(updatedQuestions.length - 1);
+    } catch (err: any) {
+      console.error('Failed to load selected question:', err);
+      setError(
+        err?.response?.data?.message || 'Failed to load selected question.',
+      );
+    } finally {
       setShowQuestionSidebar(false);
     }
   };
@@ -328,9 +446,6 @@ const PracticeSummarizeSpokenText: React.FC = () => {
           <div>
             <h1 className='text-2xl font-bold flex items-center gap-2 text-black dark:text-white'>
               Summarize Spoken Text{' '}
-              <p className='text-gray-400 dark:text-gray-400 text-sm'>
-                (Question {currentIndex + 1} of {questions.length})
-              </p>
             </h1>
 
             <div className='flex flex-row items-center space-x-3 '>
@@ -482,6 +597,7 @@ const PracticeSummarizeSpokenText: React.FC = () => {
             {/* Textarea for typing summary OR Evaluation Results */}
 
             <textarea
+              ref={textareaRef}
               value={response.textResponse}
               onChange={(e) => {
                 setResponse({ textResponse: e.target.value });
@@ -491,12 +607,43 @@ const PracticeSummarizeSpokenText: React.FC = () => {
               className='w-full min-h-[200px] p-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed'
             />
 
+            <div className='flex items-center gap-3 mt-4'>
+              <button
+                onClick={handleCut}
+                disabled={isCompleted}
+                className='px-4 py-2 text-sm font-bold uppercase bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-colors dark:text-white disabled:opacity-50'
+              >
+                Cut
+              </button>
+              <button
+                onClick={handleCopy}
+                disabled={isCompleted}
+                className='px-4 py-2 text-sm font-bold uppercase bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-colors dark:text-white disabled:opacity-50'
+              >
+                Copy
+              </button>
+              <button
+                onClick={handlePaste}
+                disabled={isCompleted}
+                className='px-4 py-2 text-sm font-bold uppercase bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-colors dark:text-white disabled:opacity-50'
+              >
+                Paste
+              </button>
+              <button
+                onClick={handleReset}
+                disabled={isSubmitting}
+                className='px-4 py-2 text-sm font-bold uppercase bg-red-100 text-red-600 hover:bg-red-500 hover:text-white dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-600 dark:hover:text-white rounded-lg transition-all disabled:opacity-50'
+              >
+                Reset
+              </button>
+            </div>
+
             {/* Action buttons */}
             <div className='flex flex-col sm:flex-row gap-4 justify-center'>
               <button
                 onClick={handleReset}
                 disabled={isSubmitting}
-               className="px-6 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 font-semibold transition dark:text-white"
+                className='px-6 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 font-semibold transition dark:text-white'
               >
                 Reset
               </button>
@@ -654,13 +801,24 @@ const PracticeSummarizeSpokenText: React.FC = () => {
                         </span>
                       </div>
                     </div>
-                    <div className='p-6 text-base leading-relaxed text-gray-700 dark:text-gray-300 italic'>
+                    {/* <div className='p-6 text-base leading-relaxed text-gray-700 dark:text-gray-300 italic'>
                       {renderHighlightedText(
                         evaluationResult.evaluation.detailedAnalysis.userText,
                         normalizeErrorAnalysis(
                           evaluationResult.evaluation.detailedAnalysis
                             .errorAnalysis,
                         ),
+                        (err: any) => setSelectedError(err),
+                      )}
+                    </div> */}
+                    <div className='p-6 text-base leading-relaxed text-gray-700 dark:text-gray-300 italic'>
+                      {renderHighlightedTextByWords(
+                        evaluationResult.evaluation.detailedAnalysis.userText,
+                        {
+                          ...evaluationResult.evaluation.detailedAnalysis
+                            .errorAnalysis,
+                          grammarErrors: [],
+                        },
                         (err: any) => setSelectedError(err),
                       )}
                     </div>
@@ -733,7 +891,8 @@ const PracticeSummarizeSpokenText: React.FC = () => {
       {/* FOOTER */}
 
       <InlinePreviousAttempts
-        questionId={currentQuestion?.id} question={currentQuestion}
+        questionId={currentQuestion?.id}
+        question={currentQuestion}
         onViewResponse={handleViewResponse}
         className='mt-6'
       />
@@ -748,18 +907,44 @@ const PracticeSummarizeSpokenText: React.FC = () => {
         </button>
 
         <span className='text-gray-400 text-sm'>
-          {currentIndex + 1} / {questions.length}
+          {currentIndex + 1} /{' '}
+          {paginationInfo
+            ? Math.min(questions.length, paginationInfo.total)
+            : questions.length}
+          {paginationInfo &&
+            paginationInfo.total > questions.length &&
+            ` (${paginationInfo.total} total)`}
         </span>
 
         <button
-          onClick={handleNext}
-          disabled={currentIndex === questions.length - 1}
-          className='flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition'
+          onClick={async () => {
+            const isAtEnd = currentIndex >= questions.length - 1;
+
+            if (isAtEnd) {
+              const oldLength = questions.length;
+              const loadedCount = await loadMoreQuestions();
+              if (loadedCount > 0) {
+                setCurrentIndex(oldLength);
+              }
+              return;
+            }
+
+            const nextIndex = Math.min(questions.length - 1, currentIndex + 1);
+            setCurrentIndex(nextIndex);
+
+            // Try to preload more if near the end
+            if (nextIndex >= questions.length - 2 && paginationInfo?.hasNext) {
+              await loadMoreQuestions();
+            }
+          }}
+          disabled={isLoadingMore}
+          className='flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50'
         >
-          Next
-          <ChevronRight className='w-5 h-5' />
+          {isLoadingMore ? 'Loading...' : 'Next'}
+          <ChevronRight className='w-4 h-4' />
         </button>
       </div>
+
       {/* Question Sidebar */}
       <QuestionSidebar
         isOpen={showQuestionSidebar}
@@ -769,13 +954,10 @@ const PracticeSummarizeSpokenText: React.FC = () => {
         onQuestionSelect={handleQuestionSelect}
         practiceStatus='all'
         difficultyLevel={difficultyLevel}
-        onFilterChange={(filters) => {
-          setDifficultyLevel(filters.difficultyLevel);
-        }}
       />
       {/* Previous Attempts Modal Drawer */}
       <PreviousResponses
-        questionId={currentQuestion?.id} question={currentQuestion}
+        questionId={currentQuestion?.id}
         onViewResponse={handleViewResponse}
         isOpen={showPreviousResponses}
         onClose={() => setShowPreviousResponses(false)}

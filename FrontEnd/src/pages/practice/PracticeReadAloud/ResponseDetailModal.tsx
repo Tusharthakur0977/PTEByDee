@@ -85,7 +85,7 @@ const formatPauseSeverity = (severity: PauseMarker["severity"]) => {
 
 const getPauseGapClass = (severity: PauseMarker["severity"]) => {
   if (severity === "long_pause") {
-    return "border-rose-500/70 bg-rose-500/10 dark:border-rose-400/90 dark:bg-rose-400/20";
+    return "border-yellow-600/80 bg-yellow-500/20 dark:border-yellow-400/90 dark:bg-yellow-400/20";
   }
   if (severity === "pause") {
     return "border-amber-500/70 bg-amber-500/10 dark:border-amber-400/90 dark:bg-amber-400/20";
@@ -100,7 +100,7 @@ const getPauseGapWidthClass = (severity: PauseMarker["severity"]) => {
 };
 
 const getPauseWordClass = (severity: PauseMarker["severity"]) => {
-  if (severity === "long_pause") return "text-rose-700 dark:text-rose-300";
+  if (severity === "long_pause") return "text-yellow-800 dark:text-yellow-300";
   if (severity === "pause") return "text-amber-700 dark:text-amber-300";
   return "text-yellow-700 dark:text-yellow-300";
 };
@@ -164,6 +164,19 @@ const renderReadAloudTranscript = (
   });
 
   const result: React.ReactNode[] = [];
+  const statusByIndex = new Map<number, string>();
+
+  analysisWords.forEach((entry, index) => {
+    const position = (entry as any)?.position;
+    const start =
+      typeof position?.start === "number" ? Math.floor(position.start) : -1;
+    const status = String(entry?.status || "").toLowerCase();
+    if (start >= 0 && start < spokenWords.length) {
+      statusByIndex.set(start, status);
+    } else if (index >= 0 && index < spokenWords.length) {
+      statusByIndex.set(index, status);
+    }
+  });
 
   const pushWord = (
     word: string,
@@ -221,25 +234,8 @@ const renderReadAloudTranscript = (
     }
   };
 
-  if (analysisWords.length > 0) {
-    analysisWords.forEach((entry, index) => {
-      const status = String(entry?.status || "").toLowerCase();
-      pushWord(String(entry?.word || ""), status, `analysis-${index}`, index);
-
-      if (index < analysisWords.length - 1) {
-        result.push(
-          <span key={`space-${index}`} className="whitespace-pre-wrap">
-            {" "}
-          </span>,
-        );
-      }
-    });
-
-    return <span>{result}</span>;
-  }
-
   spokenWords.forEach((word, index) => {
-    pushWord(word, "", `spoken-${index}`, index);
+    pushWord(word, statusByIndex.get(index) || "", `spoken-${index}`, index);
     if (index < spokenWords.length - 1) {
       result.push(
         <span key={`space-${index}`} className="whitespace-pre-wrap">

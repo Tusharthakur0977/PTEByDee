@@ -1,34 +1,36 @@
 import { Router } from 'express';
-import getUserProfile from '../controllers/User/getUserProfile.controller';
-import updateUserProfile from '../controllers/User/updateUserProfile.controller';
-import { getCourses } from '../controllers/User/getCourses.controller';
-import { getCourseById } from '../controllers/User/getCourseById.controller';
 import { enrollCourse } from '../controllers/User/enrollCourse.controller';
-import { getEnrolledCourses } from '../controllers/User/getEnrolledCourses.controller';
-import { getSecureVideoUrl } from '../controllers/User/getSecureVideoUrl.controller';
-import { testEnrollment } from '../controllers/User/testEnrollment.controller';
 import { getCategories } from '../controllers/User/getCategories.controller';
-import { updateLessonProgress } from '../controllers/User/updateLessonProgress.controller';
-import {
-  getUserProgress,
-  getUserProgressOverview,
-} from '../controllers/User/getUserProgress.controller';
-import { getQuestionTypes } from '../controllers/User/getQuestionTypes.controller';
+import { getCourseById } from '../controllers/User/getCourseById.controller';
+import { getCourses } from '../controllers/User/getCourses.controller';
+import { getEnrolledCourses } from '../controllers/User/getEnrolledCourses.controller';
+import { getPracticeHistory } from '../controllers/User/getPracticeHistory.controller';
 import { getPracticeQuestions } from '../controllers/User/getPracticeQuestions.controller';
+import { getPredictedQuestions } from '../controllers/User/getPredictedQuestions.controller';
+import { getPracticeStats } from '../controllers/User/getPracticeStats.controller';
+import { getQuestionById } from '../controllers/User/getQuestionById.controller';
 import { getQuestionList } from '../controllers/User/getQuestionList.controller';
-import { getQuestionWithResponses } from '../controllers/User/getQuestionWithResponse.controller';
 import {
   getQuestionPreviousResponses,
   getQuestionResponseStats,
 } from '../controllers/User/getQuestionPreviousResponses.controller';
-import { submitPracticeResponse } from '../controllers/User/submitPracticeResponse.controller';
-import { getPracticeHistory } from '../controllers/User/getPracticeHistory.controller';
-import { getPracticeStats } from '../controllers/User/getPracticeStats.controller';
-import { submitQuestionResponse } from '../controllers/User/submitQuestionResponse.controller';
+import { getQuestionTypes } from '../controllers/User/getQuestionTypes.controller';
+import { getQuestionWithResponses } from '../controllers/User/getQuestionWithResponse.controller';
+import { getSecureVideoUrl } from '../controllers/User/getSecureVideoUrl.controller';
+import getUserProfile from '../controllers/User/getUserProfile.controller';
+import {
+  getUserProgress,
+  getUserProgressOverview,
+} from '../controllers/User/getUserProgress.controller';
 import {
   getUserResponses,
   getUserResponseStats,
 } from '../controllers/User/getUserResponses.controller';
+import { submitPracticeResponse } from '../controllers/User/submitPracticeResponse.controller';
+import { submitQuestionResponse } from '../controllers/User/submitQuestionResponse.controller';
+import { testEnrollment } from '../controllers/User/testEnrollment.controller';
+import { updateLessonProgress } from '../controllers/User/updateLessonProgress.controller';
+import updateUserProfile from '../controllers/User/updateUserProfile.controller';
 import { uploadAudio } from '../controllers/User/uploadAudio.controller';
 
 import { protect } from '../middlewares/authenticate.middleware';
@@ -42,7 +44,9 @@ router.get('/courses/:id', getCourseById);
 router.get('/categories', getCategories);
 router.get('/question-types', getQuestionTypes);
 router.get('/practice-questions/:questionType', getPracticeQuestions);
+router.get('/predicted-questions', getPredictedQuestions);
 router.get('/question-list/:questionType', getQuestionList);
+router.get('/questions/:questionId/practice', getQuestionById);
 router.get('/questions/:questionId/responses', getQuestionWithResponses);
 router.get(
   '/questions/:questionId/previous-responses',

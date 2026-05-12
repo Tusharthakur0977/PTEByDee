@@ -632,6 +632,68 @@ function mergeAdditionalFluencyErrors(
   return merged;
 }
 
+function inferRepeatSentencePauseMarkersFromFluencyErrors(params: {
+  transcribedText: string;
+  fluencyErrors: any[];
+}) {
+  const { transcribedText, fluencyErrors } = params;
+  const transcriptWords = String(transcribedText || '')
+    .split(/\s+/)
+    .filter((word) => word.length > 0);
+
+  if (transcriptWords.length === 0 || !Array.isArray(fluencyErrors)) {
+    return [];
+  }
+
+  const fillerPattern = /^(uh|um|er|ah|oh)$/i;
+  const candidateStarts = Array.from(
+    new Set(
+      fluencyErrors
+        .filter((error: any) => {
+          const text = String(error?.text || '').trim();
+          const explanation = String(error?.explanation || '').toLowerCase();
+          return (
+            fillerPattern.test(text) ||
+            /filler|hesitation|pause|false start|repetition/.test(explanation)
+          );
+        })
+        .map((error: any) => Number(error?.position?.start))
+        .filter((start: number) => Number.isFinite(start) && start > 0),
+    ),
+  ).sort((a, b) => a - b);
+
+  const markers: Array<{
+    afterWord: string;
+    beforeWord: string;
+    afterWordIndex: number;
+    beforeWordIndex: number;
+    durationMs: number;
+    durationSeconds: number;
+    severity: 'hesitation';
+  }> = [];
+
+  candidateStarts.forEach((start) => {
+    const beforeWordIndex = Math.min(start, transcriptWords.length - 1);
+    const afterWordIndex = beforeWordIndex - 1;
+    if (afterWordIndex < 0 || beforeWordIndex < 0) return;
+    const beforeWord = transcriptWords[beforeWordIndex];
+    const afterWord = transcriptWords[afterWordIndex];
+    if (!beforeWord || !afterWord) return;
+
+    markers.push({
+      afterWord,
+      beforeWord,
+      afterWordIndex,
+      beforeWordIndex,
+      durationMs: 650,
+      durationSeconds: 0.65,
+      severity: 'hesitation',
+    });
+  });
+
+  return markers;
+}
+
 function buildRepeatSentenceFluencyFeedback(params: {
   fluencyErrors: any[];
   pauseMarkers?: Array<{
@@ -841,12 +903,21 @@ async function evaluateReadAloud(
     ---
     ### **Evaluation and Scoring Instructions**
 
-    **1. Content Analysis:**
-    * Compare the transcribedText to the originalText to perform a wordAnalysis.
-    * For each word, assign a status: 'correct', 'mispronounced', 'omitted', or 'inserted'.
-    * The **Content score** is the percentage of words from the original text that are correctly spoken.
-    * **Important**: Each replacement, omission or insertion of a word counts as one error.
-    * Maximum score: depends on the length of the question prompt
+      **1. Content Analysis:**
+      * Compare the transcribedText to the originalText to perform a wordAnalysis.
+      * For each word, assign a status: 'correct', 'mispronounced', 'omitted', or 'inserted'.
+      * The **Content score** should primarily reflect how much of the original text was spoken correctly in the right order.
+      * If the response contains nearly all of the original text and only adds a few extra words, keep the content score high.
+      * Extra inserted words should be a minor penalty when the original sentence is otherwise mostly intact.
+      * **Important**: Each replacement or omission counts as a stronger content error than an inserted word.
+      * Do not over-penalize content just because the user added short fillers or a few extra words.
+      * If the speaker reads the full sentence correctly but adds a small number of extra words, do not "cut" the content score sharply.
+      * Content should drop mainly when original words are missing, substituted, or badly reordered.
+      * Example: if the prompt is "The bus for London will be scheduled once a week" and the response is
+        "The bus for London, uh, will be scheduled once a week", this should still score high on content.
+      * Example: "If you have a chronic disease such as heart disease, diabetes, asthma, or back or joint pain..." plus
+        a few extra inserted words should still remain in the top content band if the original wording is mostly preserved.
+      * Maximum score: depends on the length of the question prompt
     
     **2. Pronunciation and Oral Fluency Scoring (0-5 scale):**
     * **Pronunciation:** Score based on the accuracy of the transcribed words.
@@ -1120,13 +1191,16 @@ async function evaluateRepeatSentence(
   **1. Content Analysis:**
   * Compare the transcribedText to the originalText to perform a wordAnalysis.
   * For each word, assign a status: 'correct', 'mispronounced', 'omitted', or 'inserted'.
-  * **Important**: Hesitations, mispronounced, filled or unfilled pauses, and leading or trailing material are **ignored** in the scoring of content.
-  * **Errors = replacements, omissions and insertions only**
+  * **wordAnalysis order must follow the spoken response order.** Do not move all inserted words to the end of the array. Keep inserted words inline at the point they were spoken.
+  * **Important**: Hesitations, mispronounced, filled or unfilled pauses, and leading or trailing material are **not the main driver** of content reduction.
+  * **Content should primarily reflect coverage of the original sentence.** If the response contains most of the original words in the correct order and only adds extra words, keep the content score relatively high.
+  * **Errors = replacements, omissions and insertions only**, but inserted words by themselves should cause only a minor content penalty when the original sentence is otherwise mostly intact.
+  * Prioritize missing or substituted original words over extra inserted words when deciding the final content score.
     
   **Content Scoring (0-3 scale):**
-  * **3 points** - All words in the response are from the prompt and in 90% correct sequence..
-  * **2 points** - At least 50% of the words in the response are from the prompt.
-  * **1 point** - Less than 30% of the words in the response are from the prompt.
+  * **3 points** - The response contains nearly all of the original sentence in the correct order, and any extra words are minor.
+  * **2 points** - The response contains most of the original sentence, but there are some missing or substituted words.
+  * **1 point** - The response contains only a small portion of the original sentence or has many missing/substituted words.
   * **0 points** - Almost nothing from the prompt is in the response.
 
   **2. Pronunciation and Oral Fluency Scoring (0-5 scale):**
@@ -1241,29 +1315,65 @@ async function evaluateRepeatSentence(
       contentErrors: [...(evaluation.errorAnalysis?.contentErrors || [])],
     };
 
-    const timestampMergedErrorAnalysis = enableFluencyInsights
-      ? mergePauseErrorsIntoErrorAnalysis(baseErrorAnalysis, pauseErrors)
-      : baseErrorAnalysis;
-    const aiInferredFluencyErrors = enableFluencyInsights
-      ? await inferFluencyFromTranscriptWithAI({
+      const timestampMergedErrorAnalysis = enableFluencyInsights
+        ? mergePauseErrorsIntoErrorAnalysis(baseErrorAnalysis, pauseErrors)
+        : baseErrorAnalysis;
+      const aiInferredFluencyErrors = enableFluencyInsights
+        ? await inferFluencyFromTranscriptWithAI({
           originalSentence,
           transcribedText,
           existingFluencyErrors: timestampMergedErrorAnalysis.fluencyErrors,
         })
       : [];
-    const mergedErrorAnalysis = enableFluencyInsights
-      ? mergeAdditionalFluencyErrors(
-          timestampMergedErrorAnalysis,
-          aiInferredFluencyErrors,
-        )
-      : timestampMergedErrorAnalysis;
-    const repeatSentenceOralFluencyFeedback =
-      buildRepeatSentenceFluencyFeedback({
-        fluencyErrors: mergedErrorAnalysis.fluencyErrors,
-        pauseMarkers: enableFluencyInsights
-          ? speechFlow?.pauseMarkers || []
-          : [],
-      });
+      const mergedErrorAnalysis = enableFluencyInsights
+        ? mergeAdditionalFluencyErrors(
+            timestampMergedErrorAnalysis,
+            aiInferredFluencyErrors,
+          )
+        : timestampMergedErrorAnalysis;
+      const inferredPauseMarkers =
+        enableFluencyInsights && speechFlow?.pauseMarkers?.length === 0
+          ? inferRepeatSentencePauseMarkersFromFluencyErrors({
+              transcribedText,
+              fluencyErrors: mergedErrorAnalysis.fluencyErrors,
+            })
+          : [];
+      const effectiveSpeechFlow =
+        enableFluencyInsights && speechFlow
+          ? {
+              ...speechFlow,
+              pauseMarkers:
+                speechFlow.pauseMarkers.length > 0
+                  ? speechFlow.pauseMarkers
+                  : inferredPauseMarkers,
+              totalPauseCount:
+                speechFlow.pauseMarkers.length > 0
+                  ? speechFlow.totalPauseCount
+                  : inferredPauseMarkers.length,
+              totalPausedMs:
+                speechFlow.pauseMarkers.length > 0
+                  ? speechFlow.totalPausedMs
+                  : inferredPauseMarkers.reduce(
+                      (sum, marker) => sum + marker.durationMs,
+                      0,
+                    ),
+              longestPauseMs:
+                speechFlow.pauseMarkers.length > 0
+                  ? speechFlow.longestPauseMs
+                  : inferredPauseMarkers.reduce(
+                      (longest, marker) =>
+                        Math.max(longest, marker.durationMs),
+                      0,
+                    ),
+            }
+          : speechFlow;
+      const repeatSentenceOralFluencyFeedback =
+        buildRepeatSentenceFluencyFeedback({
+          fluencyErrors: mergedErrorAnalysis.fluencyErrors,
+          pauseMarkers: enableFluencyInsights
+            ? effectiveSpeechFlow?.pauseMarkers || []
+            : [],
+        });
 
     // Calculate overall score as sum of component scores (points)
     const overallScore = Math.round(
@@ -1304,10 +1414,10 @@ async function evaluateRepeatSentence(
         userText: transcribedText,
         correctAnswer: originalSentence || undefined,
         wordByWordAnalysis: wordAnalysis,
-        ...(enableFluencyInsights && speechFlow
+        ...(enableFluencyInsights && effectiveSpeechFlow
           ? {
               speechFlow: {
-                ...speechFlow,
+                ...effectiveSpeechFlow,
                 aiInferredFluencyCount: aiInferredFluencyErrors.length,
               },
             }
@@ -2681,7 +2791,7 @@ async function evaluateSummarizeWrittenText(
     .split(/\s+/)
     .filter((word: string | any[]) => word.length > 0).length;
 
-  const prompt = `
+const prompt = `
     **Your Role:** You are an expert PTE Academic grader specializing in the "Summarize Written Text" task.
     **Objective:** Evaluate the user's summary of the provided text. You must score the response on four distinct traits: Content, Form, Grammar, and Vocabulary, using the detailed rubrics below.
 
@@ -2691,153 +2801,79 @@ async function evaluateSummarizeWrittenText(
       **Word Count: ${wordCount}
 
     ---
-    ### **Scoring Rubrics**
-      1. Content (Score from 0 to 4):**
-        **Evaluate comprehension and condensation.
-        **Special Copy-Paste Rule (STRICT & MANDATORY):**
-          Before evaluating Content meaning, check whether the user's summary is
-          copied directly from the source text.
+    ### **Step 1: Internal Highlighting Logic (MANDATORY)**
+    Before scoring, identify the core information in the source text.
+    - **Highlight:** Main ideas, definitions, advantages/disadvantages, cause-effect, problem-solution, and final conclusions.
+    - **Ignore:** Examples, specific names (Professor X), job titles, reporting phrases (said, commented), dates/years, and background details.
+    - **Special Rule:** For quotes, extract only the useful idea and discard the attribution.
 
-          Definition of DIRECT COPYING:
-          - If the user's summary (even if it is one sentence) contains more than
-            40–45% of words, phrases, or clauses taken directly from the source text
-            WITHOUT meaningful changes
-          - AND fewer than 3–4 content words have been replaced with synonyms or
-            equivalent expressions
+    ---
+    ### **Step 2: Scoring Rubrics**
 
-          RULING (NON-NEGOTIABLE):
-          - IF direct copying is detected:
-            → Content score MUST be capped at 1 (or 0 if off-topic)
-            → Do NOT award 2, 3, or 4 under any circumstance
-            → Add to feedback.content:
-              "Flag: direct copying detected; content capped."
+    1. Content (Score from 0 to 4):
+    Evaluate comprehension, key-sentence selection, and logical connection based on the Internal Highlighting.
 
-          - IF at least 3–4 content words are replaced:
-            → Treat the response as a legitimate paraphrase
-            → Proceed to normal Content scoring
+    **Copy-Paste & Paraphrasing Rules:**
+    - **Tier A (Legitimate Paraphrase):** User uses relevant key ideas AND replaces at least 3–4 content words with synonyms OR shows clear restructuring.
+      -> Action: Proceed to normal scoring (up to 4).
+    - **Tier B (Copy-Paste with Logic):** User selects relevant key ideas and connects them logically BUT uses mostly copied words with fewer than 3 synonym replacements.
+      -> Action: Reduce Content score by 1 band (e.g., 4 → 3, 3 → 2).
+      -> Add to feedback.content: "Note: Good selection of key ideas, but limited paraphrasing; vocabulary variation required."
+    - **Tier C (Excessive Copying/Poor Logic):** Answer is fully copied AND poorly connected OR lacks proper sentence formation.
+      -> Action: Content score MUST be ≤ 1.
+      -> Add to feedback.content: "Flag: excessive direct copying detected; content capped."
 
-         **Content scoring (apply only after copy-paste check):**
-        - **4:** Comprehensive, concise paraphrase capturing all main ideas; passes semantic coverage vs internal reference (connected clauses, ideas logically synthesized).
-        - **3:** Adequate summary that captures most main ideas but omits minor points or is slightly disorganized.
-        - **2:** Partial summary; identifies some main points but relies on short quoted phrases or fails to synthesize.
-        - **1:** Relevant but minimal; captures one main idea only or is mostly verbatim copy (per copy-paste rule).
-        - **0:** No comprehension; off-topic or unintelligible.
-        **Notes:**
-        - Up to **3–4 foreign-word replacements** inside the student's summary are acceptable for Content **if** overall meaning remains clear.
-        - Use your internal reference (4–5 joined sentences with 3–4 replacements) to judge semantic coverage — do not require exact wording.
+    **Scoring Scales:**
+    - 4: Comprehensive summary capturing all main ideas; logical synthesis; suitable paraphrasing.
+    - 3: Adequate summary; captures most main ideas; minor omission OR good content but limited paraphrasing (Tier B).
+    - 2: Partial summary; misses important ideas or shows weak synthesis/linking.
+    - 1: Minimal relevance OR excessive copying with poor structure (Tier C).
+    - 0: Off-topic or unintelligible.
 
-      2. Form (Score from 0 to 1):**
-        **1:** Exactly one complete sentence, **5–75 words**, not in ALL CAPS, uses connectors allowed (but, as, so, whereas, and) to join clauses.
-        **0:** Not a single sentence, or word count <5 or >75, or ALL CAPS.
+    2. Form (Score from 0 to 1):
+    - 1: Exactly one complete sentence, 5–75 words, not in ALL CAPS, uses connectors (but, as, so, whereas, and, or) to join clauses.
+    - 0: Not a single sentence, word count <5 or >75, or ALL CAPS.
 
-      3. Grammar (Score from 0 to 2):**
-        **Connector Immunity:** **Do NOT** penalize use of connectors "but", "whereas", "as", "so", "and" as grammar errors (they are permitted to join clauses in the single-sentence format).
-        **Replacement Immunity:** If a student’s summary is primarily a slightly modified copy (i.e., they have replaced 3–4 words as allowed), then **do not mark minor grammatical shifts that result solely from those replacements** as grammar errors — only mark grammatical problems that impair clarity.
-        Scoring:
-        **2:** Correct grammatical structure; rare minor errors.
-        **1:** Some grammatical errors but meaning remains clear.
-        **0:** Grave structural errors that hinder comprehension.
+    3. Grammar (Score from 0 to 2):
+    - **Connector Immunity:** Do NOT penalize "but", "whereas", "as", "so", "and", "or" as errors.
+    - **Copy-Structure Immunity:** If combining key sentences, do not mark minor grammatical shifts caused by joining clauses as errors—only penalize errors affecting clarity.
+    - 2: Correct structure; rare minor errors.
+    - 1: Some errors but meaning remains clear.
+    - 0: Grave structural errors.
 
-      4. Vocabulary (Score from 0 to 2):**
-        **2:** Appropriate word choice; synonyms/paraphrases demonstrate control.
-        **1:** Some lexical inaccuracies but communication not hindered.
-        **0:** Poor word choice that obscures meaning.
-        NOTE: If up to **3 non-English words** are used as part of permissible replacements and the meaning is still clear, do NOT automatically penalize Vocabulary for that — only penalize if comprehension is affected.
-    
+    4. Vocabulary (Score from 0 to 2):
+    - **Synonym Expectation:** Full marks (2) require at least 3–4 suitable synonym replacements.
+    - 2: Appropriate word choice; effective paraphrasing.
+    - 1: Limited paraphrasing OR minor inaccuracies; communication is clear.
+    - 0: Poor word choice.
+    - **Note:** Up to 3 non-English words are allowed if meaning is clear.
+
     ---
     ### **Error Analysis Instructions**
-      **CRITICAL:** You must provide detailed error analysis by identifying specific mistakes in the user's text.
-
-      **POSITION CALCULATION (MOST IMPORTANT):**
-      - Word indexing starts from 0 (first word is position 0)
-      - Words are counted by splitting on whitespace ONLY. Punctuation is NOT a separate word.
-      - For SINGLE-WORD errors: {"start": <word_index>, "end": <word_index + 1>}
-      - For MULTI-WORD errors (e.g., "old people"): {"start": <first_word_index>, "end": <last_word_index + 1>}
-      - If incorrect word appears MULTIPLE TIMES, identify the SPECIFIC occurrence not give position of first occurence directly first check which occurence is wrong and give that in positions
-
-      **For each error you find:**
-      1. Identify the EXACT word or phrase that contains the error
-      2. Count its position carefully using the indexing method above
-      3. Include surrounding context: provide 1-2 words BEFORE and AFTER the error (if available)
-      - Example: Error "is" with context: {"before": "people", "after": "not"}
-      - This helps confirm the correct occurrence when words repeat
-      4. Provide the correct replacement
-      5. Give a clear explanation
-      6. DOUBLE-CHECK: The position should point to the actual error location in the response
-
-      **Special copy-paste detection note:** If you detect verbatim copying of ≥3 sentences without the allowed 3–4 word replacements, include a short note in 'feedback.content' stating: "Flag: verbatim copy detected; content penalized per copy-paste rule."
-
-      **Error Types to Look For:**
-      - **Grammar**: Subject-verb disagreement, wrong tenses, missing/incorrect articles, preposition errors.
-      - **Spelling**: Misspelled words (Check strictly).
-      - **Vocabulary**: Wrong word choice, repetitive words, unclear expressions.
-
-      **IMPORTANT:**
-      - Do NOT report minor grammar shifts that are direct consequences of permitted word replacements (3–4 words) in an otherwise correct paraphrase.
-      - **Connector Immunity:** Do NOT mark "but", "whereas", "as", "and", "so" as grammar errors.
-      - **Synonym Validity:** If a student uses a valid synonym (conceptually relevant) but the grammar is correct, do **not** mark as an error.
-      - **Error Prioritization:** 1. **Spelling:** (Highest Priority/Penalty).
-      2. **Grammar:** If spelling is correct but rule is broken.
-      3. **Vocabulary:** If word choice is poor.
+    **POSITION CALCULATION:**
+    - Index starts at 0. Split on whitespace ONLY. Punctuation is NOT a separate word.
+    - For SINGLE-WORD: {"start": index, "end": index + 1}
+    - Include "before" and "after" context words to ensure the correct occurrence is identified.
 
     ---
-    ### ADDITIONAL JUDGMENTS & IMPLEMENTATION NOTES
-    - Build the internal reference (4–5 sentences joined + 3–4 replacements) **every time**; use it to test whether the student's summary semantically covers the core ideas.
-    - If the student's summary mirrors the internal reference semantically (even with different wording or small foreign-word replacements), credit Content fully.
-    - If the student's submission is a literal copy of source sentences but contains only trivial punctuation changes (no 3–4 word replacements), apply the copy-paste penalty.
-    - When in doubt about whether a replaced non-English word preserves meaning, favor semantic comprehension: **if overall meaning is clear, do not penalize Content**; you may note the non-English tokens in 'vocabularyIssues' only if they impede understanding.
+    **Error Object Structure:** { "text": "", "type": "", "position": {"start": 0, "end": 0}, "correction": "", "explanation": "", "before": "", "after": "" }
+    **Format:** Return ONLY minified JSON. Use the Error Object structure for all arrays below.
 
-    ---
-    ### **Required Output Format**
-    Your final output **must** be a single, minified JSON object with NO markdown. Adhere strictly to this schema:
+    Final output must be a single, minified JSON object with NO markdown.
     {
-      "scores": {
-        "content": <number_0_to_4>,
-        "form": <number_0_to_1>,
-        "grammar": <number_0_to_2>,
-        "vocabulary": <number_0_to_2>
-      },
-      "feedback": {
-        "content": "Specific feedback on content.",
-        "form": "Specific feedback on form.",
-        "grammar": "Specific feedback on grammar.",
-        "vocabulary": "Specific feedback on vocabulary."
-      },
-      "errorAnalysis": {
-        "grammarErrors": [
-          {
-            "text": "word or phrase with error",
-            "type": "grammar",
-            "position": { "start": 0, "end": 5 },
-            "correction": "suggested correction",
-            "explanation": "explanation of the error"
-          }
-        ],
-        "spellingErrors": [
-          {
-            "text": "misspelled word",
-            "type": "spelling",
-            "position": { "start": 10, "end": 15 },
-            "correction": "correct spelling",
-            "explanation": "spelling correction needed"
-          }
-        ],
-        "vocabularyIssues": [
-          {
-            "text": "inappropriate word choice",
-            "type": "vocabulary",
-            "position": { "start": 20, "end": 30 },
-            "correction": "better word choice",
-            "explanation": "more appropriate vocabulary"
-          }
-        ]
+      "scores": { "content": 0, "form": 0, "grammar": 0, "vocabulary": 0 },
+      "feedback": { "content": "", "form": "", "grammar": "", "vocabulary": "" },
+     "errorAnalysis": {
+        "grammarErrors": [],
+        "spellingErrors": [],
+        "vocabularyIssues": []
       }
     }
   `;
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'gpt-4o-mini',
       messages: [
         {
           role: 'system',
@@ -3126,225 +3162,68 @@ async function evaluateWriteEssay(
     .split(/\s+/)
     .filter((word: string | any[]) => word.length > 0).length;
 
-  const prompt = `
-  **Your Role:** You are an expert PTE Academic grader for the "Write Essay" task.
-  **Objective:** Evaluate the user's essay based on the provided prompt. You must score the response on seven distinct traits using the detailed rubrics below.
+const prompt = `
+**Role:** Expert PTE Grader (Write Essay).
+**Input:** - Prompt: "${question.textContent}"
+- Essay: "${userText}"
+- Count: ${wordCount}
 
-  ### **Input for Evaluation**
-    Essay Prompt: "${question.textContent}"
-    User's Essay: "${userText}"
-    Word Count: ${wordCount}
+---
+### **1. Pre-Scoring Evaluation (MANDATORY)**
+**Step A: Detect Essay Type & Strategy:**
+- Types: Opinion, Adv/Disadv, Problem/Solution, Both Views, Invention/Impact.
+- Rule (Opinion): MUST take clear one-sided position. Mixing sides reduces Content/Structure.
+- Rule (Adv/Disadv): MUST discuss both sides unless "outweigh" is asked.
+- Rule (Invention): MUST identify one invention and take clear stance.
 
-  ### **Pre-Scoring Evaluation Strategy (CRITICAL INSTRUCTIONS)**
+**Step B: Template vs. Real Content Check:**
+- High Score requires: Intro (1-2 ideas), BP1 (Idea+Expl+Ex), BP2 (Idea+Expl+Ex), Conclusion (closing idea).
+- If mostly template with no topic-specific ideas: Reduce Content score.
+- **Safe Harbor:** If 40–80 words are genuinely relevant, MUST score Content 4–6 even if structure is weak.
 
-  **1. AI Topic Relevance Detector (Content Scoring Rule):**
-    - Do NOT judge Content based on full paragraphs.
-    - Do NOT require formal structure for Content scoring.
-    - Use **semantic understanding**, not keyword matching.
-    - Detect **meaningful idea chunks**, even if written in simple language.
+---
+### **2. Scoring Rubrics**
+1. **Content (0-6):** Score based on "Idea Chunks" (topic-relevant concepts).
+   - 6: Clear position; 40-80+ relevant words; strong logic in both BPs.
+   - 5-4: Multiple chunks; minor imbalance or shallow argument.
+   - 3-2: Mostly templated; barely addresses topic; unrelated ideas.
+   - 1-0: Off-topic or random keywords only.
 
-  #### What counts as a valid "Idea Chunk":
-    A phrase or sentence that expresses a **topic-relevant concept**, such as:
-    - learning practical skills
-    - gaining hands-on experience
-    - solving real-world problems
-    - learning by doing
-    - applying theory to practice
-    - improving creativity or confidence
-    - experiential learning improves productivity
-    - working on real projects
+2. **Form (0-2):** 2: (200-300 words). 1: (120-199 or 301-380). 0: (<120, >380, or ALL CAPS).
 
-    These ideas may appear:
-    - Anywhere in the essay
-    - In simple sentences
-    - Using synonyms or paraphrasing
-    - Even inside a templated structure
+3. **Development/Structure (0-6):** Logical flow and connectivity.
+   - 6: Clear structure; both BPs well-developed. 4: Missing examples/depth. 0: No structure.
 
-    If the student contributes **40–80 words of genuinely relevant ideas**, they MUST receive a **HIGH Content score (4–6)**, even if:
-    - The rest of the essay is generic
-    - The structure is weak
-    - The wording is simple
+4. **Grammar (0-2):** Base 2. Deduct **0.2 per error**. Min 0. (Immunity: but, whereas, as, and, so).
 
-  ### 2. LOW CONTENT SCORE TRIGGERS (STRICT)
+5. **Linguistic Range (0-6):** Range of expression. 6: Variation. 4: Limited. 2: Very restricted.
 
-    Assign **low Content scores (0–2)** ONLY if:
-    - The essay is clearly off-topic
-    - The ideas are random or unrelated
-    - The essay is mostly a memorized template with NO real topic-specific ideas
-    - Only isolated keywords are inserted without explanation
+6. **Vocabulary Range (0-2):** 2: Academic/Topic-specific. 1: Basic. 0: Meaning obscured.
 
-    Length alone must NEVER reduce Content.
+7. **Spelling (0-2):** Base 2. Deduct **0.5 per error**. Min 0. (Do not double-count as grammar).
 
-  ### 3. PENALTY LOGIC (STRICT AND CONSISTENT)
+---
+### **3. Error Analysis & Output**
+**ARRAY EXCLUSIVITY RULE (CRITICAL):**
+- **spellingErrors ONLY:** If a word is wrong because of its spelling (e.g., "achieveing", "knowladge"), it belongs HERE and ONLY here.
+- **grammarErrors ONLY:** If a word is spelled correctly but used incorrectly (e.g., "people debates", "a engineer", "who has"), it belongs HERE.
+- **CROSS-ARRAY BAN:** A single word/index MUST NOT appear in both arrays. If you find a misspelled word that also causes a grammar issue, categorize it ONLY as a spelling error to avoid double-penalizing the student's feedback.
+**Positioning:** 0-indexed. Split on whitespace.
+**Error Object:** {"text":"","type":"","position":{"start":0,"end":0},"context":{"before":"","after":""},"correction":"","explanation":""}
 
-    - **Spelling:** Heavy penalty  
-      → Approx **–0.5 marks per spelling error**
-    - **Grammar & Vocabulary:** Moderate penalty  
-      → Approx **–0.2 marks per error**
-    - Small grammar mistakes should reduce the score gradually, not destroy it unless meaning is unclear.
-
-  
-  ### **Scoring Rubrics**
-
-    1. Content (Score from 0 to 6):**
-      *Note: Evaluate based on the presence of relevant idea chunks, not full paragraphs.*
-      **6 – Strong Relevance**
-        - Contains **40–80+ words** of clear, topic-related ideas
-        - Ideas show understanding and explanation
-        - Synonyms and paraphrasing are used effectively
-
-      **5 – Good Relevance**
-        - Main topic addressed with multiple relevant idea chunks
-        - Support may be uneven but clearly related
-
-      **4 – Adequate Relevance**
-        - Some meaningful topic-related ideas are present
-        - Argument may be shallow or generic but relevant
-
-      **3 – Partial Relevance**
-        - Mostly templated writing
-        - Only a few specific topic-related ideas
-
-      **2 – Weak Relevance**
-        - Barely addresses the topic
-        - Mostly generic or random ideas
-
-      **1 – Minimal**
-        - Almost no relevant information
-
-      **0 – Off-topic**
-        - Does not deal with the prompt
-
-    2. Form (Score from 0 to 2):**
-      **2:** Length is between 200 and 300 words.
-      **1:** Length is between 120-199 or 301-380 words.
-      **0:** Length is less than 120 or more than 380 words; or written in all caps.
-
-    3. Development, Structure & Coherence (Score from 0 to 6):**
-      This trait is SEPARATE from Content.
-      **6:** Logical flow; recognizable essay structure
-      **5:** Simple structure; ideas connected
-      **4:** Weak organization; some order
-      **3:** Disconnected ideas
-      **2:** Very disorganized
-      **1:** Almost no coherence
-      **0:** No recognizable structure
-
-    4. Grammar (Score from 0 to 2):**
-      - Start from a score of **2**
-      - Deduct **0.2 marks for EACH grammar error**
-      - Minimum score is **0**
-      - Do NOT mark these as grammar errors: but, whereas, as, and, so
-
-    5. General Linguistic Range (Score from 0 to 6):**
-      * **6:** Sufficient range for basic ideas; occasional lapses.
-      * **5:** Narrow range; simple expressions used repeatedly.
-      * **4:** Limited vocabulary dominates.
-      * **3:** Highly restricted vocabulary.
-      * **2:** Extremely restricted.
-      * **1:** Isolated words only.
-      * **0:** Meaning not accessible.
-
-    6. Vocabulary Range (Score from 0 to 2):**
-      * **2:** Good range for academic topics.
-      * **1:** Basic vocabulary; sufficient.
-      * **0:** Very limited; meaning often obscured.
-
-    7. Spelling (Score from 0 to 2):**
-      - Start from a score of **2**
-      - Deduct **0.5 marks for EACH spelling error**
-      - Minimum score is **0**
-      - Spelling errors must NOT be duplicated under grammar or vocabulary.
-
-  ### **Error Analysis Instructions**
-
-  **CRITICAL:** You must provide detailed error analysis by identifying specific mistakes in the user's text.
-
-  **POSITION CALCULATION (MOST IMPORTANT):**
-    - Word indexing starts from 0 (first word is position 0)
-    - Words are counted by splitting on whitespace ONLY. Punctuation is NOT a separate word.
-    - For SINGLE-WORD errors: {"start": <word_index>, "end": <word_index + 1>}
-    - For MULTI-WORD errors (e.g., "old people"): {"start": <first_word_index>, "end": <last_word_index + 1>}
-    - If incorrect word appears MULTIPLE TIMES, identify the SPECIFIC occurrence not give position of first occurence directly first check which occurence is wrong and give that in positions
-   
-  **For each error you find:**
-    1. Identify the EXACT word or phrase that contains the error
-    2. Count its position carefully using the indexing method above
-    3. Include surrounding context: provide 1-2 words BEFORE and AFTER the error (if available)
-       - Example: Error "is" with context: {"before": "people", "after": "not"}
-       - This helps confirm the correct occurrence when words repeat
-    4. Provide the correct replacement
-    5. Give a clear explanation
-    6. DOUBLE-CHECK: The position should point to the actual error location in the response
-
-  **Error Types to Look For:**
-  - **Grammar**: Subject-verb disagreement, wrong tenses, missing/incorrect articles, preposition errors.
-  - **Spelling**: Misspelled words (Check strictly).
-  - **Vocabulary**: Wrong word choice, repetitive words, unclear expressions.
-
-  **IMPORTANT:**
-    - **Connector Immunity:** Do NOT mark "but", "whereas", "as", "and", "so" as grammar errors.
-    - **Synonym Validity:** If a student uses a valid synonym (conceptually relevant) but the grammar is correct, do **not** mark as an error.
-    - **Error Prioritization:** 1. **Spelling:** (Highest Priority/Penalty).
-      2. **Grammar:** If spelling is correct but rule is broken.
-      3. **Vocabulary:** If word choice is poor.
-
-  ### **Required Output Format**
-    Your final output **must** be a single, minified JSON object with NO markdown. Adhere strictly to this schema:
-    {
-      "scores": {
-        "content": <number_0_to_6>,
-        "form": <number_0_to_2>,
-        "developmentStructureCoherence": <number_0_to_6>,
-        "grammar": <number_0_to_2>,
-        "generalLinguisticRange": <number_0_to_6>,
-        "vocabularyRange": <number_0_to_2>,
-        "spelling": <number_0_to_2>
-      },
-      "feedback": {
-        "content": "Feedback on idea relevance (mention if 'idea chunks' were found).",
-        "form": "Feedback on form.",
-        "developmentStructureCoherence": "Feedback on structure.",
-        "grammar": "Feedback on grammar.",
-        "generalLinguisticRange": "Feedback on linguistic range.",
-        "vocabularyRange": "Feedback on vocabulary.",
-        "spelling": "Feedback on spelling."
-      },
-      "errorAnalysis": {
-        "grammarErrors": [
-          {
-            "text": "error text",
-            "type": "grammar",
-            "position": { "start": start position of word, "end": end position of word },
-            "context": { "before": "word before error (or empty string)", "after": "word after error (or empty string)" },
-            "correction": "correction",
-            "explanation": "explanation"
-          }
-        ],
-        "spellingErrors": [
-          {
-            "text": "error text",
-            "type": "spelling",
-            "position": { "start": start position of word, "end": end position of word },
-            "context": { "before": "word before error (or empty string)", "after": "word after error (or empty string)" },
-            "correction": "correction",
-            "explanation": "explanation"
-          }
-        ],
-        "vocabularyIssues": [
-          {
-            "text": "error text",
-            "type": "vocabulary",
-            "position": { "start": start position of word, "end": end position of word },
-            "context": { "before": "word before error (or empty string)", "after": "word after error (or empty string)" },
-            "correction": "correction",
-            "explanation": "explanation"
-          }
-        ]
-      },
-      "suggestions": ["Actionable tip 1.", "Actionable tip 2."]
-    }
-  `;
+**Format:** Return ONLY minified JSON.
+{
+  "scores": {
+    "content": 0, "form": 0, "developmentStructureCoherence": 0, "grammar": 0, 
+    "generalLinguisticRange": 0, "vocabularyRange": 0, "spelling": 0
+  },
+  "feedback": {
+    "content": "", "form": "", "developmentStructureCoherence": "", 
+    "grammar": "", "generalLinguisticRange": "", "vocabularyRange": "", "spelling": ""
+  },
+  "errorAnalysis": { "grammarErrors": [], "spellingErrors": [], "vocabularyIssues": [] },
+}
+`;
 
   try {
     const response = await openai.chat.completions.create({
@@ -3986,103 +3865,55 @@ async function evaluateSummarizeSpokenText(
     .split(/\s+/)
     .filter((word: string | any[]) => word.length > 0).length;
 
-  const prompt = `
-**Your Role:** You are an expert PTE Academic grader for the "Summarize Spoken Text" task.
-**Objective:** Evaluate the user's summary based on the official PTE scoring rubric. You must score the response on five distinct traits using the detailed rubrics below.
+const prompt = `
+**Role:** Expert PTE Grader (Summarize Spoken Text).
+**Input:** - Transcript: "${question.textContent}"
+- User Response: "${userText}"
+- Count: ${wordCount}
 
 ---
-### **Input for Evaluation**
+### **1. Pre-Scoring Evaluation (MANDATORY)**
+**Step A: Content selection:**
+- Identify "Important Idea Phrases": Main idea, key supporting points, emphasized concepts, and results.
+- **Rule:** Full paraphrasing is NOT required. Direct phrases from the lecture are ALLOWED.
+- **Goal:** Minimum 4–5 relevant phrases for full marks.
 
-* Task: Listen to audio and write a summary (50-70 words)
-* Audio Transcript: "${question.textContent}"
-* User's Summary: "${userText}"
-* **Word Count:** ${wordCount}
-* **Required Word Range:** ${question.wordCountMin || 50}-${question.wordCountMax || 70} words
-
----
-### **Evaluation Strategy (CRITICAL INSTRUCTIONS)**
-
-### **Step 0 — AUTHENTICITY & SYNTHESIS CHECK (PRE-CONDITION)**
-Before scoring Content, compare the User's Summary against the Audio Transcript.
-- **TRANSCRIPTION PENALTY:** If the response consists primarily of a verbatim (word-for-word) sequence of text copied directly from any part of the transcript without synthesis, restructuring, or condensation, it is a **Transcription**, not a **Summary**.
-- **RULE:** A response identified as a verbatim copy-paste **MUST NOT score higher than 1 for Content**, even if it technically captures the main ideas. Summarization requires active processing.
-
-### **Step 1 — IDEA COVERAGE CHECK (PRIMARY)**
-Evaluate whether the user's summary accurately captures the **CORE MESSAGE** and **MAIN IDEAS** of the audio.
-- Main ideas: Central topic, key causes, effects/consequences, and final outcomes.
-- **RULE:** If all main ideas are present, correct, and **synthesized**, the response is eligible for **Content = 4**.
-
-### **Step 2 — CONTENT COMPRESSION & SUFFICIENCY**
-- **COMPRESSION RULE:** When multiple related reasons or explanations are accurately combined into one clause or sentence, this is **FULL idea coverage**.
-- Do NOT penalize Content for removing specific examples while keeping meaning intact.
-
-### **Step 3 — PHRASE SUPPORT & FORM SEPARATION**
-- Phrase matching (3–5 words) is supporting evidence of comprehension but **must never override synthesis**.
-- Word count and Form penalties MUST NOT influence Content scoring.
+**Step B: Sentence Formation Check (CRITICAL):**
+- **Rule:** Must be ONE complete sentence.
+- **Strict Fragment Check:** Phrases like "the speaker mentioned that..." MUST be followed by a complete clause (Subject + Verb). If only keywords follow, apply Grammar penalty.
 
 ---
-### **Scoring Rubrics**
+### **2. Scoring Rubrics**
+1. **Content (0-4):** Priority is idea coverage over grammar.
+   - 4: Includes 4–5 key ideas logically connected.
+   - 3: 3 relevant ideas. 2: 2 ideas. 1: 1 idea. 0: Off-topic.
 
-**1. Content (Score from 0 to 4):**
-  4 — Full comprehension: Accurately summarizes ALL main ideas with **clear synthesis and condensation**.
-  3 — Adequate comprehension: Most main ideas captured; may rely on some transcript phrasing but shows processing.
-  2 — Partial comprehension: Some main ideas identified; weak synthesis or heavy over-reliance on transcript fragments.
-  1 — Limited comprehension / Verbatim Copying: Disconnected ideas OR **response is a verbatim copy-paste of a segment of the transcript**.
-  0 — No comprehension: Irrelevant, unintelligible, or keyword-only response.
+2. **Form (0-2):**
+   - 2: Exactly ONE complete sentence AND 5–75 words.
+   - 0: Not one sentence OR outside 5–75 word limit.
 
-**2. Form (Score from 0 to 2):**
-  * **2:** 50-70 words.
-  * **1:** 40-49 words or 71-100 words.
-  * **0:** Less than 40 / More than 100 words; or all caps/bullet points.
+3. **Grammar (0-2):** Base 2. Deduct **0.25 per error**.
+   - **Articles:** Check for "the" before specific phrases and "of" phrases (e.g., "the importance of...").
+   - **Continuous Form:** Verbs after "about, focuses on, related to, involves" MUST be in -ing form.
+   - **Parallelism:** Ensure verb forms match in lists (e.g., "reducing and protecting").
+   - **Connectors:** Words like "Firstly, Moreover, Overall" MUST be followed by a full clause.
 
-**3. Grammar (Score from 0 to 2):**
-  * **2:** Correct structures. No Article or Verb form errors.
-  * **1:** 1-2 minor errors that do not hinder communication.
-  * **0:** Multiple basic errors (Articles, V1/V3/V4 violations) or defective structure.
+4. **Vocabulary (0-2):** 2: Academic word choice. 1: Basic. 0: Poor choice/obscured meaning.
 
-**4. Vocabulary (Score from 0 to 2):**
-  * **2:** Appropriate choice of words.
-  * **1:** Minor lexical errors.
-  * **0:** Defective word choice that hinders communication.
-
-**5. Spelling (Score from 0 to 2):**
-  * **2:** Correct spelling.
-  * **1:** One spelling error.
-  * **0:** More than one spelling error.
+5. **Spelling (0-2):** Base 2. Deduct **0.5 per error**. Min 0.
 
 ---
-### **Error Analysis Instructions**
+### **3. Error Analysis & Output**
+**Positioning:** 0-indexed. Split on whitespace only.
+**Error Object:** {"text":"","type":"","position":{"start":0,"end":0},"context":{"before":"","after":""},"correction":"","explanation":""}
 
-**CRITICAL:** Provide detailed error analysis by identifying specific mistakes.
-- **POSITION CALCULATION:** Start from 0. Count by splitting on whitespace only.
-- For verbatim copy-pasting: Do not mark every word as an error, but highlight the copy-pasted section in the content feedback.
-
----
-### **Required Output Format**
-Your final output **must** be a single, minified JSON object with NO markdown.
-
+**Format:** Return ONLY minified JSON.
 {
-  "scores": {
-    "content": <number>,
-    "form": <number>,
-    "grammar": <number>,
-    "vocabulary": <number>,
-    "spelling": <number>
-  },
-  "feedback": {
-    "content": "Specific mention of whether the user summarized or just copy-pasted. If copied, explain the penalty.",
-    "form": "Feedback on length.",
-    "grammar": "Feedback on articles/verbs.",
-    "vocabulary": "Feedback on word choice.",
-    "spelling": "Feedback on spelling."
-  },
-  "errorAnalysis": {
-    "grammarErrors": [],
-    "spellingErrors": [],
-    "vocabularyIssues": []
-  }
+  "scores": {"content":0, "form":0, "grammar":0, "vocabulary":0, "spelling":0},
+  "feedback": {"content":"","form":"","grammar":"","vocabulary":"","spelling":""},
+  "errorAnalysis": {"grammarErrors":[], "spellingErrors":[], "vocabularyIssues":[] }
 }
-  `;
+`;
 
   try {
     const response = await openai.chat.completions.create({

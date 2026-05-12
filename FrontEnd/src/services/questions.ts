@@ -6,6 +6,7 @@ export interface CreateQuestionData {
   testId: string;
   orderInTest?: number;
   difficultyLevel?: 'EASY' | 'MEDIUM' | 'HARD';
+  predictionLevel?: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
   textContent?: string;
   questionStatement?: string; // For multiple choice questions
   audioKey?: string;
@@ -31,6 +32,7 @@ export interface QuestionFilters {
   questionType?: string;
   testId?: string;
   sectionId?: string;
+  predictionLevel?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }
@@ -155,6 +157,20 @@ class QuestionsService {
    */
   async getQuestionStats() {
     const response = await api.get('/admin/questions/stats');
+    return response.data;
+  }
+
+  /**
+   * Bulk update prediction level for multiple questions
+   */
+  async updatePredictionLevel(
+    questionIds: string[],
+    predictionLevel: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH'
+  ) {
+    const response = await api.put('/admin/questions/prediction-level', {
+      questionIds,
+      predictionLevel,
+    });
     return response.data;
   }
 }

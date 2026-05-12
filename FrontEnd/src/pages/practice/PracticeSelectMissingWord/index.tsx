@@ -2,22 +2,25 @@ import {
   BarChart3,
   ChevronLeft,
   ChevronRight,
-  XCircle,
   Filter,
   History,
   Info,
+  XCircle,
 } from 'lucide-react';
-import InlinePreviousAttempts from '../../../components/InlinePreviousAttempts';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import InlinePreviousAttempts from '../../../components/InlinePreviousAttempts';
 import MiniAudioPlayer from '../../../components/MiniAudioPlayer';
 import PreviousResponses from '../../../components/PreviousResponses';
 import QuestionSidebar from '../../../components/QuestionSidebar';
-import ResponseDetailModal from './ResponseDetailModal';
 import api from '../../../services/api';
-import { getPracticeQuestions } from '../../../services/portal';
+import {
+  getPracticeQuestionById,
+  getPracticeQuestions,
+} from '../../../services/portal';
 import { PteQuestionTypeName } from '../../../types/pte';
 import { formatScoringText } from '../../../utils/Helpers';
+import ResponseDetailModal from './ResponseDetailModal';
 
 export interface QuestionsData {
   id: string;
@@ -25,7 +28,7 @@ export interface QuestionsData {
   difficultyLevel: string;
   title: string;
   instructions: string;
-  hasUserResponses: boolean;
+  hasUserResponses?: boolean;
   content: Content;
 }
 
@@ -72,6 +75,17 @@ const PracticeSelectMissingWord: React.FC = () => {
   const [showPreviousResponses, setShowPreviousResponses] = useState(false);
   const [selectedResponse, setSelectedResponse] = useState<any>(null);
   const [showResponseModal, setShowResponseModal] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [paginationInfo, setPaginationInfo] = useState<{
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+    nextPage: number | null;
+    prevPage: number | null;
+  } | null>(null);
 
   const loadQuestions = useCallback(async () => {
     try {
@@ -90,6 +104,7 @@ const PracticeSelectMissingWord: React.FC = () => {
         options,
       );
       setQuestions(response.questions as QuestionsData[]);
+      setPaginationInfo(response.pagination);
       setCurrentIndex(0);
     } catch (err) {
       setError('Failed to load questions');
@@ -97,6 +112,41 @@ const PracticeSelectMissingWord: React.FC = () => {
       setIsLoading(false);
     }
   }, [difficultyLevel]);
+
+  const loadMoreQuestions = useCallback(async () => {
+    if (!paginationInfo?.hasNext || isLoadingMore) return 0;
+
+    try {
+      setIsLoadingMore(true);
+      const options: any = {
+        limit: 10,
+        random: false,
+        skip: paginationInfo.page * paginationInfo.limit,
+      };
+
+      if (difficultyLevel !== 'all') {
+        options.difficultyLevel = difficultyLevel;
+      }
+
+      const response = await getPracticeQuestions(
+        PteQuestionTypeName.SELECT_MISSING_WORD,
+        options,
+      );
+
+      if (response.questions && response.questions.length > 0) {
+        setQuestions((prev) => [...prev, ...response.questions]);
+        setPaginationInfo(response.pagination);
+        return response.questions.length;
+      }
+
+      return 0;
+    } catch (err) {
+      console.error('Failed to load more questions:', err);
+      return 0;
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [difficultyLevel, isLoadingMore, paginationInfo?.hasNext, paginationInfo?.limit, paginationInfo?.page]);
 
   useEffect(() => {
     loadQuestions();
@@ -186,9 +236,23 @@ const PracticeSelectMissingWord: React.FC = () => {
     elapsedSeconds,
   ]);
 
-  const handleNext = () => {
-    if (currentIndex < questions.length - 1) {
-      setCurrentIndex(currentIndex + 1);
+  const handleNext = async () => {
+    const isAtEnd = currentIndex >= questions.length - 1;
+
+    if (isAtEnd) {
+      const oldLength = questions.length;
+      const loadedCount = await loadMoreQuestions();
+      if (loadedCount > 0) {
+        setCurrentIndex(oldLength);
+      }
+      return;
+    }
+
+    const nextIndex = Math.min(questions.length - 1, currentIndex + 1);
+    setCurrentIndex(nextIndex);
+
+    if (nextIndex >= questions.length - 2 && paginationInfo?.hasNext) {
+      await loadMoreQuestions();
     }
   };
 
@@ -204,10 +268,31 @@ const PracticeSelectMissingWord: React.FC = () => {
     }
   };
 
-  const handleQuestionSelect = (questionId: string) => {
+  const handleQuestionSelect = async (questionId: string) => {
     const selectedIndex = questions.findIndex((q) => q.id === questionId);
+
     if (selectedIndex !== -1) {
       setCurrentIndex(selectedIndex);
+      setShowQuestionSidebar(false);
+      return;
+    }
+
+    try {
+      const selectedQuestion = await getPracticeQuestionById(questionId);
+      if (!selectedQuestion) {
+        setError('Unable to load the selected question.');
+        return;
+      }
+
+      const updatedQuestions = [...questions, selectedQuestion];
+      setQuestions(updatedQuestions);
+      setCurrentIndex(updatedQuestions.length - 1);
+    } catch (err: any) {
+      console.error('Failed to load selected question:', err);
+      setError(
+        err?.response?.data?.message || 'Failed to load selected question.',
+      );
+    } finally {
       setShowQuestionSidebar(false);
     }
   };
@@ -253,9 +338,6 @@ const PracticeSelectMissingWord: React.FC = () => {
           <div>
             <h1 className='text-2xl font-bold flex items-center gap-2 text-black dark:text-white'>
               Select Missing Word{' '}
-              <p className='text-gray-400 dark:text-gray-400 text-sm'>
-                (Question {currentIndex + 1} of {questions.length})
-              </p>
             </h1>
 
             <div className='flex flex-row items-center space-x-3 '>
@@ -438,7 +520,7 @@ const PracticeSelectMissingWord: React.FC = () => {
               <button
                 onClick={handleReset}
                 disabled={isSubmitting || !response.selectedWord}
-               className="px-6 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 font-semibold transition dark:text-white"
+                className='px-6 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 font-semibold transition dark:text-white'
               >
                 Reset
               </button>
@@ -723,7 +805,8 @@ const PracticeSelectMissingWord: React.FC = () => {
       {/* FOOTER */}
 
       <InlinePreviousAttempts
-        questionId={currentQuestion?.id} question={currentQuestion}
+        questionId={currentQuestion?.id}
+        question={currentQuestion}
         onViewResponse={handleViewResponse}
         className='mt-6'
       />
@@ -738,15 +821,16 @@ const PracticeSelectMissingWord: React.FC = () => {
         </button>
 
         <span className='text-gray-400 text-sm'>
-          {currentIndex + 1} / {questions.length}
+          {currentIndex + 1} / {paginationInfo ? Math.min(questions.length, paginationInfo.total) : questions.length}
+          {paginationInfo && paginationInfo.total > questions.length && ` (${paginationInfo.total} total)`}
         </span>
 
         <button
           onClick={handleNext}
-          disabled={currentIndex === questions.length - 1}
+          disabled={isLoadingMore}
           className='flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition'
         >
-          Next
+          {isLoadingMore ? 'Loading...' : 'Next'}
           <ChevronRight className='w-5 h-5' />
         </button>
       </div>
@@ -760,14 +844,11 @@ const PracticeSelectMissingWord: React.FC = () => {
         onQuestionSelect={handleQuestionSelect}
         practiceStatus='all'
         difficultyLevel={difficultyLevel}
-        onFilterChange={(filters) => {
-          setDifficultyLevel(filters.difficultyLevel);
-        }}
       />
 
       {/* Previous Attempts Modal Drawer */}
       <PreviousResponses
-        questionId={currentQuestion?.id} question={currentQuestion}
+        questionId={currentQuestion?.id}
         onViewResponse={handleViewResponse}
         isOpen={showPreviousResponses}
         onClose={() => setShowPreviousResponses(false)}

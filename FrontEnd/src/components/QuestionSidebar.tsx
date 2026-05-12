@@ -24,12 +24,8 @@ interface QuestionSidebarProps {
     questionId: string,
     action?: 'practice' | 'history'
   ) => void;
-  practiceStatus: 'practiced' | 'unpracticed' | 'all';
-  difficultyLevel: 'EASY' | 'MEDIUM' | 'HARD' | 'all';
-  onFilterChange: (filters: {
-    practiceStatus: 'practiced' | 'unpracticed' | 'all';
-    difficultyLevel: 'EASY' | 'MEDIUM' | 'HARD' | 'all';
-  }) => void;
+  practiceStatus?: 'practiced' | 'unpracticed' | 'all';
+  difficultyLevel?: 'EASY' | 'MEDIUM' | 'HARD' | 'all';
   className?: string;
 }
 
@@ -41,7 +37,6 @@ const QuestionSidebar: React.FC<QuestionSidebarProps> = ({
   onQuestionSelect,
   practiceStatus,
   difficultyLevel,
-  onFilterChange,
   className = '',
 }) => {
   const [questions, setQuestions] = useState<any[]>([]);
@@ -49,24 +44,42 @@ const QuestionSidebar: React.FC<QuestionSidebarProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [localPracticeStatus, setLocalPracticeStatus] = useState(
+    practiceStatus || 'all'
+  );
+  const [localDifficultyLevel, setLocalDifficultyLevel] = useState(
+    difficultyLevel || 'all'
+  );
 
   useEffect(() => {
-    if (isOpen && questionType) {
+    if (!isOpen) return;
+    setLocalPracticeStatus(practiceStatus || 'all');
+    setLocalDifficultyLevel(difficultyLevel || 'all');
+  }, [isOpen, practiceStatus, difficultyLevel, questionType]);
+
+  useEffect(() => {
+    if (!isOpen || !questionType) return;
+
+    const timeoutId = window.setTimeout(() => {
       fetchQuestions();
-    }
-  }, [isOpen, questionType, practiceStatus, difficultyLevel]);
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isOpen, questionType, localPracticeStatus, localDifficultyLevel, searchTerm]);
 
   const fetchQuestions = async () => {
     try {
       setIsLoading(true);
       setError(null);
 
-      const filters: any = {};
-      if (difficultyLevel !== 'all') {
-        filters.difficultyLevel = difficultyLevel;
+      const filters: any = {
+        searchTerm: searchTerm.trim() || undefined,
+      };
+      if (localDifficultyLevel !== 'all') {
+        filters.difficultyLevel = localDifficultyLevel;
       }
-      if (practiceStatus !== 'all') {
-        filters.practiceStatus = practiceStatus;
+      if (localPracticeStatus !== 'all') {
+        filters.practiceStatus = localPracticeStatus;
       }
 
       const response = await getQuestionList(questionType, filters);
@@ -98,9 +111,7 @@ const QuestionSidebar: React.FC<QuestionSidebarProps> = ({
     return 'text-red-600 dark:text-red-400';
   };
 
-  const filteredQuestions = questions.filter((question) =>
-    question.questionCode.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredQuestions = questions;
 
   if (!isOpen) return null;
 
@@ -177,13 +188,11 @@ const QuestionSidebar: React.FC<QuestionSidebarProps> = ({
                   Practice Status
                 </label>
                 <select
-                  value={practiceStatus}
-                  onChange={(e) =>
-                    onFilterChange({
-                      practiceStatus: e.target.value as any,
-                      difficultyLevel,
-                    })
-                  }
+                  value={localPracticeStatus}
+                  onChange={(e) => {
+                    const newStatus = e.target.value as any;
+                    setLocalPracticeStatus(newStatus);
+                  }}
                   className='w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
                 >
                   <option value='all'>All Questions</option>
@@ -197,13 +206,11 @@ const QuestionSidebar: React.FC<QuestionSidebarProps> = ({
                   Difficulty Level
                 </label>
                 <select
-                  value={difficultyLevel}
-                  onChange={(e) =>
-                    onFilterChange({
-                      practiceStatus,
-                      difficultyLevel: e.target.value as any,
-                    })
-                  }
+                  value={localDifficultyLevel}
+                  onChange={(e) => {
+                    const newLevel = e.target.value as any;
+                    setLocalDifficultyLevel(newLevel);
+                  }}
                   className='w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
                 >
                   <option value='all'>All Levels</option>
@@ -284,7 +291,7 @@ const QuestionSidebar: React.FC<QuestionSidebarProps> = ({
                             question.bestScore || 0
                           )}`}
                         >
-                          Best: {Math.round(question.bestScore || 0)}%
+                          Best: {Math.round(question.bestScore || 0)}
                         </span>
                       </div>
                       <div className='flex items-center space-x-1 text-gray-500 dark:text-gray-400'>

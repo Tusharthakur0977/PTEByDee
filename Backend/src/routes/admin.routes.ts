@@ -47,6 +47,7 @@ import { createQuestion } from '../controllers/Admin/createQuestion.controller';
 import { getAllQuestions } from '../controllers/Admin/getAllQuestions.controller';
 import { updateQuestion } from '../controllers/Admin/updateQuestion.controller';
 import { deleteQuestion } from '../controllers/Admin/deleteQuestion.controller';
+import { updatePredictionLevel } from '../controllers/Admin/updatePredictionLevel.controller';
 import { getQuestionTypes } from '../controllers/Admin/getQuestionTypes.controller';
 import { getTests } from '../controllers/Admin/getTests.controller';
 import { uploadQuestionAudio } from '../controllers/Admin/uploadQuestionAudio.controller';
@@ -178,6 +179,12 @@ router.patch(
 // Question management routes
 router.post('/questions', protect, isAdmin, createQuestion);
 router.get('/questions', protect, isAdmin, getAllQuestions);
+router.put(
+  '/questions/prediction-level',
+  protect,
+  isAdmin,
+  updatePredictionLevel
+);
 router.get(
   '/questions/next-code/:questionTypeId',
   protect,

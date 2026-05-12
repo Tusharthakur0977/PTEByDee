@@ -17,37 +17,130 @@ import AudioRecorder from '../../../components/AudioRecorder';
 import PreviousResponses from '../../../components/PreviousResponses';
 import QuestionSidebar from '../../../components/QuestionSidebar';
 import api from '../../../services/api';
-import { getPracticeQuestions } from '../../../services/portal';
-import { PteQuestionTypeName } from '../../../types/pte';
 import {
-  formatScoringText,
-  playBeep,
-} from '../../../utils/Helpers';
+  getPracticeQuestionById,
+  getPracticeQuestions,
+  PracticeQuestion,
+} from '../../../services/portal';
+import { PteQuestionTypeName } from '../../../types/pte';
+import { formatScoringText, playBeep } from '../../../utils/Helpers';
 import ResponseDetailModal from './ResponseDetailModal';
 
-export interface QuestionsData {
-  id: string;
-  type: string;
-  difficultyLevel: string;
-  title: string;
-  instructions: string;
-  hasUserResponses: boolean;
-  content: Content;
+export interface ReadAloudEvaluationData {
+  responseId: string;
+  evaluation: Evaluation;
+  question: Question;
+  timeTaken: number;
+  transcribedText: string;
 }
 
-export interface Content {
+export interface Evaluation {
+  score: Score;
+  isCorrect: boolean;
+  feedback: string;
+  detailedAnalysis: DetailedAnalysis;
+  suggestions: string[];
+}
+
+export interface Score {
+  scored: number;
+  max: number;
+}
+
+export interface DetailedAnalysis {
+  scores: Scores;
+  feedback: Feedback;
+  timeTaken: number;
+  userText: string;
+  correctAnswer: string;
+  wordByWordAnalysis: WordByWordAnalysis[];
+  errorAnalysis: ErrorAnalysis;
+  speechFlow?: SpeechFlow;
+}
+
+export interface Scores {
+  content: ContentScore;
+  pronunciation: PronunciationScore;
+  oralFluency: OralFluencyScore;
+}
+
+export interface ContentScore {
+  score: number;
+  max: number;
+}
+
+export interface PronunciationScore {
+  score: number;
+  max: number;
+}
+
+export interface OralFluencyScore {
+  score: number;
+  max: number;
+}
+
+export interface Feedback {
+  summary: string;
+  content: string;
+  pronunciation: string;
+  oralFluency: string;
+}
+
+export interface WordByWordAnalysis {
+  word: string;
+  status: string;
+}
+
+export interface ErrorAnalysis {
+  pronunciationErrors: PronunciationError[];
+  fluencyErrors: any[];
+  contentErrors: any[];
+}
+
+export interface SpeechFlow {
+  pauseMarkers?: PauseMarker[];
+  totalPauseCount?: number;
+  totalPausedMs?: number;
+  longestPauseMs?: number;
+  timingAvailable?: boolean;
+  timedWordCount?: number;
+  mappedWordCount?: number;
+  aiInferredFluencyCount?: number;
+}
+
+export interface PauseMarker {
+  afterWord: string;
+  beforeWord: string;
+  afterWordIndex: number;
+  beforeWordIndex: number;
+  durationMs: number;
+  durationSeconds: number;
+  severity: 'hesitation' | 'pause' | 'long_pause';
+}
+
+export interface PronunciationError {
   text: string;
-  audioUrl: any;
-  imageUrl: string;
-  options: any[];
-  timeLimit: number;
-  preparationTime: number;
-  recordingTime: number;
+  type: string;
+  position: Position;
+  correction: string;
+  explanation: string;
+}
+
+export interface Position {
+  start: number;
+  end: number;
+}
+
+export interface Question {
+  id: string;
+  questionCode: string;
+  questionType: string;
+  sectionName: string;
 }
 
 const PracticeReadAloud: React.FC = () => {
   const navigate = useNavigate();
-  const [questions, setQuestions] = useState<QuestionsData[]>([]);
+  const [questions, setQuestions] = useState<PracticeQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,12 +154,26 @@ const PracticeReadAloud: React.FC = () => {
   // Audio and evaluation features
   const [isCompleted, setIsCompleted] = useState(false);
   const [isAudioReady, setIsAudioReady] = useState(false);
-  const [evaluationResult, setEvaluationResult] = useState<Data | null>(null);
+  const [evaluationResult, setEvaluationResult] =
+    useState<ReadAloudEvaluationData | null>(null);
   const [resetKey, setResetKey] = useState(0);
   const [showPreviousResponses, setShowPreviousResponses] = useState(false);
   const [selectedResponse, setSelectedResponse] = useState<any>(null);
   const [showResponseModal, setShowResponseModal] = useState(false);
   const [uploadedAudioUrl, setUploadedAudioUrl] = useState<any>({});
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [totalAvailable, setTotalAvailable] = useState(0);
+  const [questionsOffset, setQuestionsOffset] = useState(0);
+  const [paginationInfo, setPaginationInfo] = useState<{
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+    nextPage: number | null;
+    prevPage: number | null;
+  } | null>(null);
 
   const [selectedError, setSelectedError] = useState<any>(null);
 
@@ -92,7 +199,7 @@ const PracticeReadAloud: React.FC = () => {
 
   const getPauseGapClass = (severity: PauseMarker['severity']) => {
     if (severity === 'long_pause') {
-      return 'border-rose-500/70 bg-rose-500/10 dark:border-rose-400/90 dark:bg-rose-400/20';
+      return 'border-yellow-600/80 bg-yellow-500/20 dark:border-yellow-400/90 dark:bg-yellow-400/20';
     }
     if (severity === 'pause') {
       return 'border-amber-500/70 bg-amber-500/10 dark:border-amber-400/90 dark:bg-amber-400/20';
@@ -107,7 +214,8 @@ const PracticeReadAloud: React.FC = () => {
   };
 
   const getPauseWordClass = (severity: PauseMarker['severity']) => {
-    if (severity === 'long_pause') return 'text-rose-700 dark:text-rose-300';
+    if (severity === 'long_pause')
+      return 'text-yellow-800 dark:text-yellow-300';
     if (severity === 'pause') return 'text-amber-700 dark:text-amber-300';
     return 'text-yellow-700 dark:text-yellow-300';
   };
@@ -128,14 +236,15 @@ const PracticeReadAloud: React.FC = () => {
 
   const renderCombinedTranscript = (
     spokenText: string,
-    wordAnalysis: WordByWordAnalysi[],
+    wordAnalysis: WordByWordAnalysis[],
     pauseMarkers: PauseMarker[],
   ) => {
     const spokenWords = String(spokenText || '')
       .split(/\s+/)
       .filter((word) => word.length > 0);
 
-    if (!spokenWords.length && (!wordAnalysis || wordAnalysis.length === 0)) return null;
+    if (!spokenWords.length && (!wordAnalysis || wordAnalysis.length === 0))
+      return null;
 
     const pauseMap = new Map<number, PauseMarker[]>();
     const pauseWordSeverity = new Map<number, PauseMarker['severity']>();
@@ -149,15 +258,34 @@ const PracticeReadAloud: React.FC = () => {
       const currentAfter = pauseWordSeverity.get(pause.afterWordIndex);
       const currentBefore = pauseWordSeverity.get(pause.beforeWordIndex);
       const severityRank = { hesitation: 1, pause: 2, long_pause: 3 } as const;
-      if (!currentAfter || severityRank[pause.severity] > severityRank[currentAfter]) {
+      if (
+        !currentAfter ||
+        severityRank[pause.severity] > severityRank[currentAfter]
+      ) {
         pauseWordSeverity.set(pause.afterWordIndex, pause.severity);
       }
-      if (!currentBefore || severityRank[pause.severity] > severityRank[currentBefore]) {
+      if (
+        !currentBefore ||
+        severityRank[pause.severity] > severityRank[currentBefore]
+      ) {
         pauseWordSeverity.set(pause.beforeWordIndex, pause.severity);
       }
     });
 
     const result: React.ReactNode[] = [];
+    const statusByIndex = new Map<number, string>();
+
+    analysisWords.forEach((entry, index) => {
+      const position = (entry as any)?.position;
+      const start =
+        typeof position?.start === 'number' ? Math.floor(position.start) : -1;
+      const status = String(entry?.status || '').toLowerCase();
+      if (start >= 0 && start < spokenWords.length) {
+        statusByIndex.set(start, status);
+      } else if (index >= 0 && index < spokenWords.length) {
+        statusByIndex.set(index, status);
+      }
+    });
 
     const pushWord = (
       word: string,
@@ -165,14 +293,16 @@ const PracticeReadAloud: React.FC = () => {
       keyPrefix: string,
       wordIndex?: number,
     ) => {
-      const pauseList = wordIndex !== undefined ? pauseMap.get(wordIndex) || [] : [];
+      const pauseList =
+        wordIndex !== undefined ? pauseMap.get(wordIndex) || [] : [];
       const pause =
         pauseList.length > 0
           ? [...pauseList].sort((a, b) => b.durationMs - a.durationMs)[0]
           : null;
 
       const isPunctuationOnly = /^[\s.,!?;:'"()\-]+$/.test(word);
-      const wordSeverity = wordIndex !== undefined ? pauseWordSeverity.get(wordIndex) : undefined;
+      const wordSeverity =
+        wordIndex !== undefined ? pauseWordSeverity.get(wordIndex) : undefined;
 
       result.push(
         <span
@@ -180,7 +310,9 @@ const PracticeReadAloud: React.FC = () => {
           className={`whitespace-pre-wrap ${
             !isPunctuationOnly
               ? `rounded-md px-1 py-0.5 ${getWordStatusClass(status)} ${
-                  wordSeverity ? `${getPauseWordClass(wordSeverity)} font-medium` : ''
+                  wordSeverity
+                    ? `${getPauseWordClass(wordSeverity)} font-medium`
+                    : ''
                 }`
               : ''
           }`}
@@ -203,35 +335,23 @@ const PracticeReadAloud: React.FC = () => {
               {pause.durationSeconds.toFixed(2)} seconds
             </span>
             <span className='pointer-events-none absolute -top-5 left-1/2 hidden -translate-x-1/2 whitespace-nowrap rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600 shadow-sm group-hover:block dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200'>
-              {formatPauseSeverity(pause.severity)} {pause.durationSeconds.toFixed(2)}s
+              {formatPauseSeverity(pause.severity)}{' '}
+              {pause.durationSeconds.toFixed(2)}s
             </span>
           </span>,
         );
       }
     };
 
-    if (analysisWords.length > 0) {
-      analysisWords.forEach((entry, index) => {
-        const status = String(entry?.status || '').toLowerCase();
-        pushWord(String(entry?.word || ''), status, `analysis-${index}`, index);
-
-        if (index < analysisWords.length - 1) {
-          result.push(
-            <span key={`space-${index}`} className='whitespace-pre-wrap'>
-              {' '}
-            </span>,
-          );
-        }
-      });
-      return <span>{result}</span>;
-    }
-
     spokenWords.forEach((word, index) => {
-      pushWord(word, '', `spoken-${index}`, index);
+      pushWord(word, statusByIndex.get(index) || '', `spoken-${index}`, index);
 
       if (index < spokenWords.length - 1) {
         result.push(
-          <span key={`space-${index}`} className='whitespace-pre-wrap'>
+          <span
+            key={`space-${index}`}
+            className='whitespace-pre-wrap'
+          >
             {' '}
           </span>,
         );
@@ -245,7 +365,7 @@ const PracticeReadAloud: React.FC = () => {
     try {
       setIsLoading(true);
       const options: any = {
-        limit: 100,
+        limit: 10,
         random: false,
       };
 
@@ -257,14 +377,59 @@ const PracticeReadAloud: React.FC = () => {
         PteQuestionTypeName.READ_ALOUD,
         options,
       );
-      setQuestions(response.questions as QuestionsData[]);
+      setQuestions(response.questions);
       setCurrentIndex(0);
+      setQuestionsOffset(0);
+      setTotalAvailable(response.total || 0);
+      setPaginationInfo(response.pagination);
     } catch (err) {
       setError('Failed to load questions');
     } finally {
       setIsLoading(false);
     }
   }, [difficultyLevel]);
+
+  const loadMoreQuestions = useCallback(async () => {
+    if (!paginationInfo?.hasNext) {
+      return 0;
+    }
+
+    try {
+      setIsLoadingMore(true);
+      const options: any = {
+        limit: 10,
+        random: false,
+        skip: paginationInfo.page * paginationInfo.limit,
+      };
+
+      if (difficultyLevel !== 'all') {
+        options.difficultyLevel = difficultyLevel;
+      }
+
+      const response = await getPracticeQuestions(
+        PteQuestionTypeName.READ_ALOUD,
+        options,
+      );
+
+      if (response.questions && response.questions.length > 0) {
+        setQuestions((prev) => [...prev, ...response.questions]);
+        setPaginationInfo(response.pagination);
+        return response.questions.length;
+      }
+
+      return 0;
+    } catch (err) {
+      console.error('Failed to load more questions:', err);
+      return 0;
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [
+    difficultyLevel,
+    paginationInfo?.page,
+    paginationInfo?.limit,
+    paginationInfo?.hasNext,
+  ]);
 
   useEffect(() => {
     loadQuestions();
@@ -425,10 +590,33 @@ const PracticeReadAloud: React.FC = () => {
 
   const currentQuestion = questions[currentIndex];
 
-  const handleQuestionSelect = (questionId: string) => {
+  const handleQuestionSelect = async (questionId: string) => {
     const selectedIndex = questions.findIndex((q) => q.id === questionId);
+
     if (selectedIndex !== -1) {
       setCurrentIndex(selectedIndex);
+      setShowQuestionSidebar(false);
+      return;
+    }
+
+    try {
+      const selectedQuestion = (await getPracticeQuestionById(
+        questionId,
+      )) as PracticeQuestion;
+      if (!selectedQuestion) {
+        setError('Unable to load the selected question.');
+        return;
+      }
+
+      const updatedQuestions = [...questions, selectedQuestion];
+      setQuestions(updatedQuestions);
+      setCurrentIndex(updatedQuestions.length - 1);
+    } catch (err: any) {
+      console.error('Failed to load selected question:', err);
+      setError(
+        err?.response?.data?.message || 'Failed to load selected question.',
+      );
+    } finally {
       setShowQuestionSidebar(false);
     }
   };
@@ -454,9 +642,6 @@ const PracticeReadAloud: React.FC = () => {
           <div>
             <h1 className='text-2xl font-bold flex items-center gap-2 text-black dark:text-white'>
               Read Aloud{' '}
-              <p className='text-gray-400 dark:text-gray-400 text-sm'>
-                (Question {currentIndex + 1} of {questions.length})
-              </p>
             </h1>
 
             <div className='flex flex-row items-center space-x-3 '>
@@ -914,16 +1099,40 @@ const PracticeReadAloud: React.FC = () => {
         </button>
 
         <span className='text-gray-400 text-sm'>
-          {currentIndex + 1} / {questions.length}
+          {currentIndex + 1} /{' '}
+          {paginationInfo
+            ? Math.min(questions.length, paginationInfo.total)
+            : questions.length}
+          {paginationInfo &&
+            paginationInfo.total > questions.length &&
+            ` (${paginationInfo.total} total)`}
         </span>
 
         <button
-          onClick={() =>
-            setCurrentIndex((i) => Math.min(questions.length - 1, i + 1))
-          }
-          className='flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg'
+          onClick={async () => {
+            const isAtEnd = currentIndex >= questions.length - 1;
+
+            if (isAtEnd) {
+              const oldLength = questions.length;
+              const loadedCount = await loadMoreQuestions();
+              if (loadedCount > 0) {
+                setCurrentIndex(oldLength);
+              }
+              return;
+            }
+
+            const nextIndex = Math.min(questions.length - 1, currentIndex + 1);
+            setCurrentIndex(nextIndex);
+
+            // Try to preload more if near the end
+            if (nextIndex >= questions.length - 2 && paginationInfo?.hasNext) {
+              await loadMoreQuestions();
+            }
+          }}
+          disabled={isLoadingMore}
+          className='flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50'
         >
-          Next
+          {isLoadingMore ? 'Loading...' : 'Next'}
           <ChevronRight className='w-4 h-4' />
         </button>
       </div>
@@ -1068,9 +1277,6 @@ const PracticeReadAloud: React.FC = () => {
         onQuestionSelect={handleQuestionSelect}
         practiceStatus='all'
         difficultyLevel={difficultyLevel}
-        onFilterChange={(filters) => {
-          setDifficultyLevel(filters.difficultyLevel);
-        }}
       />
 
       {/* Previous Attempts Modal Drawer (Mobile/Tablet) */}
@@ -1095,7 +1301,7 @@ const PracticeReadAloud: React.FC = () => {
 
 export default PracticeReadAloud;
 
-export interface Data {
+export interface ReadAloudEvaluationData {
   responseId: string;
   evaluation: Evaluation;
   question: Question;
@@ -1122,28 +1328,28 @@ export interface DetailedAnalysis {
   timeTaken: number;
   userText: string;
   correctAnswer: string;
-  wordByWordAnalysis: WordByWordAnalysi[];
+  wordByWordAnalysis: WordByWordAnalysis[];
   errorAnalysis: ErrorAnalysis;
   speechFlow?: SpeechFlow;
 }
 
 export interface Scores {
-  content: Content;
-  pronunciation: Pronunciation;
-  oralFluency: OralFluency;
+  content: ContentScore;
+  pronunciation: PronunciationScore;
+  oralFluency: OralFluencyScore;
 }
 
-export interface Content {
+export interface ContentScore {
   score: number;
   max: number;
 }
 
-export interface Pronunciation {
+export interface PronunciationScore {
   score: number;
   max: number;
 }
 
-export interface OralFluency {
+export interface OralFluencyScore {
   score: number;
   max: number;
 }
@@ -1155,7 +1361,7 @@ export interface Feedback {
   oralFluency: string;
 }
 
-export interface WordByWordAnalysi {
+export interface WordByWordAnalysis {
   word: string;
   status: string;
 }

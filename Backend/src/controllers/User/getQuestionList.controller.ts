@@ -13,8 +13,7 @@ import jwt from 'jsonwebtoken';
 export const getQuestionList = asyncHandler(
   async (req: Request, res: Response) => {
     const { questionType } = req.params;
-    const { difficultyLevel, practiceStatus } = req.query;
-
+  const { difficultyLevel, practiceStatus, searchTerm } = req.query;
     try {
       if (!questionType) {
         return sendResponse(
@@ -70,6 +69,31 @@ export const getQuestionList = asyncHandler(
       // Add difficulty filter
       if (difficultyLevel && difficultyLevel !== 'all') {
         whereClause.difficultyLevel = difficultyLevel;
+      }
+
+      // Add search term filter
+      if (searchTerm && String(searchTerm).trim() !== '') {
+        const searchValue = String(searchTerm).trim();
+        whereClause.OR = [
+          {
+            questionCode: {
+              contains: searchValue,
+              mode: 'insensitive',
+            },
+          },
+          {
+            textContent: {
+              contains: searchValue,
+              mode: 'insensitive',
+            },
+          },
+          {
+            questionStatement: {
+              contains: searchValue,
+              mode: 'insensitive',
+            },
+          },
+        ];
       }
 
       // Add practice status filter (only if user is authenticated)

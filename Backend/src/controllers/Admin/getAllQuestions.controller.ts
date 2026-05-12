@@ -19,6 +19,7 @@ export const getAllQuestions = asyncHandler(
         search = '',
         questionType,
         sectionId,
+        predictionLevel,
         sortBy = 'createdAt',
         sortOrder = 'desc',
       } = req.query;
@@ -66,6 +67,11 @@ export const getAllQuestions = asyncHandler(
       }
       if (Object.keys(questionTypeFilter).length > 0) {
         whereClause.questionType = questionTypeFilter;
+      }
+
+      // Filter by prediction level
+      if (predictionLevel && predictionLevel !== 'ALL') {
+        whereClause.predictionLevel = predictionLevel;
       }
 
       // Build orderBy clause

@@ -18,9 +18,13 @@ import MiniAudioPlayer from '../../../components/MiniAudioPlayer';
 import PreviousResponses from '../../../components/PreviousResponses';
 import QuestionSidebar from '../../../components/QuestionSidebar';
 import api from '../../../services/api';
-import { getPracticeQuestions } from '../../../services/portal';
+import {
+  getPracticeQuestionById,
+  getPracticeQuestions,
+} from '../../../services/portal';
 import { PteQuestionTypeName } from '../../../types/pte';
 import { formatScoringText, playBeep } from '../../../utils/Helpers';
+import { renderRepeatSentenceTranscriptAligned } from '../../../utils/repeatSentenceTranscriptRenderer';
 import ResponseDetailModal from './ResponseDetailModal';
 
 export interface QuestionsData {
@@ -29,7 +33,7 @@ export interface QuestionsData {
   difficultyLevel: string;
   title: string;
   instructions: string;
-  hasUserResponses: boolean;
+  hasUserResponses?: boolean;
   content: Content;
 }
 
@@ -69,6 +73,19 @@ const PracticeRepeatSentence: React.FC = () => {
 
   const [selectedError, setSelectedError] = useState<any>(null);
 
+  // Pagination state
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [paginationInfo, setPaginationInfo] = useState<{
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+    nextPage: number | null;
+    prevPage: number | null;
+  } | null>(null);
+
   const audioPlayerRef = useRef<any>(null);
   const audioRecorderRef = useRef<any>(null);
 
@@ -76,7 +93,7 @@ const PracticeRepeatSentence: React.FC = () => {
     try {
       setIsLoading(true);
       const options: any = {
-        limit: 100,
+        limit: 10,
         random: false,
       };
 
@@ -89,6 +106,7 @@ const PracticeRepeatSentence: React.FC = () => {
         options,
       );
       setQuestions(response.questions as QuestionsData[]);
+      setPaginationInfo(response.pagination);
       setCurrentIndex(0);
     } catch (err) {
       setError('Failed to load questions');
@@ -96,6 +114,33 @@ const PracticeRepeatSentence: React.FC = () => {
       setIsLoading(false);
     }
   }, [difficultyLevel]);
+
+  const loadMoreQuestions = useCallback(async () => {
+    if (!paginationInfo?.hasNext || isLoadingMore) return 0;
+
+    try {
+      setIsLoadingMore(true);
+      const options: any = {
+        limit: 10,
+        random: false,
+          skip: paginationInfo.page * paginationInfo.limit,
+      };
+
+      const response = await getPracticeQuestions(
+        PteQuestionTypeName.REPEAT_SENTENCE,
+        options,
+      );
+
+      setQuestions(prev => [...prev, ...response.questions]);
+      setPaginationInfo(response.pagination);
+      return response.questions.length;
+    } catch (err) {
+      console.error('Failed to load more questions:', err);
+      return 0;
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [paginationInfo, difficultyLevel, isLoadingMore]);
 
   useEffect(() => {
     loadQuestions();
@@ -235,10 +280,31 @@ const PracticeRepeatSentence: React.FC = () => {
 
   const currentQuestion = questions[currentIndex];
 
-  const handleQuestionSelect = (questionId: string) => {
+  const handleQuestionSelect = async (questionId: string) => {
     const selectedIndex = questions.findIndex((q) => q.id === questionId);
+
     if (selectedIndex !== -1) {
       setCurrentIndex(selectedIndex);
+      setShowQuestionSidebar(false);
+      return;
+    }
+
+    try {
+      const selectedQuestion = await getPracticeQuestionById(questionId);
+      if (!selectedQuestion) {
+        setError('Unable to load the selected question.');
+        return;
+      }
+
+      const updatedQuestions = [...questions, selectedQuestion];
+      setQuestions(updatedQuestions);
+      setCurrentIndex(updatedQuestions.length - 1);
+    } catch (err: any) {
+      console.error('Failed to load selected question:', err);
+      setError(
+        err?.response?.data?.message || 'Failed to load selected question.',
+      );
+    } finally {
       setShowQuestionSidebar(false);
     }
   };
@@ -287,6 +353,8 @@ const PracticeRepeatSentence: React.FC = () => {
         .toLowerCase()
         .replace(/^[^\w]+|[^\w]+$/g, '');
 
+    const analysisWords = Array.isArray(wordAnalysis) ? wordAnalysis : [];
+
     const referenceWords = (wordAnalysis || []).filter(
       (word) => String(word?.status || '').toLowerCase() !== 'inserted',
     );
@@ -299,7 +367,8 @@ const PracticeRepeatSentence: React.FC = () => {
     });
 
     const gapClass = (severity: PauseMarker['severity']) => {
-      if (severity === 'long_pause') return 'border-rose-500/80 bg-rose-500/20';
+      if (severity === 'long_pause')
+        return 'border-yellow-600/80 bg-yellow-500/20';
       if (severity === 'pause') return 'border-amber-500/80 bg-amber-500/20';
       return 'border-yellow-500/80 bg-yellow-500/20';
     };
@@ -373,6 +442,26 @@ const PracticeRepeatSentence: React.FC = () => {
         );
       }
     };
+
+    if (analysisWords.length > 0) {
+      analysisWords.forEach((entry, index) => {
+        const status = String(entry?.status || '').toLowerCase();
+        pushWord(String(entry?.word || ''), status, `analysis-${index}`, index);
+
+        if (index < analysisWords.length - 1) {
+          result.push(
+            <span
+              key={`space-${index}`}
+              className='whitespace-pre-wrap'
+            >
+              {' '}
+            </span>,
+          );
+        }
+      });
+
+      return <span>{result}</span>;
+    }
 
     while (
       refIndex < referenceWords.length ||
@@ -486,9 +575,6 @@ const PracticeRepeatSentence: React.FC = () => {
           <div>
             <h1 className='text-2xl font-bold flex items-center gap-2 text-black dark:text-white'>
               Repeat Sentence{' '}
-              <p className='text-gray-400 dark:text-gray-400 text-sm'>
-                (Question {currentIndex + 1} of {questions.length})
-              </p>
             </h1>
 
             <div className='flex flex-row items-center space-x-3 '>
@@ -770,15 +856,29 @@ const PracticeRepeatSentence: React.FC = () => {
                           <div className='space-y-3 not-italic'>
                             <div className='rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm leading-8 text-gray-800 shadow-sm dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-100'>
                               <p className='leading-8'>
-                                {renderCombinedRepeatSentenceTranscript(
-                                  evaluationResult.evaluation.detailedAnalysis
-                                    .userText,
-                                  evaluationResult.evaluation.detailedAnalysis
-                                    .wordByWordAnalysis,
-                                  (evaluationResult.evaluation.detailedAnalysis
-                                    .speechFlow?.pauseMarkers ||
-                                    []) as PauseMarker[],
-                                )}
+                                {renderRepeatSentenceTranscriptAligned({
+                                  spokenText:
+                                    evaluationResult.evaluation.detailedAnalysis
+                                      .userText,
+                                  originalText:
+                                    currentQuestion?.content?.text ||
+                                    evaluationResult.evaluation.detailedAnalysis
+                                      .correctAnswer ||
+                                    '',
+                                  wordAnalysis:
+                                    evaluationResult.evaluation.detailedAnalysis
+                                      .wordByWordAnalysis,
+                                  pauseMarkers: (
+                                    evaluationResult.evaluation.detailedAnalysis
+                                      .speechFlow?.pauseMarkers || []
+                                  ).map((pm) => ({
+                                    ...pm,
+                                    afterWord: pm.afterWord || '',
+                                    beforeWord: pm.beforeWord || '',
+                                    durationMs:
+                                      pm.durationMs || pm.durationSeconds * 1000,
+                                  })),
+                                })}
                               </p>
                             </div>
 
@@ -893,16 +993,35 @@ const PracticeRepeatSentence: React.FC = () => {
         </button>
 
         <span className='text-gray-400 text-sm'>
-          {currentIndex + 1} / {questions.length}
+          {currentIndex + 1} / {paginationInfo ? Math.min(questions.length, paginationInfo.total) : questions.length}
+          {paginationInfo && paginationInfo.total > questions.length && ` (${paginationInfo.total} total)`}
         </span>
 
         <button
-          onClick={() =>
-            setCurrentIndex((i) => Math.min(questions.length - 1, i + 1))
-          }
-          className='flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg'
+          onClick={async () => {
+            const isAtEnd = currentIndex >= questions.length - 1;
+
+            if (isAtEnd) {
+              const oldLength = questions.length;
+              const loadedCount = await loadMoreQuestions();
+              if (loadedCount > 0) {
+                setCurrentIndex(oldLength);
+              }
+              return;
+            }
+
+            const nextIndex = Math.min(questions.length - 1, currentIndex + 1);
+            setCurrentIndex(nextIndex);
+
+            // Try to preload more if near the end
+            if (nextIndex >= questions.length - 2 && paginationInfo?.hasNext) {
+              await loadMoreQuestions();
+            }
+          }}
+          disabled={isLoadingMore}
+          className='flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50'
         >
-          Next
+          {isLoadingMore ? 'Loading...' : 'Next'}
           <ChevronRight className='w-4 h-4' />
         </button>
       </div>
@@ -1044,9 +1163,6 @@ const PracticeRepeatSentence: React.FC = () => {
         onQuestionSelect={handleQuestionSelect}
         practiceStatus='all'
         difficultyLevel={difficultyLevel}
-        onFilterChange={(filters) => {
-          setDifficultyLevel(filters.difficultyLevel);
-        }}
       />
       {/* Previous Attempts Modal Drawer (Mobile/Tablet) */}
       <PreviousResponses
@@ -1136,8 +1252,11 @@ export interface WordByWordAnalysi {
 }
 
 export interface PauseMarker {
+  afterWord?: string;
+  beforeWord?: string;
   afterWordIndex: number;
   beforeWordIndex: number;
+  durationMs: number;
   durationSeconds: number;
   severity: 'hesitation' | 'pause' | 'long_pause';
 }

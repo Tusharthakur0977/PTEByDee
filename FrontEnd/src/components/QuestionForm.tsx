@@ -15,8 +15,7 @@ import api from '../services/api';
 import QuestionImageUpload from './QuestionImageUpload';
 import { describeImageTypeOptions } from '../constants/describeImageTypes';
 
-const modalOverlayClass =
-  'fixed inset-0 z-50 overflow-y-auto bg-slate-950/70';
+const modalOverlayClass = 'fixed inset-0 z-50 overflow-y-auto bg-slate-950/70';
 const modalContentClass =
   'relative inline-block transform overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-2xl transition-all dark:border-slate-800 dark:bg-slate-950';
 const panelClass =
@@ -48,6 +47,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
     testId: question?.test?.id || '',
     orderInTest: question?.orderInTest || 1,
     difficultyLevel: question?.difficultyLevel || 'MEDIUM',
+    predictionLevel: question?.predictionLevel || 'NONE',
     textContent: question?.textContent || '',
     questionStatement: question?.questionStatement || '',
     audioKey: question?.audioUrl || '',
@@ -79,13 +79,13 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
   const [loadingPreview, setLoadingPreview] = useState(false);
 
   const isSingleAnswerQuestion = Boolean(
-    selectedQuestionType?.name?.includes('SINGLE_ANSWER')
+    selectedQuestionType?.name?.includes('SINGLE_ANSWER'),
   );
   const isMultipleChoiceQuestion = Boolean(
-    selectedQuestionType?.name?.includes('MULTIPLE_CHOICE')
+    selectedQuestionType?.name?.includes('MULTIPLE_CHOICE'),
   );
   const selectedCorrectOptionCount = (formData.options || []).filter(
-    (option: any) => option?.isCorrect
+    (option: any) => option?.isCorrect,
   ).length;
   const hasInvalidCorrectAnswerSelection = isMultipleChoiceQuestion
     ? isSingleAnswerQuestion
@@ -100,7 +100,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
     setLoadingPreview(true);
     try {
       const response = await api.get(
-        `/admin/questions/next-code/${questionTypeId}`
+        `/admin/questions/next-code/${questionTypeId}`,
       );
       if (response.data.success) {
         setPreviewQuestionCode(response.data.data.nextQuestionCode);
@@ -146,31 +146,25 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
 
       if (isMultipleChoiceQuestion) {
         const correctOptions = (submissionData.options || []).filter(
-          (option: any) => option?.isCorrect && option?.text?.trim()
+          (option: any) => option?.isCorrect && option?.text?.trim(),
         );
 
-        if (
-          isSingleAnswerQuestion &&
-          correctOptions.length !== 1
-        ) {
+        if (isSingleAnswerQuestion && correctOptions.length !== 1) {
           setFormError(
-            'Please mark exactly one option as the correct answer for single-answer multiple choice questions.'
+            'Please mark exactly one option as the correct answer for single-answer multiple choice questions.',
           );
           return;
         }
 
-        if (
-          !isSingleAnswerQuestion &&
-          correctOptions.length === 0
-        ) {
+        if (!isSingleAnswerQuestion && correctOptions.length === 0) {
           setFormError(
-            'Please mark at least one option as correct before saving this multiple-choice question.'
+            'Please mark at least one option as correct before saving this multiple-choice question.',
           );
           return;
         }
 
         submissionData.correctAnswers = correctOptions.map((option: any) =>
-          option.text.trim()
+          option.text.trim(),
         );
       }
 
@@ -229,7 +223,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
         headers: {
           'Content-Type': 'multipart/form-data',
         },
-      }
+      },
     );
 
     return response.data.data.audioKey;
@@ -352,7 +346,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
   const updateBlankOption = (
     blankIndex: number,
     optionIndex: number,
-    value: string
+    value: string,
   ) => {
     const newBlanks = [...(formData.blanks || [])];
     newBlanks[blankIndex].options[optionIndex] = value;
@@ -386,10 +380,9 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
       ].includes(selectedQuestionType.name),
 
       requiresImage: selectedQuestionType.name === 'DESCRIBE_IMAGE',
-      allowsOptionalImage: [
-        'DESCRIBE_IMAGE',
-        'RE_TELL_LECTURE',
-      ].includes(selectedQuestionType.name),
+      allowsOptionalImage: ['DESCRIBE_IMAGE', 'RE_TELL_LECTURE'].includes(
+        selectedQuestionType.name,
+      ),
       requiresImageType: selectedQuestionType.name === 'DESCRIBE_IMAGE',
 
       requiresText: [
@@ -538,7 +531,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                       <Trash2 className='w-4 h-4' />
                     </button>
                   </div>
-                )
+                ),
               )}
             </div>
 
@@ -626,7 +619,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                               updateBlank(
                                 blankIndex,
                                 'correctAnswer',
-                                e.target.value
+                                e.target.value,
                               )
                             }
                             className='w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-indigo-500 focus:border-transparent'
@@ -666,7 +659,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                                       updateBlankOption(
                                         blankIndex,
                                         optionIndex,
-                                        e.target.value
+                                        e.target.value,
                                       )
                                     }
                                     className='flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:border-transparent'
@@ -682,7 +675,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                                     <X className='w-3 h-3' />
                                   </button>
                                 </div>
-                              )
+                              ),
                             )}
                           </div>
 
@@ -697,11 +690,11 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                                   ];
                                   if (
                                     !newBlanks[blankIndex].options.includes(
-                                      blank.correctAnswer
+                                      blank.correctAnswer,
                                     )
                                   ) {
                                     newBlanks[blankIndex].options.push(
-                                      blank.correctAnswer
+                                      blank.correctAnswer,
                                     );
                                     setFormData((prev) => ({
                                       ...prev,
@@ -717,7 +710,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                         </div>
                       </div>
                     </div>
-                  )
+                  ),
                 )}
               </div>
 
@@ -902,7 +895,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                         <X className='w-4 h-4' />
                       </button>
                     </div>
-                  )
+                  ),
                 )}
                 <button
                   type='button'
@@ -946,14 +939,21 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                     Group Discussion Transcript
                   </h4>
                   <p className='text-sm text-green-700 mt-1'>
-                    Provide the transcript of the group discussion that students will listen to and summarize.
+                    Provide the transcript of the group discussion that students
+                    will listen to and summarize.
                   </p>
                   <p className='text-sm text-green-700 mt-2'>
                     You have two options:
                   </p>
                   <ul className='text-sm text-green-700 mt-1 ml-4 list-disc'>
-                    <li><strong>Option 1:</strong> Upload an audio file (optional) - the system will automatically transcribe it</li>
-                    <li><strong>Option 2:</strong> Enter the transcript manually below</li>
+                    <li>
+                      <strong>Option 1:</strong> Upload an audio file (optional)
+                      - the system will automatically transcribe it
+                    </li>
+                    <li>
+                      <strong>Option 2:</strong> Enter the transcript manually
+                      below
+                    </li>
                   </ul>
                   <p className='text-sm text-green-700 mt-2 font-medium'>
                     If both are provided, the manual transcript will be used.
@@ -981,7 +981,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                 required={!formData.audioKey}
               />
               <p className='text-xs text-slate-500 dark:text-slate-400 mt-2'>
-                {formData.audioKey 
+                {formData.audioKey
                   ? 'You can leave this empty and the audio will be auto-transcribed, or paste the transcript here if you prefer to use a manual one instead.'
                   : 'Required if you do not upload an audio file. Enter the full text that will be used for evaluation.'}
               </p>
@@ -1034,12 +1034,12 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                 Basic Information
               </h3>
 
-            <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
-              <div>
-                <div className='flex items-center justify-between mb-2'>
-                  <label className='block text-sm font-medium text-slate-700 dark:text-slate-200'>
-                    Question Code {!autoGenerateCode && '*'}
-                  </label>
+              <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+                <div>
+                  <div className='flex items-center justify-between mb-2'>
+                    <label className='block text-sm font-medium text-slate-700 dark:text-slate-200'>
+                      Question Code {!autoGenerateCode && '*'}
+                    </label>
                     <div className='flex items-center gap-2'>
                       <input
                         type='checkbox'
@@ -1071,7 +1071,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                   </div>
 
                   {autoGenerateCode ? (
-                  <div className='w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-slate-900 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-100'>
+                    <div className='w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-slate-900 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-100'>
                       {loadingPreview ? (
                         <div className='flex items-center gap-2 text-slate-500 dark:text-slate-400'>
                           <div className='animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600'></div>
@@ -1110,10 +1110,10 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                   </p>
                 </div>
 
-              <div>
-                <label className='block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2'>
-                  Question Type *
-                </label>
+                <div>
+                  <label className='block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2'>
+                    Question Type *
+                  </label>
                   <select
                     value={formData.questionTypeId}
                     onChange={(e) =>
@@ -1152,33 +1152,57 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                     )}
                   </select>
                 </div>
+              </div>
 
-            </div>
-
-            <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
-              <div>
-                <label className='block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2'>
-                  Difficulty Level *
-                </label>
-                <select
-                  value={formData.difficultyLevel}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      difficultyLevel: e.target.value,
-                    }))
-                  }
-                  className={inputClass}
-                  required
-                >
-                  <option value='EASY'>Easy</option>
-                  <option value='MEDIUM'>Medium</option>
-                  <option value='HARD'>Hard</option>
-                </select>
-                <p className='text-xs text-slate-500 dark:text-slate-400 mt-1'>
-                  Easy: Basic level questions | Medium: Standard difficulty |
-                  Hard: Advanced level questions
-                </p>
+              <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+                <div>
+                  <label className='block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2'>
+                    Difficulty Level *
+                  </label>
+                  <select
+                    value={formData.difficultyLevel}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        difficultyLevel: e.target.value,
+                      }))
+                    }
+                    className={inputClass}
+                    required
+                  >
+                    <option value='EASY'>Easy</option>
+                    <option value='MEDIUM'>Medium</option>
+                    <option value='HARD'>Hard</option>
+                  </select>
+                  <p className='text-xs text-slate-500 dark:text-slate-400 mt-1'>
+                    Easy: Basic level questions | Medium: Standard difficulty |
+                    Hard: Advanced level questions
+                  </p>
+                </div>
+                <div>
+                  <label className='block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2'>
+                    Prediction Level *
+                  </label>
+                  <select
+                    value={formData.predictionLevel}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        predictionLevel: e.target.value,
+                      }))
+                    }
+                    className={inputClass}
+                    required
+                  >
+                    <option value='NONE'>None</option>
+                    <option value='LOW'>Low</option>
+                    <option value='MEDIUM'>Medium</option>
+                    <option value='HIGH'>High</option>
+                  </select>
+                  <p className='text-xs text-slate-500 dark:text-slate-400 mt-1'>
+                    Mark this question as predicted (None, Low, Medium, High)
+                  </p>
+                </div>
               </div>
               {selectedQuestionType?.name === 'DESCRIBE_IMAGE' && (
                 <div>
@@ -1217,33 +1241,31 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
               <label className='block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2'>
                 Duration (seconds)
               </label>
-                <input
-                  type='number'
-                  value={
-                    formData.durationMillis
-                      ? Math.round(formData.durationMillis / 1000)
-                      : ''
-                  }
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      durationMillis: parseInt(e.target.value) * 1000 || null,
-                    }))
-                  }
-                  className='w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
-                  min='1'
-                  placeholder='e.g., 40 for 40 seconds'
-                />
-                <p className='text-xs text-slate-500 dark:text-slate-400 mt-1'>
-                  Time limit for this question (optional)
-                </p>
-              </div>
-
+              <input
+                type='number'
+                value={
+                  formData.durationMillis
+                    ? Math.round(formData.durationMillis / 1000)
+                    : ''
+                }
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    durationMillis: parseInt(e.target.value) * 1000 || null,
+                  }))
+                }
+                className='w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                min='1'
+                placeholder='e.g., 40 for 40 seconds'
+              />
+              <p className='text-xs text-slate-500 dark:text-slate-400 mt-1'>
+                Time limit for this question (optional)
+              </p>
             </div>
 
             {/* Question Content */}
-          {selectedQuestionType && (
-            <div className='rounded-2xl border border-blue-100 bg-blue-50 p-6 dark:border-slate-800 dark:bg-slate-900/60'>
+            {selectedQuestionType && (
+              <div className='rounded-2xl border border-blue-100 bg-blue-50 p-6 dark:border-slate-800 dark:bg-slate-900/60'>
                 <h3 className='text-lg font-medium text-gray-900 mb-4 flex items-center gap-2'>
                   <HelpCircle className='w-5 h-5' />
                   Question Content
@@ -1426,7 +1448,8 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                 )}
 
                 {/* Image URL */}
-                {(requirements.requiresImage || requirements.allowsOptionalImage) && (
+                {(requirements.requiresImage ||
+                  requirements.allowsOptionalImage) && (
                   <div className='mb-6'>
                     <QuestionImageUpload
                       onImageUpload={(imageData) => {
@@ -1647,7 +1670,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
 
             {/* Question Type Help */}
             {selectedQuestionType && (
-            <div className='rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-600/50 dark:bg-amber-800/10'>
+              <div className='rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-600/50 dark:bg-amber-800/10'>
                 <h4 className='text-sm font-medium text-amber-800 mb-2'>
                   {selectedQuestionType.name
                     .split('_')

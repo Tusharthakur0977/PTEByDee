@@ -20,6 +20,7 @@ export const getPracticeQuestions = asyncHandler(
         difficultyLevel,
         practiceStatus,
         imageType,
+        skip = '0',
       } = req.query;
 
     try {
@@ -33,6 +34,7 @@ export const getPracticeQuestions = asyncHandler(
       }
 
       const limitNumber = parseInt(limit as string, 10);
+      const skipNumber = parseInt(skip as string, 10);
 
       // Find the question type
       const questionTypeRecord = await prisma.questionType.findFirst({
@@ -123,15 +125,16 @@ export const getPracticeQuestions = asyncHandler(
         };
       }
 
+      // Get total count for pagination
+      const totalCount = await prisma.question.count({
+        where: whereClause,
+      });
+
       // Get questions for this type
       let questions: any;
       if (random === 'true') {
         // Get random questions
-        const totalQuestions = await prisma.question.count({
-          where: whereClause,
-        });
-
-        if (totalQuestions === 0) {
+        if (totalCount === 0) {
           return sendResponse(
             res,
             STATUS_CODES.OK,
@@ -139,14 +142,27 @@ export const getPracticeQuestions = asyncHandler(
               questions: [],
               questionType: questionTypeRecord,
               total: 0,
+              pagination: {
+                total: 0,
+                page: 1,
+                limit: limitNumber,
+                totalPages: 0,
+                hasNext: false,
+                hasPrev: false,
+                nextPage: null,
+                prevPage: null,
+              },
             },
             'No practice questions available for this type yet.'
           );
         }
 
-        // Generate random skip value
-        const maxSkip = Math.max(0, totalQuestions - limitNumber);
-        const randomSkip = Math.floor(Math.random() * (maxSkip + 1));
+        // Generate random skip value if not provided and random is true
+        let skipValue = skipNumber;
+        if (random === 'true' && skipNumber === 0) {
+          const maxSkip = Math.max(0, totalCount - limitNumber);
+          skipValue = Math.floor(Math.random() * (maxSkip + 1));
+        }
 
         questions = await prisma.question.findMany({
           where: whereClause,
@@ -169,11 +185,11 @@ export const getPracticeQuestions = asyncHandler(
               },
             }),
           },
-          skip: randomSkip,
+          skip: skipValue,
           take: limitNumber,
         });
       } else {
-        // Get questions in order
+        // Get questions in order with skip support
         questions = await prisma.question.findMany({
           where: whereClause,
           include: {
@@ -196,6 +212,7 @@ export const getPracticeQuestions = asyncHandler(
             }),
           },
           orderBy: { createdAt: 'desc' },
+          skip: skipNumber,
           take: limitNumber,
         });
       }
@@ -309,13 +326,31 @@ export const getPracticeQuestions = asyncHandler(
         })
       );
 
+      // Calculate pagination metadata
+      const currentPage = Math.floor(skipNumber / limitNumber) + 1;
+      const totalPages = Math.ceil(totalCount / limitNumber);
+      const hasNext = currentPage < totalPages;
+      const hasPrev = currentPage > 1;
+      const nextPage = hasNext ? currentPage + 1 : null;
+      const prevPage = hasPrev ? currentPage - 1 : null;
+
       return sendResponse(
         res,
         STATUS_CODES.OK,
         {
           questions: transformedQuestions,
           questionType: questionTypeRecord,
-          total: transformedQuestions.length,
+          total: totalCount,
+          pagination: {
+            total: totalCount,
+            page: currentPage,
+            limit: limitNumber,
+            totalPages,
+            hasNext,
+            hasPrev,
+            nextPage,
+            prevPage,
+          },
         },
         `Retrieved ${transformedQuestions.length} practice questions successfully.`
       );

@@ -9,22 +9,22 @@ import {
   History,
   Info,
   XCircle,
-} from "lucide-react";
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import AudioRecorder from "../../../components/AudioRecorder";
-import PreviousResponses from "../../../components/PreviousResponses";
-import QuestionSidebar from "../../../components/QuestionSidebar";
-import api from "../../../services/api";
-import { getPracticeQuestions } from "../../../services/portal";
-import { PteQuestionTypeName } from "../../../types/pte";
+} from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import AudioRecorder from '../../../components/AudioRecorder';
+import InlinePreviousAttempts from '../../../components/InlinePreviousAttempts';
+import PreviousResponses from '../../../components/PreviousResponses';
+import QuestionSidebar from '../../../components/QuestionSidebar';
+import { describeImageTypeOptions } from '../../../constants/describeImageTypes';
+import api from '../../../services/api';
 import {
-  formatScoringText,
-  playBeep,
-} from "../../../utils/Helpers";
-import ResponseDetailModal from "./ResponseDetailModal";
-import { describeImageTypeOptions } from "../../../constants/describeImageTypes";
-import InlinePreviousAttempts from "../../../components/InlinePreviousAttempts";
+  getPracticeQuestionById,
+  getPracticeQuestions,
+} from '../../../services/portal';
+import { PteQuestionTypeName } from '../../../types/pte';
+import { formatScoringText, playBeep } from '../../../utils/Helpers';
+import ResponseDetailModal from './ResponseDetailModal';
 
 export interface QuestionsData {
   id: string;
@@ -32,7 +32,7 @@ export interface QuestionsData {
   difficultyLevel: string;
   title: string;
   instructions: string;
-  hasUserResponses: boolean;
+  hasUserResponses?: boolean;
   content: Content;
   tags?: string[];
 }
@@ -56,10 +56,10 @@ const PracticeDescribeImage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showQuestionSidebar, setShowQuestionSidebar] = useState(false);
   const [difficultyLevel, setDifficultyLevel] = useState<
-    "EASY" | "MEDIUM" | "HARD" | "all"
-  >("all");
+    'EASY' | 'MEDIUM' | 'HARD' | 'all'
+  >('all');
   const [showDifficultyFilter, setShowDifficultyFilter] = useState(false);
-  const [imageTypeFilter, setImageTypeFilter] = useState<"all" | string>("all");
+  const [imageTypeFilter, setImageTypeFilter] = useState<'all' | string>('all');
   const evaluationRef = useRef<HTMLDivElement>(null);
   // Audio and evaluation features
   const [isCompleted, setIsCompleted] = useState(false);
@@ -76,6 +76,19 @@ const PracticeDescribeImage: React.FC = () => {
 
   const [selectedError, setSelectedError] = useState<any>(null);
 
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [totalAvailable, setTotalAvailable] = useState(0);
+  const [paginationInfo, setPaginationInfo] = useState<{
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+    nextPage: number | null;
+    prevPage: number | null;
+  } | null>(null);
+
   const audioPlayerRef = useRef<any>(null);
   const audioRecorderRef = useRef<any>(null);
 
@@ -91,9 +104,9 @@ const PracticeDescribeImage: React.FC = () => {
   };
 
   const normalizeTranscriptWord = (value: string) =>
-    String(value || "")
+    String(value || '')
       .toLowerCase()
-      .replace(/^[^\w]+|[^\w]+$/g, "");
+      .replace(/^[^\w]+|[^\w]+$/g, '');
 
   const renderDescribeImageTranscript = (
     text: string,
@@ -101,14 +114,14 @@ const PracticeDescribeImage: React.FC = () => {
     fluencyErrors: any[] = [],
     pauseMarkers: PauseMarker[] = [],
   ) => {
-    const words = String(text || "")
+    const words = String(text || '')
       .split(/\s+/)
       .filter((word) => word.length > 0);
 
     if (!words.length) return null;
 
     const pauseMap = new Map<number, PauseMarker[]>();
-    const pauseWordSeverity = new Map<number, PauseMarker["severity"]>();
+    const pauseWordSeverity = new Map<number, PauseMarker['severity']>();
     pauseMarkers.forEach((pause) => {
       const existing = pauseMap.get(pause.afterWordIndex) || [];
       existing.push(pause);
@@ -117,25 +130,31 @@ const PracticeDescribeImage: React.FC = () => {
       const currentAfter = pauseWordSeverity.get(pause.afterWordIndex);
       const currentBefore = pauseWordSeverity.get(pause.beforeWordIndex);
       const severityRank = { hesitation: 1, pause: 2, long_pause: 3 } as const;
-      if (!currentAfter || severityRank[pause.severity] > severityRank[currentAfter]) {
+      if (
+        !currentAfter ||
+        severityRank[pause.severity] > severityRank[currentAfter]
+      ) {
         pauseWordSeverity.set(pause.afterWordIndex, pause.severity);
       }
-      if (!currentBefore || severityRank[pause.severity] > severityRank[currentBefore]) {
+      if (
+        !currentBefore ||
+        severityRank[pause.severity] > severityRank[currentBefore]
+      ) {
         pauseWordSeverity.set(pause.beforeWordIndex, pause.severity);
       }
     });
 
-    const statusMap = new Map<number, "pronunciation" | "fluency">();
+    const statusMap = new Map<number, 'pronunciation' | 'fluency'>();
     const usedPronunciation = new Set<number>();
     const usedFluency = new Set<number>();
 
     const markErrors = (
       errors: any[],
-      kind: "pronunciation" | "fluency",
+      kind: 'pronunciation' | 'fluency',
       usedSet: Set<number>,
     ) => {
       errors.forEach((error) => {
-        const targetTokens = String(error?.text || "")
+        const targetTokens = String(error?.text || '')
           .split(/\s+/)
           .map(normalizeTranscriptWord)
           .filter((token) => token.length > 0);
@@ -143,7 +162,11 @@ const PracticeDescribeImage: React.FC = () => {
         if (!targetTokens.length) return;
 
         let foundIndex = -1;
-        for (let start = 0; start <= words.length - targetTokens.length; start += 1) {
+        for (
+          let start = 0;
+          start <= words.length - targetTokens.length;
+          start += 1
+        ) {
           let matches = true;
           for (let offset = 0; offset < targetTokens.length; offset += 1) {
             const spokenIndex = start + offset;
@@ -151,7 +174,10 @@ const PracticeDescribeImage: React.FC = () => {
               matches = false;
               break;
             }
-            if (normalizeTranscriptWord(words[spokenIndex]) !== targetTokens[offset]) {
+            if (
+              normalizeTranscriptWord(words[spokenIndex]) !==
+              targetTokens[offset]
+            ) {
               matches = false;
               break;
             }
@@ -166,7 +192,7 @@ const PracticeDescribeImage: React.FC = () => {
           targetTokens.forEach((_, offset) => {
             const spokenIndex = foundIndex + offset;
             usedSet.add(spokenIndex);
-            if (kind === "pronunciation" || !statusMap.has(spokenIndex)) {
+            if (kind === 'pronunciation' || !statusMap.has(spokenIndex)) {
               statusMap.set(spokenIndex, kind);
             }
           });
@@ -174,41 +200,43 @@ const PracticeDescribeImage: React.FC = () => {
       });
     };
 
-    markErrors(pronunciationErrors, "pronunciation", usedPronunciation);
-    markErrors(fluencyErrors, "fluency", usedFluency);
+    markErrors(pronunciationErrors, 'pronunciation', usedPronunciation);
+    markErrors(fluencyErrors, 'fluency', usedFluency);
 
-  const wordClass = (kind?: "pronunciation" | "fluency") => {
-    if (kind === "pronunciation") {
-      return "bg-orange-100 text-orange-800 border border-orange-200 dark:bg-orange-900/20 dark:text-orange-200 dark:border-orange-800";
-    }
-    if (kind === "fluency") {
-      return "bg-yellow-100 text-yellow-800 border border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-200 dark:border-yellow-800";
-    }
-    return "";
-  };
-
-  const getPauseWordClass = (severity: PauseMarker["severity"]) => {
-    if (severity === "long_pause") return "text-yellow-800 dark:text-yellow-300";
-    if (severity === "pause") return "text-amber-700 dark:text-amber-300";
-    return "text-yellow-700 dark:text-yellow-300";
-  };
-
-  const formatPauseSeverity = (severity: PauseMarker["severity"]) => {
-    if (severity === "long_pause") return "Long pause";
-    if (severity === "pause") return "Pause";
-    return "Hesitation";
-  };
-
-    const gapClass = (severity: PauseMarker["severity"]) => {
-      if (severity === "long_pause") return "border-yellow-600/80 bg-yellow-500/20";
-      if (severity === "pause") return "border-amber-500/80 bg-amber-500/20";
-      return "border-yellow-500/80 bg-yellow-500/20";
+    const wordClass = (kind?: 'pronunciation' | 'fluency') => {
+      if (kind === 'pronunciation') {
+        return 'bg-orange-100 text-orange-800 border border-orange-200 dark:bg-orange-900/20 dark:text-orange-200 dark:border-orange-800';
+      }
+      if (kind === 'fluency') {
+        return 'bg-yellow-100 text-yellow-800 border border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-200 dark:border-yellow-800';
+      }
+      return '';
     };
 
-    const gapWidth = (severity: PauseMarker["severity"]) => {
-      if (severity === "long_pause") return "w-14 sm:w-16";
-      if (severity === "pause") return "w-10 sm:w-12";
-      return "w-8 sm:w-10";
+    const getPauseWordClass = (severity: PauseMarker['severity']) => {
+      if (severity === 'long_pause')
+        return 'text-yellow-800 dark:text-yellow-300';
+      if (severity === 'pause') return 'text-amber-700 dark:text-amber-300';
+      return 'text-yellow-700 dark:text-yellow-300';
+    };
+
+    const formatPauseSeverity = (severity: PauseMarker['severity']) => {
+      if (severity === 'long_pause') return 'Long pause';
+      if (severity === 'pause') return 'Pause';
+      return 'Hesitation';
+    };
+
+    const gapClass = (severity: PauseMarker['severity']) => {
+      if (severity === 'long_pause')
+        return 'border-yellow-600/80 bg-yellow-500/20';
+      if (severity === 'pause') return 'border-amber-500/80 bg-amber-500/20';
+      return 'border-yellow-500/80 bg-yellow-500/20';
+    };
+
+    const gapWidth = (severity: PauseMarker['severity']) => {
+      if (severity === 'long_pause') return 'w-14 sm:w-16';
+      if (severity === 'pause') return 'w-10 sm:w-12';
+      return 'w-8 sm:w-10';
     };
 
     const result: React.ReactNode[] = [];
@@ -224,9 +252,11 @@ const PracticeDescribeImage: React.FC = () => {
           className={`whitespace-pre-wrap ${
             !isPunctuationOnly
               ? `rounded-md px-1 py-0.5 ${wordClass(status)} ${
-                  wordSeverity ? `${getPauseWordClass(wordSeverity)} font-medium` : ""
+                  wordSeverity
+                    ? `${getPauseWordClass(wordSeverity)} font-medium`
+                    : ''
                 }`
-              : ""
+              : ''
           }`}
         >
           {word}
@@ -235,7 +265,9 @@ const PracticeDescribeImage: React.FC = () => {
 
       const pauseList = pauseMap.get(index);
       if (pauseList && pauseList.length > 0) {
-        const pause = [...pauseList].sort((a, b) => b.durationMs - a.durationMs)[0];
+        const pause = [...pauseList].sort(
+          (a, b) => b.durationMs - a.durationMs,
+        )[0];
         result.push(
           <span
             key={`pause-${index}`}
@@ -244,12 +276,13 @@ const PracticeDescribeImage: React.FC = () => {
             )} ${gapWidth(pause.severity)}`}
             title={`${formatPauseSeverity(pause.severity)} - ${pause.durationSeconds.toFixed(2)}s`}
           >
-            <span className="sr-only">
-              {formatPauseSeverity(pause.severity)} pause of{" "}
+            <span className='sr-only'>
+              {formatPauseSeverity(pause.severity)} pause of{' '}
               {pause.durationSeconds.toFixed(2)} seconds
             </span>
-            <span className="pointer-events-none absolute -top-5 left-1/2 hidden -translate-x-1/2 whitespace-nowrap rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600 shadow-sm group-hover:block dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
-              {formatPauseSeverity(pause.severity)} {pause.durationSeconds.toFixed(2)}s
+            <span className='pointer-events-none absolute -top-5 left-1/2 hidden -translate-x-1/2 whitespace-nowrap rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600 shadow-sm group-hover:block dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200'>
+              {formatPauseSeverity(pause.severity)}{' '}
+              {pause.durationSeconds.toFixed(2)}s
             </span>
           </span>,
         );
@@ -257,8 +290,11 @@ const PracticeDescribeImage: React.FC = () => {
 
       if (index < words.length - 1) {
         result.push(
-          <span key={`space-${index}`} className="whitespace-pre-wrap">
-            {" "}
+          <span
+            key={`space-${index}`}
+            className='whitespace-pre-wrap'
+          >
+            {' '}
           </span>,
         );
       }
@@ -271,15 +307,15 @@ const PracticeDescribeImage: React.FC = () => {
     try {
       setIsLoading(true);
       const options: any = {
-        limit: 100,
+        limit: 10,
         random: false,
       };
 
-      if (difficultyLevel !== "all") {
+      if (difficultyLevel !== 'all') {
         options.difficultyLevel = difficultyLevel;
       }
 
-      if (imageTypeFilter && imageTypeFilter !== "all") {
+      if (imageTypeFilter && imageTypeFilter !== 'all') {
         options.imageType = imageTypeFilter;
       }
 
@@ -289,12 +325,55 @@ const PracticeDescribeImage: React.FC = () => {
       );
       setQuestions(response.questions as QuestionsData[]);
       setCurrentIndex(0);
+      setTotalAvailable(response.total || 0);
+      setPaginationInfo(response.pagination);
     } catch (err) {
-      setError("Failed to load questions");
+      setError('Failed to load questions');
     } finally {
       setIsLoading(false);
     }
   }, [difficultyLevel, imageTypeFilter]);
+
+  const loadMoreQuestions = useCallback(async () => {
+    if (!paginationInfo?.hasNext) {
+      return 0;
+    }
+
+    try {
+      setIsLoadingMore(true);
+      const options: any = {
+        limit: 10,
+        random: false,
+        skip: (paginationInfo.page * paginationInfo.limit),
+      };
+
+      if (difficultyLevel !== 'all') {
+        options.difficultyLevel = difficultyLevel;
+      }
+
+      if (imageTypeFilter && imageTypeFilter !== 'all') {
+        options.imageType = imageTypeFilter;
+      }
+
+      const response = await getPracticeQuestions(
+        PteQuestionTypeName.DESCRIBE_IMAGE,
+        options,
+      );
+
+      if (response.questions && response.questions.length > 0) {
+        setQuestions((prev) => [...prev, ...response.questions]);
+        setPaginationInfo(response.pagination);
+        return response.questions.length;
+      }
+
+      return 0;
+    } catch (err) {
+      console.error('Failed to load more questions:', err);
+      return 0;
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [difficultyLevel, imageTypeFilter, paginationInfo?.page, paginationInfo?.limit, paginationInfo?.hasNext]);
 
   useEffect(() => {
     loadQuestions();
@@ -356,7 +435,7 @@ const PracticeDescribeImage: React.FC = () => {
     if (isCompleted || isSubmitting) return;
 
     if (!uploadedAudioUrl) {
-      setError("Please record an audio response");
+      setError('Please record an audio response');
       return;
     }
 
@@ -364,7 +443,7 @@ const PracticeDescribeImage: React.FC = () => {
       setIsSubmitting(true);
       setIsProcessingAudio(true);
 
-      const result = await api.post("/user/questions/submit-response", {
+      const result = await api.post('/user/questions/submit-response', {
         questionId: questions[currentIndex]?.id,
         userResponse: {
           audioResponseUrl: uploadedAudioUrl,
@@ -377,13 +456,13 @@ const PracticeDescribeImage: React.FC = () => {
 
       setTimeout(() => {
         evaluationRef.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "start", // or 'center' / 'nearest'
+          behavior: 'smooth',
+          block: 'start', // or 'center' / 'nearest'
         });
       }, 100);
     } catch (err: any) {
-      console.error("Error submitting response:", err);
-      setError(err.message || "Failed to evaluate response");
+      console.error('Error submitting response:', err);
+      setError(err.message || 'Failed to evaluate response');
 
       setEvaluationResult(null);
       setIsCompleted(false);
@@ -438,20 +517,20 @@ const PracticeDescribeImage: React.FC = () => {
   };
 
   const handleExit = () => {
-    if (window.confirm("Are you sure you want to exit?")) {
+    if (window.confirm('Are you sure you want to exit?')) {
       audioRecorderRef.current?.stopAndRelease();
-      navigate("/portal");
+      navigate('/portal');
     }
   };
 
   if (error && !isLoading && questions.length === 0) {
     return (
-      <div className="h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-500 text-lg mb-4">{error}</p>
+      <div className='h-screen bg-gray-900 flex items-center justify-center'>
+        <div className='text-center'>
+          <p className='text-red-500 text-lg mb-4'>{error}</p>
           <button
-            onClick={() => navigate("/portal")}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
+            onClick={() => navigate('/portal')}
+            className='bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg'
           >
             Back to Portal
           </button>
@@ -462,19 +541,40 @@ const PracticeDescribeImage: React.FC = () => {
 
   const currentQuestion = questions[currentIndex];
 
-  const handleQuestionSelect = (questionId: string) => {
+  const handleQuestionSelect = async (questionId: string) => {
     const selectedIndex = questions.findIndex((q) => q.id === questionId);
+
     if (selectedIndex !== -1) {
       setCurrentIndex(selectedIndex);
+      setShowQuestionSidebar(false);
+      return;
+    }
+
+    try {
+      const selectedQuestion = await getPracticeQuestionById(questionId);
+      if (!selectedQuestion) {
+        setError('Unable to load the selected question.');
+        return;
+      }
+
+      const updatedQuestions = [...questions, selectedQuestion];
+      setQuestions(updatedQuestions);
+      setCurrentIndex(updatedQuestions.length - 1);
+    } catch (err: any) {
+      console.error('Failed to load selected question:', err);
+      setError(
+        err?.response?.data?.message || 'Failed to load selected question.',
+      );
+    } finally {
       setShowQuestionSidebar(false);
     }
   };
 
   const getScoreColor = (score: number, maxScore: number) => {
     const percentage = (score / maxScore) * 100;
-    if (percentage >= 80) return "text-green-600 dark:text-green-400";
-    if (percentage >= 60) return "text-yellow-600 dark:text-yellow-400";
-    return "text-red-600 dark:text-red-400";
+    if (percentage >= 80) return 'text-green-600 dark:text-green-400';
+    if (percentage >= 60) return 'text-yellow-600 dark:text-yellow-400';
+    return 'text-red-600 dark:text-red-400';
   };
 
   return (
@@ -491,9 +591,6 @@ const PracticeDescribeImage: React.FC = () => {
           <div>
             <h1 className='text-2xl font-bold flex items-center gap-2 text-black dark:text-white'>
               Describe Image{' '}
-              <p className='text-gray-400 dark:text-gray-400 text-sm'>
-                (Question {currentIndex + 1} of {questions.length})
-              </p>
             </h1>
 
             <div className='flex flex-row items-center space-x-3 '>
@@ -964,16 +1061,35 @@ const PracticeDescribeImage: React.FC = () => {
           </button>
 
           <span className='text-gray-400 text-sm'>
-            {currentIndex + 1} / {questions.length}
+            {currentIndex + 1} / {paginationInfo ? Math.min(questions.length, paginationInfo.total) : questions.length}
+            {paginationInfo && paginationInfo.total > questions.length && ` (${paginationInfo.total} total)`}
           </span>
 
           <button
-            onClick={() =>
-              setCurrentIndex((i) => Math.min(questions.length - 1, i + 1))
-            }
-            className='flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg'
+            onClick={async () => {
+              const isAtEnd = currentIndex >= questions.length - 1;
+
+              if (isAtEnd) {
+                const oldLength = questions.length;
+                const loadedCount = await loadMoreQuestions();
+                if (loadedCount > 0) {
+                  setCurrentIndex(oldLength);
+                }
+                return;
+              }
+
+              const nextIndex = Math.min(questions.length - 1, currentIndex + 1);
+              setCurrentIndex(nextIndex);
+
+              // Try to preload more if near the end
+              if (nextIndex >= questions.length - 2 && paginationInfo?.hasNext) {
+                await loadMoreQuestions();
+              }
+            }}
+            disabled={isLoadingMore}
+            className='flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50'
           >
-            Next
+            {isLoadingMore ? 'Loading...' : 'Next'}
             <ChevronRight className='w-4 h-4' />
           </button>
         </div>
@@ -1118,9 +1234,6 @@ const PracticeDescribeImage: React.FC = () => {
         onQuestionSelect={handleQuestionSelect}
         practiceStatus='all'
         difficultyLevel={difficultyLevel}
-        onFilterChange={(filters) => {
-          setDifficultyLevel(filters.difficultyLevel);
-        }}
       />
 
       {/* Previous Attempts Modal Drawer (Mobile/Tablet) */}
@@ -1255,7 +1368,7 @@ export interface PauseMarker {
   beforeWordIndex: number;
   durationMs: number;
   durationSeconds: number;
-  severity: "hesitation" | "pause" | "long_pause";
+  severity: 'hesitation' | 'pause' | 'long_pause';
 }
 
 export interface FluencyError {

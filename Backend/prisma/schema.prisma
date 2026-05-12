@@ -328,6 +328,7 @@ model Question {
     originalTextWithErrors String? // The text shown to the user with errors to highlight
     incorrectWords         Json? // e.g., ["word1", "word2"] - actual incorrect words in the original text to mark
 
+    predictionLevel  PredictionLevel    @default(NONE) // Prediction level for predicted questions
     createdAt        DateTime           @default(now())
     updatedAt        DateTime           @updatedAt
     isArchived       Boolean            @default(false)
@@ -340,6 +341,7 @@ model Question {
 
     @@index([questionTypeId])
     @@index([difficultyLevel])
+    @@index([predictionLevel])
 }
 
 // Represents a full PTE Mock Test
@@ -608,4 +610,12 @@ enum SupportTicketStatus {
     IN_PROGRESS
     RESOLVED
     CLOSED
+}
+
+// Enum for question prediction levels
+enum PredictionLevel {
+    NONE
+    LOW
+    MEDIUM
+    HIGH
 }

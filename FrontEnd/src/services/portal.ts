@@ -34,7 +34,7 @@ export interface PracticeQuestion {
     timeLimit?: number; // in seconds
     preparationTime?: number; // in seconds
     recordingTime?: number; // in seconds
-  };
+  } | any;
   hasUserResponses?: boolean;
   lastAttemptedAt?: string;
   bestScore?: number;
@@ -75,6 +75,16 @@ export interface PracticeQuestionsResponse {
     pteSection: PteSection;
   };
   total: number;
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+    nextPage: number | null;
+    prevPage: number | null;
+  };
 }
 
 export interface QuestionListResponse {
@@ -134,6 +144,7 @@ const buildPracticeQuestionsCacheKey = (
     difficultyLevel?: 'EASY' | 'MEDIUM' | 'HARD';
     practiceStatus?: 'practiced' | 'unpracticed' | 'all';
     imageType?: string;
+    skip?: number;
   } = {},
 ) => {
   const normalizedOptions = {
@@ -142,6 +153,7 @@ const buildPracticeQuestionsCacheKey = (
     difficultyLevel: options.difficultyLevel ?? '',
     practiceStatus: options.practiceStatus ?? '',
     imageType: options.imageType ?? '',
+    skip: options.skip ?? 0,
   };
 
   return `${questionType}:${JSON.stringify(normalizedOptions)}`;
@@ -165,6 +177,7 @@ export const getPracticeQuestions = async (
     difficultyLevel?: 'EASY' | 'MEDIUM' | 'HARD';
     practiceStatus?: 'practiced' | 'unpracticed' | 'all';
     imageType?: string;
+    skip?: number;
   } = {}
 ): Promise<PracticeQuestionsResponse> => {
   const {
@@ -173,6 +186,7 @@ export const getPracticeQuestions = async (
     difficultyLevel,
     practiceStatus,
     imageType,
+    skip = 0,
   } = options;
 
   const cacheKey = buildPracticeQuestionsCacheKey(questionType, {
@@ -191,6 +205,7 @@ export const getPracticeQuestions = async (
   const params = new URLSearchParams({
     limit: limit.toString(),
     random: random.toString(),
+    skip: skip.toString(),
   });
 
   if (difficultyLevel) {
@@ -224,9 +239,10 @@ export const getQuestionList = async (
   options: {
     difficultyLevel?: 'EASY' | 'MEDIUM' | 'HARD';
     practiceStatus?: 'practiced' | 'unpracticed' | 'all';
+    searchTerm?: string;
   } = {}
 ): Promise<QuestionListResponse> => {
-  const { difficultyLevel, practiceStatus } = options;
+  const { difficultyLevel, practiceStatus, searchTerm } = options;
 
   const params = new URLSearchParams();
 
@@ -236,6 +252,10 @@ export const getQuestionList = async (
 
   if (practiceStatus && practiceStatus !== 'all') {
     params.append('practiceStatus', practiceStatus);
+  }
+
+  if (searchTerm && searchTerm.trim() !== '') {
+    params.append('searchTerm', searchTerm.trim());
   }
 
   const response = await publicApi.get(
@@ -255,6 +275,19 @@ export const getQuestionWithResponses = async (
   );
   return response.data.data;
 };
+
+/**
+ * Get a single practice question by ID
+ */
+export const getPracticeQuestionById = async (
+  questionId: string
+): Promise<any> => {
+  const response = await publicApi.get(
+    `/user/questions/${questionId}/practice`
+  );
+  return response.data.data.question;
+};
+
 /**
  * Submit practice question response (for future implementation)
  */
@@ -265,4 +298,36 @@ export const submitPracticeResponse = async (
   // This would be implemented when you add response tracking
   console.log('Practice response submitted:', { questionId, response });
   return { success: true, message: 'Response recorded' };
+};
+
+/**
+ * Get predicted questions for the portal
+ */
+export const getPredictedQuestions = async (
+  options: {
+    predictionLevel?: 'LOW' | 'MEDIUM' | 'HIGH';
+    questionType?: string;
+    limit?: number;
+    page?: number;
+  } = {}
+): Promise<any> => {
+  const { predictionLevel, questionType, limit = 100, page = 1 } = options;
+
+  const params = new URLSearchParams({
+    limit: limit.toString(),
+    page: page.toString(),
+  });
+
+  if (predictionLevel) {
+    params.append('predictionLevel', predictionLevel);
+  }
+
+  if (questionType) {
+    params.append('questionType', questionType);
+  }
+
+  const response = await publicApi.get(
+    `/user/predicted-questions?${params}`
+  );
+  return response.data.data;
 };

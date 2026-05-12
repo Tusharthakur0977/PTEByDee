@@ -18,7 +18,10 @@ import MiniAudioPlayer from '../../../components/MiniAudioPlayer';
 import PreviousResponses from '../../../components/PreviousResponses';
 import QuestionSidebar from '../../../components/QuestionSidebar';
 import api from '../../../services/api';
-import { getPracticeQuestions } from '../../../services/portal';
+import {
+  getPracticeQuestionById,
+  getPracticeQuestions,
+} from '../../../services/portal';
 import { Data } from '../../../types/AnswerShortQuestionEvaluationResult';
 import { PteQuestionTypeName } from '../../../types/pte';
 import { playBeep } from '../../../utils/Helpers';
@@ -30,7 +33,7 @@ export interface QuestionsData {
   difficultyLevel: string;
   title: string;
   instructions: string;
-  hasUserResponses: boolean;
+  hasUserResponses?: boolean;
   content: Content;
 }
 
@@ -70,6 +73,18 @@ const PracticeAnswerShortQuestion: React.FC = () => {
   const [uploadedAudioUrl, setUploadedAudioUrl] = useState<any>({});
   const [shouldAutoStartRecording, setShouldAutoStartRecording] =
     useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [totalAvailable, setTotalAvailable] = useState(0);
+  const [paginationInfo, setPaginationInfo] = useState<{
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+    nextPage: number | null;
+    prevPage: number | null;
+  } | null>(null);
 
   const [selectedError, setSelectedError] = useState<any>(null);
 
@@ -80,8 +95,8 @@ const PracticeAnswerShortQuestion: React.FC = () => {
     try {
       setIsLoading(true);
       const options: any = {
-        limit: 100,
-        random: true,
+        limit: 10,
+        random: false,
       };
 
       if (difficultyLevel !== 'all') {
@@ -94,12 +109,51 @@ const PracticeAnswerShortQuestion: React.FC = () => {
       );
       setQuestions(response.questions);
       setCurrentIndex(0);
+      setTotalAvailable(response.total || 0);
+      setPaginationInfo(response.pagination);
     } catch (err) {
       setError('Failed to load questions');
     } finally {
       setIsLoading(false);
     }
   }, [difficultyLevel]);
+
+  const loadMoreQuestions = useCallback(async () => {
+    if (!paginationInfo?.hasNext) {
+      return 0;
+    }
+
+    try {
+      setIsLoadingMore(true);
+      const options: any = {
+        limit: 10,
+        random: false,
+        skip: (paginationInfo.page * paginationInfo.limit),
+      };
+
+      if (difficultyLevel !== 'all') {
+        options.difficultyLevel = difficultyLevel;
+      }
+
+      const response = await getPracticeQuestions(
+        PteQuestionTypeName.ANSWER_SHORT_QUESTION,
+        options,
+      );
+
+      if (response.questions && response.questions.length > 0) {
+        setQuestions((prev) => [...prev, ...response.questions]);
+        setPaginationInfo(response.pagination);
+        return response.questions.length;
+      }
+
+      return 0;
+    } catch (err) {
+      console.error('Failed to load more questions:', err);
+      return 0;
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [difficultyLevel, paginationInfo?.page, paginationInfo?.limit, paginationInfo?.hasNext]);
 
   useEffect(() => {
     loadQuestions();
@@ -240,10 +294,31 @@ const PracticeAnswerShortQuestion: React.FC = () => {
 
   const currentQuestion = questions[currentIndex];
 
-  const handleQuestionSelect = (questionId: string) => {
+  const handleQuestionSelect = async (questionId: string) => {
     const selectedIndex = questions.findIndex((q) => q.id === questionId);
+
     if (selectedIndex !== -1) {
       setCurrentIndex(selectedIndex);
+      setShowQuestionSidebar(false);
+      return;
+    }
+
+    try {
+      const selectedQuestion = await getPracticeQuestionById(questionId);
+      if (!selectedQuestion) {
+        setError('Unable to load the selected question.');
+        return;
+      }
+
+      const updatedQuestions = [...questions, selectedQuestion];
+      setQuestions(updatedQuestions);
+      setCurrentIndex(updatedQuestions.length - 1);
+    } catch (err: any) {
+      console.error('Failed to load selected question:', err);
+      setError(
+        err?.response?.data?.message || 'Failed to load selected question.',
+      );
+    } finally {
       setShowQuestionSidebar(false);
     }
   };
@@ -269,9 +344,6 @@ const PracticeAnswerShortQuestion: React.FC = () => {
           <div>
             <h1 className='text-2xl font-bold flex items-center gap-2 text-black dark:text-white'>
               Answer Short Question{' '}
-              <p className='text-gray-400 dark:text-gray-400 text-sm'>
-                (Question {currentIndex + 1} of {questions.length})
-              </p>
             </h1>
 
             <div className='flex flex-row items-center space-x-3 '>
@@ -640,16 +712,35 @@ const PracticeAnswerShortQuestion: React.FC = () => {
         </button>
 
         <span className='text-gray-400 text-sm'>
-          {currentIndex + 1} / {questions.length}
+          {currentIndex + 1} / {paginationInfo ? Math.min(questions.length, paginationInfo.total) : questions.length}
+          {paginationInfo && paginationInfo.total > questions.length && ` (${paginationInfo.total} total)`}
         </span>
 
         <button
-          onClick={() =>
-            setCurrentIndex((i) => Math.min(questions.length - 1, i + 1))
-          }
-          className='flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg'
+          onClick={async () => {
+            const isAtEnd = currentIndex >= questions.length - 1;
+
+            if (isAtEnd) {
+              const oldLength = questions.length;
+              const loadedCount = await loadMoreQuestions();
+              if (loadedCount > 0) {
+                setCurrentIndex(oldLength);
+              }
+              return;
+            }
+
+            const nextIndex = Math.min(questions.length - 1, currentIndex + 1);
+            setCurrentIndex(nextIndex);
+
+            // Try to preload more if near the end
+            if (nextIndex >= questions.length - 2 && paginationInfo?.hasNext) {
+              await loadMoreQuestions();
+            }
+          }}
+          disabled={isLoadingMore}
+          className='flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50'
         >
-          Next
+          {isLoadingMore ? 'Loading...' : 'Next'}
           <ChevronRight className='w-4 h-4' />
         </button>
       </div>
@@ -793,9 +884,6 @@ const PracticeAnswerShortQuestion: React.FC = () => {
         onQuestionSelect={handleQuestionSelect}
         practiceStatus='all'
         difficultyLevel={difficultyLevel}
-        onFilterChange={(filters) => {
-          setDifficultyLevel(filters.difficultyLevel);
-        }}
       />
 
       {/* Previous Attempts Modal Drawer (Mobile/Tablet) */}

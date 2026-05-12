@@ -19,6 +19,7 @@ import {
 } from 'recharts';
 import { PreviousResponse } from '../../../services/questionResponse';
 import { formatScoringText } from '../../../utils/Helpers';
+import { renderRepeatSentenceTranscriptAligned } from '../../../utils/repeatSentenceTranscriptRenderer';
 
 interface ResponseDetailModalProps {
   response: PreviousResponse | null;
@@ -87,7 +88,7 @@ const formatPauseSeverity = (severity: PauseMarker['severity']) => {
 
 const getPauseGapClass = (severity: PauseMarker['severity']) => {
   if (severity === 'long_pause') {
-    return 'border-rose-500/70 bg-rose-500/10 dark:border-rose-400/90 dark:bg-rose-400/20';
+    return 'border-yellow-600/80 bg-yellow-500/20 dark:border-yellow-400/90 dark:bg-yellow-400/20';
   }
   if (severity === 'pause') {
     return 'border-amber-500/70 bg-amber-500/10 dark:border-amber-400/90 dark:bg-amber-400/20';
@@ -102,7 +103,7 @@ const getPauseGapWidthClass = (severity: PauseMarker['severity']) => {
 };
 
 const getPauseWordClass = (severity: PauseMarker['severity']) => {
-  if (severity === 'long_pause') return 'text-rose-700 dark:text-rose-300';
+  if (severity === 'long_pause') return 'text-yellow-800 dark:text-yellow-300';
   if (severity === 'pause') return 'text-amber-700 dark:text-amber-300';
   return 'text-yellow-700 dark:text-yellow-300';
 };
@@ -142,6 +143,8 @@ const renderRepeatSentenceTranscript = (
       .toLowerCase()
       .replace(/^[^\w]+|[^\w]+$/g, '');
 
+  const analysisWords = Array.isArray(wordAnalysis) ? wordAnalysis : [];
+
   const referenceWords = (wordAnalysis || []).filter(
     (word) => String(word?.status || '').toLowerCase() !== 'inserted',
   );
@@ -154,7 +157,7 @@ const renderRepeatSentenceTranscript = (
   });
 
   const gapClass = (severity: PauseMarker['severity']) => {
-    if (severity === 'long_pause') return 'border-rose-500/80 bg-rose-500/20';
+    if (severity === 'long_pause') return 'border-yellow-600/80 bg-yellow-500/20';
     if (severity === 'pause') return 'border-amber-500/80 bg-amber-500/20';
     return 'border-yellow-500/80 bg-yellow-500/20';
   };
@@ -226,6 +229,23 @@ const renderRepeatSentenceTranscript = (
       );
     }
   };
+
+  if (analysisWords.length > 0) {
+    analysisWords.forEach((entry, index) => {
+      const status = String(entry?.status || '').toLowerCase();
+      pushWord(String(entry?.word || ''), status, `analysis-${index}`, index);
+
+      if (index < analysisWords.length - 1) {
+        result.push(
+          <span key={`space-${index}`} className='whitespace-pre-wrap'>
+            {' '}
+          </span>,
+        );
+      }
+    });
+
+    return <span>{result}</span>;
+  }
 
   while (refIndex < referenceWords.length || spokenIndex < spokenWords.length) {
     const referenceWord = referenceWords[refIndex];
@@ -433,11 +453,16 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
   const feedback = analysis.feedback || {};
   const scores = analysis.scores || {};
   const errorAnalysis = analysis.errorAnalysis || {};
-  const pauseMarkers: PauseMarker[] = Array.isArray(
-    analysis?.speechFlow?.pauseMarkers,
-  )
-    ? analysis.speechFlow.pauseMarkers
-    : [];
+  const pauseMarkers: PauseMarker[] = (
+    Array.isArray(analysis?.speechFlow?.pauseMarkers)
+      ? analysis.speechFlow.pauseMarkers
+      : []
+  ).map((pm: any) => ({
+    ...pm,
+    afterWord: pm.afterWord || '',
+    beforeWord: pm.beforeWord || '',
+    durationMs: pm.durationMs || pm.durationSeconds * 1000,
+  }));
 
   const scoreEntries = Object.entries(scores)
     .map(([key, value]) => {
@@ -750,11 +775,14 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
 
                         <div className='rounded-2xl border border-slate-200 bg-white px-4 py-4 text-base leading-8 text-slate-900 shadow-inner dark:border-slate-700/70 dark:bg-slate-950 dark:text-slate-100'>
                           <p className='leading-8 break-words whitespace-normal'>
-                            {renderRepeatSentenceTranscript(
-                              userAnswer,
-                              wordByWordAnalysis,
+                            {renderRepeatSentenceTranscriptAligned({
+                              spokenText: userAnswer,
+                              originalText:
+                                analysis.correctAnswer ||
+                                '',
+                              wordAnalysis: wordByWordAnalysis,
                               pauseMarkers,
-                            ) ||
+                            }) ||
                               renderTranscriptWithPauseGaps(
                                 userAnswer,
                                 pauseMarkers,

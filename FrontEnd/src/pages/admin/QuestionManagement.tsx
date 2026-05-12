@@ -82,6 +82,7 @@ const QuestionManagement: React.FC = () => {
   const [selectedQuestionType, setSelectedQuestionType] = useState('');
   const [selectedTest, setSelectedTest] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
+  const [selectedPredictionLevel, setSelectedPredictionLevel] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
   // Modals
@@ -107,6 +108,7 @@ const QuestionManagement: React.FC = () => {
     selectedQuestionType,
     selectedTest,
     selectedSection,
+    selectedPredictionLevel,
   ]);
 
   const fetchInitialData = async () => {
@@ -145,6 +147,9 @@ const QuestionManagement: React.FC = () => {
       }
       if (selectedSection) {
         filters.sectionId = selectedSection;
+      }
+      if (selectedPredictionLevel) {
+        filters.predictionLevel = selectedPredictionLevel;
       }
 
       const response = await questionsService.getQuestions(filters);
@@ -362,6 +367,21 @@ const QuestionManagement: React.FC = () => {
                       {test.title}
                     </option>
                   ))}
+                </select>
+
+                <select
+                  value={selectedPredictionLevel}
+                  onChange={(e) => {
+                    setSelectedPredictionLevel(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className={inputClass}
+                >
+                  <option value=''>All Prediction Levels</option>
+                  <option value='HIGH'>🔴 High</option>
+                  <option value='MEDIUM'>🟡 Medium</option>
+                  <option value='LOW'>🟢 Low</option>
+                  <option value='NONE'>⚪ None</option>
                 </select>
               </div>
             </div>

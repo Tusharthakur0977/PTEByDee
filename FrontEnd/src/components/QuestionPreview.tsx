@@ -7,7 +7,9 @@ import {
   FileText,
   Clock,
   Users,
+  Flame,
 } from 'lucide-react';
+import { questionsService } from '../services/questions';
 
 interface QuestionPreviewProps {
   question: any;
@@ -21,6 +23,10 @@ const QuestionPreview: React.FC<QuestionPreviewProps> = ({
   onDelete,
 }) => {
   const [playingAudio, setPlayingAudio] = useState(false);
+  const [predictionLevel, setPredictionLevel] = useState(
+    question.predictionLevel || 'NONE'
+  );
+  const [updatingPrediction, setUpdatingPrediction] = useState(false);
 
   const handleAudioPlay = () => {
     const audio = document.getElementById(
@@ -86,6 +92,41 @@ const QuestionPreview: React.FC<QuestionPreviewProps> = ({
     );
   };
 
+  const getPredictionBadge = (level: string) => {
+    const badges: { [key: string]: { bg: string; text: string; label: string } } = {
+      HIGH: {
+        bg: 'bg-red-100 dark:bg-red-900/30',
+        text: 'text-red-700 dark:text-red-300',
+        label: '🔥 High',
+      },
+      MEDIUM: {
+        bg: 'bg-amber-100 dark:bg-amber-900/30',
+        text: 'text-amber-700 dark:text-amber-300',
+        label: '🟡 Medium',
+      },
+      LOW: {
+        bg: 'bg-blue-100 dark:bg-blue-900/30',
+        text: 'text-blue-700 dark:text-blue-300',
+        label: '🟢 Low',
+      },
+    };
+    return badges[level] || null;
+  };
+
+  const handlePredictionChange = async (newLevel: string) => {
+    try {
+      setUpdatingPrediction(true);
+      await questionsService.updateQuestion(question.id, {
+        predictionLevel: newLevel as any,
+      });
+      setPredictionLevel(newLevel);
+    } catch (error) {
+      console.error('Error updating prediction level:', error);
+    } finally {
+      setUpdatingPrediction(false);
+    }
+  };
+
   return (
     <div className='bg-white dark:bg-slate-900 p-6 transition-colors'>
       {/* Header */}
@@ -102,6 +143,13 @@ const QuestionPreview: React.FC<QuestionPreviewProps> = ({
             >
               {formatQuestionTypeName(question.questionType.name)}
             </span>
+            {getPredictionBadge(predictionLevel) && (
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-medium ${getPredictionBadge(predictionLevel)!.bg} ${getPredictionBadge(predictionLevel)!.text}`}
+              >
+                {getPredictionBadge(predictionLevel)!.label}
+              </span>
+            )}
           </div>
 
           <div className='flex flex-wrap items-center gap-4 text-sm text-slate-500 dark:text-slate-400'>
@@ -139,6 +187,17 @@ const QuestionPreview: React.FC<QuestionPreviewProps> = ({
         </div>
 
         <div className='flex items-center gap-2'>
+          <select
+            value={predictionLevel}
+            onChange={(e) => handlePredictionChange(e.target.value)}
+            disabled={updatingPrediction}
+            className='rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 disabled:opacity-50'
+          >
+            <option value='NONE'>No Prediction</option>
+            <option value='HIGH'>🔥 High</option>
+            <option value='MEDIUM'>🟡 Medium</option>
+            <option value='LOW'>🟢 Low</option>
+          </select>
           <button
             onClick={onEdit}
             className='rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800'
