@@ -2900,7 +2900,6 @@ Return ONLY a single, minified JSON object. No markdown wrapping. No trailing te
         "explanation": "grammar explanation"
       }
     ],
-    "spellingErrors": [],
     "vocabularyIssues": [
       {
         "text": "misspelledWord",
