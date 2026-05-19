@@ -1,9 +1,6 @@
 import { PteQuestionTypeName } from '@prisma/client';
 import openai from '../config/openAi';
-import {
-  QuestionEvaluationResult,
-  EvaluationDetail,
-} from '../types/evaluationResponse';
+import { QuestionEvaluationResult } from '../types/evaluationResponse';
 
 /**
  * Converts legacy evaluation results to standardized format
@@ -422,11 +419,18 @@ function getTranscriptionWordsFromResponse(userResponse: any): Array<{
     const text = String(segment?.text || '').trim();
     const start = Number(segment?.start);
     const end = Number(segment?.end);
-    if (!text || !Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+    if (
+      !text ||
+      !Number.isFinite(start) ||
+      !Number.isFinite(end) ||
+      end <= start
+    ) {
       return;
     }
 
-    const tokens = text.split(/\s+/).filter((token: string) => token.length > 0);
+    const tokens = text
+      .split(/\s+/)
+      .filter((token: string) => token.length > 0);
     if (!tokens.length) return;
 
     const duration = end - start;
@@ -569,7 +573,10 @@ function detectPauseMarkers(
   };
 }
 
-function mergePauseErrorsIntoErrorAnalysis(errorAnalysis: any, pauseErrors: any[]) {
+function mergePauseErrorsIntoErrorAnalysis(
+  errorAnalysis: any,
+  pauseErrors: any[],
+) {
   const merged = {
     pronunciationErrors: [...(errorAnalysis?.pronunciationErrors || [])],
     fluencyErrors: [...(errorAnalysis?.fluencyErrors || [])],
@@ -751,8 +758,11 @@ async function inferFluencyFromTranscriptWithAI(params: {
   transcribedText: string;
   existingFluencyErrors?: any[];
 }): Promise<any[]> {
-  const { originalSentence, transcribedText, existingFluencyErrors = [] } =
-    params;
+  const {
+    originalSentence,
+    transcribedText,
+    existingFluencyErrors = [],
+  } = params;
 
   const trimmedTranscript = String(transcribedText || '').trim();
   if (!trimmedTranscript) return [];
@@ -816,7 +826,9 @@ Existing Fluency Errors (if any): ${JSON.stringify(existingFluencyErrors)}
       .filter((word: string) => word.length > 0);
     const maxIndex = Math.max(words.length - 1, 0);
 
-    const errors = Array.isArray(parsed?.fluencyErrors) ? parsed.fluencyErrors : [];
+    const errors = Array.isArray(parsed?.fluencyErrors)
+      ? parsed.fluencyErrors
+      : [];
 
     return errors
       .map((error: any) => {
@@ -830,7 +842,10 @@ Existing Fluency Errors (if any): ${JSON.stringify(existingFluencyErrors)}
             : rawStart + 1;
 
         if (rawStart < 0 || rawStart > maxIndex) return null;
-        const clampedEnd = Math.max(rawStart + 1, Math.min(rawEnd, words.length));
+        const clampedEnd = Math.max(
+          rawStart + 1,
+          Math.min(rawEnd, words.length),
+        );
         if (clampedEnd <= rawStart) return null;
 
         const confidence =
@@ -844,7 +859,8 @@ Existing Fluency Errors (if any): ${JSON.stringify(existingFluencyErrors)}
           position: { start: rawStart, end: clampedEnd },
           correction: '',
           explanation: String(
-            error?.explanation || 'Likely hesitation or pause affecting fluency.',
+            error?.explanation ||
+              'Likely hesitation or pause affecting fluency.',
           ).trim(),
           meta: {
             category: String(error?.meta?.category || 'hesitation'),
@@ -1310,70 +1326,71 @@ async function evaluateRepeatSentence(
     const fluencyScore = evaluation.evaluation?.oralFluency?.score || 0;
     const wordAnalysis = evaluation.evaluation?.content?.wordAnalysis || [];
     const baseErrorAnalysis = {
-      pronunciationErrors: [...(evaluation.errorAnalysis?.pronunciationErrors || [])],
+      pronunciationErrors: [
+        ...(evaluation.errorAnalysis?.pronunciationErrors || []),
+      ],
       fluencyErrors: [...(evaluation.errorAnalysis?.fluencyErrors || [])],
       contentErrors: [...(evaluation.errorAnalysis?.contentErrors || [])],
     };
 
-      const timestampMergedErrorAnalysis = enableFluencyInsights
-        ? mergePauseErrorsIntoErrorAnalysis(baseErrorAnalysis, pauseErrors)
-        : baseErrorAnalysis;
-      const aiInferredFluencyErrors = enableFluencyInsights
-        ? await inferFluencyFromTranscriptWithAI({
+    const timestampMergedErrorAnalysis = enableFluencyInsights
+      ? mergePauseErrorsIntoErrorAnalysis(baseErrorAnalysis, pauseErrors)
+      : baseErrorAnalysis;
+    const aiInferredFluencyErrors = enableFluencyInsights
+      ? await inferFluencyFromTranscriptWithAI({
           originalSentence,
           transcribedText,
           existingFluencyErrors: timestampMergedErrorAnalysis.fluencyErrors,
         })
       : [];
-      const mergedErrorAnalysis = enableFluencyInsights
-        ? mergeAdditionalFluencyErrors(
-            timestampMergedErrorAnalysis,
-            aiInferredFluencyErrors,
-          )
-        : timestampMergedErrorAnalysis;
-      const inferredPauseMarkers =
-        enableFluencyInsights && speechFlow?.pauseMarkers?.length === 0
-          ? inferRepeatSentencePauseMarkersFromFluencyErrors({
-              transcribedText,
-              fluencyErrors: mergedErrorAnalysis.fluencyErrors,
-            })
-          : [];
-      const effectiveSpeechFlow =
-        enableFluencyInsights && speechFlow
-          ? {
-              ...speechFlow,
-              pauseMarkers:
-                speechFlow.pauseMarkers.length > 0
-                  ? speechFlow.pauseMarkers
-                  : inferredPauseMarkers,
-              totalPauseCount:
-                speechFlow.pauseMarkers.length > 0
-                  ? speechFlow.totalPauseCount
-                  : inferredPauseMarkers.length,
-              totalPausedMs:
-                speechFlow.pauseMarkers.length > 0
-                  ? speechFlow.totalPausedMs
-                  : inferredPauseMarkers.reduce(
-                      (sum, marker) => sum + marker.durationMs,
-                      0,
-                    ),
-              longestPauseMs:
-                speechFlow.pauseMarkers.length > 0
-                  ? speechFlow.longestPauseMs
-                  : inferredPauseMarkers.reduce(
-                      (longest, marker) =>
-                        Math.max(longest, marker.durationMs),
-                      0,
-                    ),
-            }
-          : speechFlow;
-      const repeatSentenceOralFluencyFeedback =
-        buildRepeatSentenceFluencyFeedback({
-          fluencyErrors: mergedErrorAnalysis.fluencyErrors,
-          pauseMarkers: enableFluencyInsights
-            ? effectiveSpeechFlow?.pauseMarkers || []
-            : [],
-        });
+    const mergedErrorAnalysis = enableFluencyInsights
+      ? mergeAdditionalFluencyErrors(
+          timestampMergedErrorAnalysis,
+          aiInferredFluencyErrors,
+        )
+      : timestampMergedErrorAnalysis;
+    const inferredPauseMarkers =
+      enableFluencyInsights && speechFlow?.pauseMarkers?.length === 0
+        ? inferRepeatSentencePauseMarkersFromFluencyErrors({
+            transcribedText,
+            fluencyErrors: mergedErrorAnalysis.fluencyErrors,
+          })
+        : [];
+    const effectiveSpeechFlow =
+      enableFluencyInsights && speechFlow
+        ? {
+            ...speechFlow,
+            pauseMarkers:
+              speechFlow.pauseMarkers.length > 0
+                ? speechFlow.pauseMarkers
+                : inferredPauseMarkers,
+            totalPauseCount:
+              speechFlow.pauseMarkers.length > 0
+                ? speechFlow.totalPauseCount
+                : inferredPauseMarkers.length,
+            totalPausedMs:
+              speechFlow.pauseMarkers.length > 0
+                ? speechFlow.totalPausedMs
+                : inferredPauseMarkers.reduce(
+                    (sum, marker) => sum + marker.durationMs,
+                    0,
+                  ),
+            longestPauseMs:
+              speechFlow.pauseMarkers.length > 0
+                ? speechFlow.longestPauseMs
+                : inferredPauseMarkers.reduce(
+                    (longest, marker) => Math.max(longest, marker.durationMs),
+                    0,
+                  ),
+          }
+        : speechFlow;
+    const repeatSentenceOralFluencyFeedback =
+      buildRepeatSentenceFluencyFeedback({
+        fluencyErrors: mergedErrorAnalysis.fluencyErrors,
+        pauseMarkers: enableFluencyInsights
+          ? effectiveSpeechFlow?.pauseMarkers || []
+          : [],
+      });
 
     // Calculate overall score as sum of component scores (points)
     const overallScore = Math.round(
@@ -1389,8 +1406,7 @@ async function evaluateRepeatSentence(
     return {
       score: { scored: overallScore, max: maxPossibleScore },
       isCorrect: percentageScore >= 65,
-      feedback:
-        evaluation.feedback?.summary,
+      feedback: evaluation.feedback?.summary,
       suggestions: evaluation.feedback?.suggestions || [
         'Practice repeating sentences clearly',
         'Focus on accurate pronunciation',
@@ -1422,7 +1438,10 @@ async function evaluateRepeatSentence(
               },
             }
           : {}),
-        errorAnalysis: correctAudioErrorPositions(mergedErrorAnalysis, transcribedText),
+        errorAnalysis: correctAudioErrorPositions(
+          mergedErrorAnalysis,
+          transcribedText,
+        ),
       },
     };
   } catch (error) {
@@ -1652,7 +1671,8 @@ async function evaluateDescribeImage(
 
     const mergedErrorAnalysis = mergePauseErrorsIntoErrorAnalysis(
       {
-        pronunciationErrors: evaluation?.errorAnalysis?.pronunciationErrors || [],
+        pronunciationErrors:
+          evaluation?.errorAnalysis?.pronunciationErrors || [],
         fluencyErrors: evaluation?.errorAnalysis?.fluencyErrors || [],
         grammarErrors: evaluation?.errorAnalysis?.grammarErrors || [],
         contentErrors: evaluation?.errorAnalysis?.contentErrors || [],
@@ -1773,7 +1793,10 @@ async function evaluateRetellLecture(
   const transcribedText = String(userResponse?.textResponse || '').trim();
   const originalLecture = question.textContent || '';
   const transcriptionWords = getTranscriptionWordsFromResponse(userResponse);
-  const timingAnalysis = detectPauseMarkers(transcribedText, transcriptionWords);
+  const timingAnalysis = detectPauseMarkers(
+    transcribedText,
+    transcriptionWords,
+  );
 
   const prompt = `
 **Your Role:** You are an expert AI evaluator for the PTE Academic test.
@@ -2016,7 +2039,10 @@ async function evaluateSummarizeGroupDiscussion(
   const transcribedText = String(userResponse?.textResponse || '').trim();
   const discussionTranscript = question.textContent || '';
   const transcriptionWords = getTranscriptionWordsFromResponse(userResponse);
-  const timingAnalysis = detectPauseMarkers(transcribedText, transcriptionWords);
+  const timingAnalysis = detectPauseMarkers(
+    transcribedText,
+    transcriptionWords,
+  );
 
   const prompt = `
   **Your Role:** You are an expert AI evaluator for the PTE Academic test. Your task is to analyze a user's "Summarize Group Discussion" speaking performance with extreme precision.
@@ -2576,20 +2602,20 @@ async function evaluateRespondToASituation(
     const maxPossibleScore =
       contentMaxScore + oralFluencyMaxScore + pronunciationMaxScore;
 
-      const percentageScore = Math.round((overallScore / maxPossibleScore) * 100);
-      const correctedErrorAnalysis = correctAudioErrorPositions(
-        evaluation.errorAnalysis,
-        transcribedText,
-      );
-      const mergedErrorAnalysis = mergePauseErrorsIntoErrorAnalysis(
-        correctedErrorAnalysis,
-        timingAnalysis.pauseErrors,
-      );
-  
-      return {
-        score: { scored: overallScore, max: maxPossibleScore },
-        isCorrect: percentageScore >= 65,
-        feedback: evaluation.feedback?.summary,
+    const percentageScore = Math.round((overallScore / maxPossibleScore) * 100);
+    const correctedErrorAnalysis = correctAudioErrorPositions(
+      evaluation.errorAnalysis,
+      transcribedText,
+    );
+    const mergedErrorAnalysis = mergePauseErrorsIntoErrorAnalysis(
+      correctedErrorAnalysis,
+      timingAnalysis.pauseErrors,
+    );
+
+    return {
+      score: { scored: overallScore, max: maxPossibleScore },
+      isCorrect: percentageScore >= 65,
+      feedback: evaluation.feedback?.summary,
       suggestions: evaluation.feedback?.suggestions || [
         'Address all aspects of the situation',
         'Use clear and appropriate language',
@@ -2613,26 +2639,25 @@ async function evaluateRespondToASituation(
             'Practice smooth, natural speech rhythm',
           pronunciation:
             evaluation.feedback?.pronunciation || 'Work on clear articulation',
-          },
-          timeTaken: timeTakenSeconds || 0,
-          userText: transcribedText,
-          errorAnalysis: {
-            pronunciationErrors:
-              mergedErrorAnalysis?.pronunciationErrors || [],
-            fluencyErrors: mergedErrorAnalysis?.fluencyErrors || [],
-            contentErrors: mergedErrorAnalysis?.contentErrors || [],
-          },
-          speechFlow: {
-            ...timingAnalysis.speechFlow,
-            aiInferredFluencyCount: Array.isArray(
-              evaluation.errorAnalysis?.fluencyErrors,
-            )
-              ? evaluation.errorAnalysis.fluencyErrors.length
-              : 0,
-          },
         },
-      };
-    } catch (error) {
+        timeTaken: timeTakenSeconds || 0,
+        userText: transcribedText,
+        errorAnalysis: {
+          pronunciationErrors: mergedErrorAnalysis?.pronunciationErrors || [],
+          fluencyErrors: mergedErrorAnalysis?.fluencyErrors || [],
+          contentErrors: mergedErrorAnalysis?.contentErrors || [],
+        },
+        speechFlow: {
+          ...timingAnalysis.speechFlow,
+          aiInferredFluencyCount: Array.isArray(
+            evaluation.errorAnalysis?.fluencyErrors,
+          )
+            ? evaluation.errorAnalysis.fluencyErrors.length
+            : 0,
+        },
+      },
+    };
+  } catch (error) {
     console.error('OpenAI evaluation error for Respond to a Situation:', error);
     return {
       score: { scored: 0, max: 16 },
@@ -2786,132 +2811,176 @@ async function evaluateSummarizeWrittenText(
   userResponse: any,
   timeTakenSeconds?: number,
 ): Promise<QuestionEvaluationResult> {
+  const originalText = question.textContent || '';
   const userText = userResponse.text || '';
   const wordCount = userText
     .split(/\s+/)
     .filter((word: string | any[]) => word.length > 0).length;
 
 const prompt = `
-    **Your Role:** You are an expert PTE Academic grader specializing in the "Summarize Written Text" task.
-    **Objective:** Evaluate the user's summary of the provided text. You must score the response on four distinct traits: Content, Form, Grammar, and Vocabulary, using the detailed rubrics below.
+**Your Role:** Expert PTE Academic grader for "Summarize Written Text" (SWT) acting strictly like an automated computer scoring engine.
+**Objective:** Evaluate the user's summary against the original text. Return ONLY minified JSON.
 
-    ### **Input for Evaluation**
-      **Original Text: "${question.textContent}"
-      **User's Summary: "${userText}"
-      **Word Count: ${wordCount}
+### **Input Data**
+- **Original Text:** ${JSON.stringify(originalText)}
+- **User's Summary:** ${JSON.stringify(userText)}
+- **Word Count:** ${wordCount}
 
-    ---
-    ### **Step 1: Internal Highlighting Logic (MANDATORY)**
-    Before scoring, identify the core information in the source text.
-    - **Highlight:** Main ideas, definitions, advantages/disadvantages, cause-effect, problem-solution, and final conclusions.
-    - **Ignore:** Examples, specific names (Professor X), job titles, reporting phrases (said, commented), dates/years, and background details.
-    - **Special Rule:** For quotes, extract only the useful idea and discard the attribution.
+---
+### **Step 1: Core Selection & Matching Rules**
+- **Identify Core Concept Keywords:** Main topics, advantages, material properties, and cause-effect facts mentioned in the text.
+- **PTE Grading Reality:** SWT is a text-extraction and compression task. If the user successfully extracts key facts, links them together using connectors, and maintains a clear relationship to the topic, they must be rewarded. 
+- **CRITICAL GENERAL RULE:** Do NOT search for specific "mandatory" human-selected key details or specific omissions to penalize the response. If the summary captures a broad, substantial layout of the text's factual ecosystem (around 70%+ coverage of any valid core points combined), award full marks.
 
-    ---
-    ### **Step 2: Scoring Rubrics**
+---
+### **Step 2: Scoring Rubrics & Strict Criteria**
 
-    1. Content (Score from 0 to 4):
-    Evaluate comprehension, key-sentence selection, and logical connection based on the Internal Highlighting.
+1. Content (0–4)
+- **4 (Comprehensive):** Summary captures 70% or more of the main ideas/facts from the text, logically linking them into a single coherent sentence. Direct extraction of phrases connected cleanly must receive full marks. Do NOT reduce to 3 for "missing details" if the coverage threshold is met.
+- **3 (Adequate):** Summary captures between 50% to 69% of the main ideas/facts. Minor structural gaps or omissions.
+- **2 (Partial):** Summary captures around 40% to 49% of the main ideas/facts, showing a basic connection to the core topic.
+- **1 (Minimal):** Captures less than 40% of the ideas, lacks proper sentence logic, or has weak relevance to the topic.
+- **0:** Off-topic or completely unintelligible.
 
-    **Copy-Paste & Paraphrasing Rules:**
-    - **Tier A (Legitimate Paraphrase):** User uses relevant key ideas AND replaces at least 3–4 content words with synonyms OR shows clear restructuring.
-      -> Action: Proceed to normal scoring (up to 4).
-    - **Tier B (Copy-Paste with Logic):** User selects relevant key ideas and connects them logically BUT uses mostly copied words with fewer than 3 synonym replacements.
-      -> Action: Reduce Content score by 1 band (e.g., 4 → 3, 3 → 2).
-      -> Add to feedback.content: "Note: Good selection of key ideas, but limited paraphrasing; vocabulary variation required."
-    - **Tier C (Excessive Copying/Poor Logic):** Answer is fully copied AND poorly connected OR lacks proper sentence formation.
-      -> Action: Content score MUST be ≤ 1.
-      -> Add to feedback.content: "Flag: excessive direct copying detected; content capped."
+*Feedback Rule for Content:* If the score is 4, the feedback must be entirely positive. Do NOT include phrases like "but misses details regarding..." or "omits information about...".
 
-    **Scoring Scales:**
-    - 4: Comprehensive summary capturing all main ideas; logical synthesis; suitable paraphrasing.
-    - 3: Adequate summary; captures most main ideas; minor omission OR good content but limited paraphrasing (Tier B).
-    - 2: Partial summary; misses important ideas or shows weak synthesis/linking.
-    - 1: Minimal relevance OR excessive copying with poor structure (Tier C).
-    - 0: Off-topic or unintelligible.
+2. Form (0–1)
+- **1:** Exactly ONE complete sentence, 5–75 words, not ALL CAPS.
+- **0:** Multiple sentences, fragments, <5 or >75 words, or ALL CAPS.
 
-    2. Form (Score from 0 to 1):
-    - 1: Exactly one complete sentence, 5–75 words, not in ALL CAPS, uses connectors (but, as, so, whereas, and, or) to join clauses.
-    - 0: Not a single sentence, word count <5 or >75, or ALL CAPS.
+3. Grammar (0–2)
+- **2:** Correct structure. Ignore minor punctuation issues, comma splices, or connector-heavy structures unless meaning becomes completely unclear.
+- **1:** Some noticeable grammar issues, but meaning remains clear.
+- **0:** Serious structural errors that distort meaning.
 
-    3. Grammar (Score from 0 to 2):
-    - **Connector Immunity:** Do NOT penalize "but", "whereas", "as", "so", "and", "or" as errors.
-    - **Copy-Structure Immunity:** If combining key sentences, do not mark minor grammatical shifts caused by joining clauses as errors—only penalize errors affecting clarity.
-    - 2: Correct structure; rare minor errors.
-    - 1: Some errors but meaning remains clear.
-    - 0: Grave structural errors.
+4. Vocabulary (0–2)
+- **2:** Words used are contextually accurate and relevant to the topic (using direct words/phrases extracted from the source text is perfectly acceptable and expected).
+- **1:** Includes a few incorrect or mismatched word choices, but the overall meaning is still understandable.
+- **0:** Major word choice errors or nonsense words that disrupt communication.
 
-    4. Vocabulary (Score from 0 to 2):
-    - **Synonym Expectation:** Full marks (2) require at least 3–4 suitable synonym replacements.
-    - 2: Appropriate word choice; effective paraphrasing.
-    - 1: Limited paraphrasing OR minor inaccuracies; communication is clear.
-    - 0: Poor word choice.
-    - **Note:** Up to 3 non-English words are allowed if meaning is clear.
+---
+### **Step 3: Error Analysis Instructions**
+- **Index:** Starts at 0. Split ONLY on whitespace. Punctuation is NOT a separate word.
+- **Format:** Single-word error: {"start": index, "end": index + 1}. Include "before" and "after" words for context.
+- **Types:** 'spelling', 'grammar', 'vocabulary'.
 
-    ---
-    ### **Error Analysis Instructions**
-    **POSITION CALCULATION:**
-    - Index starts at 0. Split on whitespace ONLY. Punctuation is NOT a separate word.
-    - For SINGLE-WORD: {"start": index, "end": index + 1}
-    - Include "before" and "after" context words to ensure the correct occurrence is identified.
+---
+### **Expected Output Format**
+Return ONLY a single, minified JSON object. No markdown wrapping. No trailing text.
 
-    ---
-    **Error Object Structure:** { "text": "", "type": "", "position": {"start": 0, "end": 0}, "correction": "", "explanation": "", "before": "", "after": "" }
-    **Format:** Return ONLY minified JSON. Use the Error Object structure for all arrays below.
-
-    Final output must be a single, minified JSON object with NO markdown.
-    {
-      "scores": { "content": 0, "form": 0, "grammar": 0, "vocabulary": 0 },
-      "feedback": { "content": "", "form": "", "grammar": "", "vocabulary": "" },
-     "errorAnalysis": {
-        "grammarErrors": [],
-        "spellingErrors": [],
-        "vocabularyIssues": []
-      }
-    }
-  `;
+{
+  "scores": {"content": 0, "form": 0, "grammar": 0, "vocabulary": 0},
+  "feedback": {"content": "", "form": "", "grammar": "", "vocabulary": ""},
+  "errorAnalysis": {
+    "grammarErrors": [],
+    "spellingErrors": [],
+    "vocabularyIssues": []
+  }
+}
+`;
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4o',
       messages: [
         {
           role: 'system',
           content:
-            'You are a helpful assistant designed to output JSON for PTE Academic evaluation.',
+            'You are a helpful assistant designed to output JSON for PTE Academic evaluation. Return ONLY valid minified JSON. Do not add any markdown, explanations, or extra text.',
         },
         { role: 'user', content: prompt },
       ],
       response_format: { type: 'json_object' },
-      temperature: 0.3,
+      temperature: 0.2,
     });
 
-    const evaluation = JSON.parse(response.choices[0].message.content || '{}');
+    const evaluation = JSON.parse(
+      response.choices?.[0]?.message?.content || '{}',
+    );
 
-    // Extract individual scores for each trait
+    const normalizeErrors = (rawErrors: any[], textWordCount: number) => {
+      if (!Array.isArray(rawErrors)) return [];
+
+      return rawErrors
+        .map((error) => {
+          if (!error || typeof error !== 'object' || !error.text) return null;
+
+          const normalized = {
+            text: String(error.text).trim(),
+            type: String(error.type || 'vocabulary').toLowerCase(),
+            position: error.position || { start: 0, end: 1 },
+            correction: String(error.correction || '').trim(),
+            explanation: String(error.explanation || '').trim(),
+            before: String(error.before || '').trim(),
+            after: String(error.after || '').trim(),
+          };
+
+          const start = Number(normalized.position.start);
+          const end = Number(normalized.position.end);
+
+          if (!isNaN(start) && !isNaN(end) && start >= 0 && start < end) {
+            normalized.position = { start, end };
+            return normalized;
+          }
+
+          return null;
+        })
+        .filter((e) => e !== null);
+    };
+
     const contentScore = evaluation.scores?.content || 0;
     const formScore = evaluation.scores?.form || 0;
     const grammarScore = evaluation.scores?.grammar || 0;
     const vocabularyScore = evaluation.scores?.vocabulary || 0;
 
-    // Define the maximum possible score for each trait
     const maxContentScore = 4;
     const maxFormScore = 1;
     const maxGrammarScore = 2;
     const maxVocabularyScore = 2;
 
-    // Calculate the total achieved score and the total possible score
     const totalAchievedScore =
       contentScore + formScore + grammarScore + vocabularyScore;
     const totalMaxScore =
-      maxContentScore + maxFormScore + maxGrammarScore + maxVocabularyScore; // Total is 9
+      maxContentScore + maxFormScore + maxGrammarScore + maxVocabularyScore;
 
-    // Calculate the overall score as actual points earned
     const overallScore = totalAchievedScore;
-
-    // Calculate percentage for isCorrect check (65% threshold)
     const percentageScore = Math.round(
       (totalAchievedScore / totalMaxScore) * 100,
+    );
+
+    // Get errors from the unified errors array or individual categories
+    const rawErrors = evaluation.errorAnalysis?.errors || [];
+    const normalizedErrors = normalizeErrors(rawErrors, wordCount);
+
+    // Convert unified errors array to the expected structure for compatibility
+    const errorAnalysis = {
+      grammarErrors: normalizeErrors(
+        evaluation.errorAnalysis?.grammarErrors || [],
+        wordCount,
+      ),
+      spellingErrors: normalizeErrors(
+        evaluation.errorAnalysis?.spellingErrors || [],
+        wordCount,
+      ),
+      vocabularyIssues: normalizeErrors(
+        evaluation.errorAnalysis?.vocabularyIssues || [],
+        wordCount,
+      ),
+    };
+
+    normalizedErrors.forEach((error) => {
+      if (error.type === 'spelling') {
+        errorAnalysis.spellingErrors.push(error);
+      } else if (error.type === 'grammar') {
+        errorAnalysis.grammarErrors.push(error);
+      } else {
+        errorAnalysis.vocabularyIssues.push(error);
+      }
+    });
+
+    const correctedErrorAnalysis = correctErrorPositions(
+      errorAnalysis,
+      userText,
     );
 
     return {
@@ -2919,7 +2988,7 @@ const prompt = `
       isCorrect: percentageScore >= 65,
       feedback:
         evaluation.feedback?.summary || 'Summary evaluated successfully.',
-      suggestions: [],
+      suggestions: evaluation.suggestions || [],
       detailedAnalysis: {
         scores: {
           content: { score: contentScore, max: maxContentScore },
@@ -2936,10 +3005,7 @@ const prompt = `
         timeTaken: timeTakenSeconds || 0,
         userText: userText,
         wordCount: wordCount,
-        errorAnalysis: correctErrorPositions(
-          evaluation.errorAnalysis,
-          userText,
-        ),
+        errorAnalysis: correctedErrorAnalysis,
       },
     };
   } catch (error) {
@@ -2960,6 +3026,11 @@ const prompt = `
         timeTaken: timeTakenSeconds || 0,
         userText: userText,
         wordCount: wordCount,
+        errorAnalysis: {
+          grammarErrors: [],
+          spellingErrors: [],
+          vocabularyIssues: [],
+        },
       },
     };
   }
@@ -3162,7 +3233,7 @@ async function evaluateWriteEssay(
     .split(/\s+/)
     .filter((word: string | any[]) => word.length > 0).length;
 
-const prompt = `
+  const prompt = `
 **Role:** Expert PTE Grader (Write Essay).
 **Input:** - Prompt: "${question.textContent}"
 - Essay: "${userText}"
@@ -3865,7 +3936,7 @@ async function evaluateSummarizeSpokenText(
     .split(/\s+/)
     .filter((word: string | any[]) => word.length > 0).length;
 
-const prompt = `
+  const prompt = `
 **Role:** Expert PTE Grader (Summarize Spoken Text).
 **Input:** - Transcript: "${question.textContent}"
 - User Response: "${userText}"

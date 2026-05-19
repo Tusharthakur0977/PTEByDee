@@ -62,7 +62,8 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
   const renderUserResponse = () => {
     return (
       <>
-        {(response.textResponse || response.detailedAnalysis.userText) && (
+        {(response.textResponse || response.detailedAnalysis.userText) &&
+          !["SUMMARIZE_WRITTEN_TEXT", "READ_ALOUD", "REPEAT_SENTENCE", "WRITE_ESSAY", "RE_TELL_LECTURE", "SUMMARIZE_SPOKEN_TEXT", "DESCRIBE_IMAGE"].includes(questionType) && (
           <div className="text-center text-gray-500 dark:text-gray-400 py-8 flex flex-col gap-5">
             <div className="space-y-4">
               <div className="flex items-center space-x-2">
@@ -690,23 +691,61 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
   };
 
   const renderEvaluationResponse = () => {
+    const feedback = response.detailedAnalysis.feedback;
+    if (!feedback) return null;
+
+    const feedbackTraits = Object.entries(feedback).filter(
+      ([key, value]) => key !== "summary" && value && typeof value === "string"
+    );
+
     if (
-      questionType === "DESCRIBE_IMAGE" ||
-      questionType === "SUMMARIZE_WRITTEN_TEXT"
+      [
+        "DESCRIBE_IMAGE",
+        "SUMMARIZE_WRITTEN_TEXT",
+        "READ_ALOUD",
+        "RE_TELL_LECTURE",
+        "WRITE_ESSAY",
+        "SUMMARIZE_SPOKEN_TEXT",
+        "REPEAT_SENTENCE",
+      ].includes(questionType)
     ) {
       return (
-        response.detailedAnalysis.feedback.summary && (
-          <div className="bg-white dark:bg-gray-700 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
-            <h5 className="font-medium text-gray-900 dark:text-white mb-2">
-              Summary
-            </h5>
-            <p className="text-sm text-gray-700 dark:text-gray-300">
-              {response.detailedAnalysis.feedback.summary}
-            </p>
-          </div>
-        )
+        <div className="space-y-4">
+          {feedback.summary && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-5 border border-blue-200 dark:border-blue-800">
+              <div className="flex items-center space-x-2 mb-3">
+                <Activity className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <h5 className="font-semibold text-gray-900 dark:text-white">
+                  Overall Feedback
+                </h5>
+              </div>
+              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                {feedback.summary}
+              </p>
+            </div>
+          )}
+
+          {feedbackTraits.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {feedbackTraits.map(([trait, text]) => (
+                <div
+                  key={trait}
+                  className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 shadow-sm"
+                >
+                  <h6 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                    {formatScoringText(trait)}
+                  </h6>
+                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                    {text as string}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       );
     }
+    return null;
   };
 
   const renderHighlightedText = (text: string, errorAnalysis: any) => {
@@ -941,11 +980,6 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
       );
     }
 
-    if (!hasErrors) {
-      console.log("No errors found in errorAnalysis");
-      return null;
-    }
-
     const totalErrors =
       (grammarErrors?.length || 0) +
       (contentErrors?.length || 0) +
@@ -953,6 +987,21 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
       (pronunciationErrors?.length || 0) +
       (fluencyErrors?.length || 0) +
       (vocabularyIssues?.length || 0);
+
+    const alwaysShowUserTextTypes = [
+      "SUMMARIZE_WRITTEN_TEXT",
+      "READ_ALOUD",
+      "REPEAT_SENTENCE",
+      "RE_TELL_LECTURE",
+      "WRITE_ESSAY",
+      "SUMMARIZE_SPOKEN_TEXT",
+      "DESCRIBE_IMAGE",
+    ];
+
+    if (!hasErrors && !alwaysShowUserTextTypes.includes(questionType)) {
+      console.log("No errors found in errorAnalysis");
+      return null;
+    }
 
     // Special rendering for Write from Dictation
     if (questionType === "WRITE_FROM_DICTATION") {
@@ -1392,14 +1441,21 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
           </span>
         </div>
 
-        <div className="p-6">
-          <div className="mb-3">
-            <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Transcribed Audio:
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden mb-6">
+          <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
+            <h5 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center space-x-2">
+              <FileText className="h-4 w-4 text-blue-500" />
+              <span>
+                {["READ_ALOUD", "REPEAT_SENTENCE", "RE_TELL_LECTURE", "SUMMARIZE_SPOKEN_TEXT"].includes(questionType)
+                  ? "Transcribed Audio"
+                  : questionType === "SUMMARIZE_WRITTEN_TEXT"
+                  ? "Your Summary"
+                  : "Your Response"}
+              </span>
             </h5>
           </div>
-          <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border">
-            <div className="text-sm leading-relaxed text-gray-800 dark:text-gray-200">
+          <div className="p-6 bg-white dark:bg-gray-800">
+            <div className="text-base leading-relaxed text-gray-800 dark:text-gray-200 bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg border border-gray-100 dark:border-gray-800">
               {renderHighlightedText(
                 response.detailedAnalysis.recognizedText ||
                   response.detailedAnalysis.userText ||

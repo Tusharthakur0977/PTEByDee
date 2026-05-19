@@ -1,5 +1,25 @@
-import { Clock3, FileText, TrendingUp, X, XCircle } from "lucide-react";
+import {
+  Clock3,
+  FileText,
+  TrendingUp,
+  X,
+  XCircle,
+  AlertCircle,
+  CheckCircle,
+  HelpCircle,
+  Info,
+  ChevronRight,
+  Keyboard,
+  Target,
+} from "lucide-react";
 import React, { useEffect, useState } from "react";
+import {
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+} from "recharts";
 import { PreviousResponse } from "../../../services/questionResponse";
 import { formatScoringText } from "../../../utils/Helpers";
 
@@ -203,25 +223,17 @@ const formatDate = (dateString?: string) => {
 const getScoreColor = (score: number, maxScore: number) => {
   const percentage = maxScore > 0 ? (score / maxScore) * 100 : 0;
 
-  if (percentage >= 80) return "text-emerald-600 dark:text-emerald-400";
-  if (percentage >= 60) return "text-amber-600 dark:text-amber-400";
-  return "text-rose-600 dark:text-rose-400";
+  if (percentage >= 80) return "text-emerald-400";
+  if (percentage >= 60) return "text-amber-400";
+  return "text-rose-400";
 };
 
-const getErrorColor = (type?: string) => {
-  if (type === "grammar" || type === "unnecessary_word") {
-    return "bg-red-500";
-  }
-  if (type === "spelling" || type === "spelling_error") {
-    return "bg-orange-500";
-  }
-  if (type === "vocabulary" || type === "missing_word") {
-    return "bg-purple-500";
-  }
-  if (type === "content") {
-    return "bg-pink-500";
-  }
-  return "bg-gray-500";
+const getErrorColorClass = (type?: string) => {
+  if (type === "grammar" || type === "unnecessary_word") return "bg-rose-500";
+  if (type === "spelling" || type === "spelling_error") return "bg-amber-500";
+  if (type === "vocabulary" || type === "missing_word") return "bg-purple-500";
+  if (type === "content") return "bg-sky-500";
+  return "bg-slate-500";
 };
 
 const parseDetailedAnalysis = (
@@ -332,141 +344,6 @@ const normalizeDictationErrors = (analysisError: any) => {
   };
 };
 
-const renderDictationHighlightedText = (
-  userText: string,
-  correctText: string,
-  errorAnalysis: any,
-  onPressError: (error: AnalysisErrorItem) => void,
-) => {
-  const operations = alignDictationWords(correctText || "", userText || "");
-
-  const spellingErrors = [...(errorAnalysis?.spellingErrors || [])];
-  const missingErrors = [...(errorAnalysis?.vocabularyIssues || [])].filter(
-    (e: any) => e?.type === "missing_word",
-  );
-  const extraErrors = [...(errorAnalysis?.grammarErrors || [])].filter(
-    (e: any) => e?.type === "unnecessary_word",
-  );
-
-  const consumeMatchingError = (
-    list: any[],
-    matcher: (error: any) => boolean,
-  ) => {
-    const idx = list.findIndex(matcher);
-    if (idx === -1) return null;
-    const [found] = list.splice(idx, 1);
-    return found;
-  };
-
-  const parts: React.ReactNode[] = [];
-
-  operations.forEach((op, idx) => {
-    if (op.type === "correct") {
-      parts.push(
-        <span
-          key={`dict-correct-${idx}`}
-          className="text-teal-600 dark:text-teal-300"
-        >
-          {op.correct.raw}
-        </span>,
-      );
-    }
-
-    if (op.type === "missing") {
-      const error = consumeMatchingError(
-        missingErrors,
-        (e) => normalizeWord(e?.text || "") === op.correct.normalized,
-      ) || {
-        text: op.correct.raw,
-        type: "missing_word",
-        correction: op.correct.raw,
-        explanation: `You missed the word: "${op.correct.raw}"`,
-      };
-
-      parts.push(
-        <span
-          key={`dict-missing-${idx}`}
-          className="cursor-pointer font-medium text-red-600 dark:text-red-400"
-          onClick={() => onPressError(error)}
-          title="Missing word - click for details"
-        >
-          ({op.correct.raw})
-        </span>,
-      );
-    }
-
-    if (op.type === "extra") {
-      const error = consumeMatchingError(
-        extraErrors,
-        (e) => normalizeWord(e?.text || "") === op.user.normalized,
-      ) || {
-        text: op.user.raw,
-        type: "unnecessary_word",
-        correction: "",
-        explanation: `Unnecessary word that should be removed: "${op.user.raw}"`,
-      };
-
-      parts.push(
-        <span
-          key={`dict-extra-${idx}`}
-          className="cursor-pointer text-gray-500 line-through dark:text-gray-400"
-          onClick={() => onPressError(error)}
-          title="Extra word - click for details"
-        >
-          {op.user.raw}
-        </span>,
-      );
-    }
-
-    if (op.type === "spelling") {
-      const error = consumeMatchingError(
-        spellingErrors,
-        (e) =>
-          normalizeWord(e?.text || "") === op.user.normalized &&
-          normalizeWord(e?.correction || e?.suggestion || "") ===
-            op.correct.normalized,
-      ) ||
-        consumeMatchingError(
-          spellingErrors,
-          (e) => normalizeWord(e?.text || "") === op.user.normalized,
-        ) || {
-          text: op.user.raw,
-          type: "spelling_error",
-          correction: op.correct.raw,
-          explanation: `Wrong word: "${op.user.raw}" should be "${op.correct.raw}"`,
-        };
-
-      parts.push(
-        <span
-          key={`dict-spelling-user-${idx}`}
-          className="cursor-pointer font-medium text-orange-500 line-through dark:text-orange-400"
-          onClick={() => onPressError(error)}
-          title="Wrong or misspelled word - click for details"
-        >
-          {op.user.raw}
-        </span>,
-      );
-      parts.push(" ");
-      parts.push(
-        <span
-          key={`dict-spelling-correction-${idx}`}
-          className="cursor-pointer font-semibold text-orange-600 dark:text-orange-400"
-          onClick={() => onPressError(error)}
-          title="Wrong or misspelled word - click for details"
-        >
-          ({op.correct.raw})
-        </span>,
-      );
-    }
-
-    if (idx < operations.length - 1) {
-      parts.push(" ");
-    }
-  });
-
-  return <span>{parts}</span>;
-};
-
 const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
   response,
   isOpen,
@@ -493,7 +370,6 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
     };
 
     window.addEventListener("keydown", handleKeyDown);
-
     return () => {
       document.body.style.overflow = previousBodyOverflow;
       document.body.style.touchAction = previousBodyTouchAction;
@@ -504,7 +380,6 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
   if (!isOpen || !response) return null;
 
   const analysis = parseDetailedAnalysis(response.detailedAnalysis);
-  const feedback = analysis.feedback || {};
   const scores = analysis.scores || {};
   const normalizedErrorAnalysis = normalizeDictationErrors(
     analysis.errorAnalysis || {},
@@ -534,30 +409,10 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
     analysis.recognizedText ||
     "No response captured.";
   const correctText = analysis.correctAnswer || analysis.correctText || "";
-  const timeTaken =
-    typeof response.timeTakenSeconds === "number"
-      ? response.timeTakenSeconds
-      : typeof analysis.timeTaken === "number"
-        ? analysis.timeTaken
-        : 0;
-  const typedWordCount = userAnswer.split(/\s+/).filter(Boolean).length;
-
-  const missingWordErrors = normalizedErrorAnalysis.vocabularyIssues.filter(
-    (error: AnalysisErrorItem) => error.type === "missing_word",
-  );
-  const extraWordErrors = normalizedErrorAnalysis.grammarErrors.filter(
-    (error: AnalysisErrorItem) => error.type === "unnecessary_word",
-  );
-  const wrongWordErrors = normalizedErrorAnalysis.spellingErrors;
-  const contentErrors =
-    normalizedErrorAnalysis.contentErrors as AnalysisErrorItem[];
-
-  const detailedFeedbackEntries = Object.entries(feedback).filter(([, value]) =>
-    isNonEmptyString(value),
-  );
 
   const renderScoringChart = () => {
-    const colors = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981"];
+    const colors = ["#38bdf8", "#818cf8", "#f472b6", "#f59e0b", "#34d399"];
+
     const data = scoreEntries.map((item) => ({
       name: item.label,
       value: item.score,
@@ -566,24 +421,75 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
 
     if (!data.length) {
       return (
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
-          <div className="rounded-xl border border-dashed border-gray-300 p-6 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-slate-700/70 dark:bg-slate-900/80 dark:shadow-[0_18px_60px_rgba(15,23,42,0.22)]">
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-500 dark:border-slate-600/80 dark:bg-slate-950/40 dark:text-slate-400">
             Score details are not available for this attempt.
           </div>
         </div>
       );
     }
 
+    const donutData =
+      totalMax > 0
+        ? [
+            { name: "Scored", value: Math.min(totalScore, totalMax) },
+            { name: "Remaining", value: Math.max(totalMax - totalScore, 0) },
+          ]
+        : [];
+
     return (
-      <div className="rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 p-5 dark:border-blue-800 dark:from-blue-900/20 dark:to-indigo-900/20">
-        <div className="mb-6 flex items-center gap-2">
-          <TrendingUp className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-          <h3 className="text-base font-semibold text-gray-900 dark:text-white">
-            Score Breakdown
-          </h3>
+      <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_22px_70px_rgba(15,23,42,0.08)] dark:border-slate-700/70 dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-950 dark:shadow-[0_22px_70px_rgba(15,23,42,0.28)]">
+        <div className="mb-5 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-cyan-500/20 bg-cyan-500/10 text-cyan-600 dark:text-cyan-300">
+            <TrendingUp className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="text-base font-semibold text-slate-900 dark:text-slate-50">
+              Score Breakdown
+            </h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Overall accuracy and spelling performance.
+            </p>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700/60 dark:bg-slate-950/40">
+            <div className="relative flex h-[240px] w-full items-center justify-center">
+              <ResponsiveContainer width="100%" height={240}>
+                <PieChart>
+                  <Pie
+                    data={donutData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={68}
+                    outerRadius={94}
+                    startAngle={90}
+                    endAngle={-270}
+                    paddingAngle={2}
+                    dataKey="value"
+                  >
+                    <Cell fill="#22d3ee" />
+                    <Cell fill="#e2e8f0" className="dark:fill-slate-800" />
+                  </Pie>
+                  <Tooltip formatter={(value: number) => `${value}/${totalMax}`} />
+                </PieChart>
+              </ResponsiveContainer>
+
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+                <div className="text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">
+                  {totalScore}
+                  <span className="ml-1 text-base font-medium text-slate-500 dark:text-slate-400">
+                    /{totalMax}
+                  </span>
+                </div>
+                <div className="mt-1 text-xs font-medium uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                  Total
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="space-y-3">
             {scoreEntries.map((item, index) => {
               const itemPercentage = Math.round((item.score / item.max) * 100);
@@ -591,7 +497,7 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
               return (
                 <div
                   key={item.key}
-                  className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800/80"
+                  className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700/60 dark:bg-slate-950/50"
                 >
                   <div className="mb-2 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
@@ -601,7 +507,7 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
                           backgroundColor: colors[index % colors.length],
                         }}
                       />
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                      <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
                         {item.label}
                       </span>
                     </div>
@@ -615,7 +521,7 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
                     </span>
                   </div>
 
-                  <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700">
+                  <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-800">
                     <div
                       className="h-2 rounded-full"
                       style={{
@@ -633,260 +539,339 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
     );
   };
 
+  const renderHighlightedText = () => {
+    const operations = alignDictationWords(correctText || "", userAnswer || "");
+
+    const spellingErrors = [...(normalizedErrorAnalysis.spellingErrors || [])];
+    const missingErrors = [...(normalizedErrorAnalysis.vocabularyIssues || [])].filter(
+      (e: any) => e?.type === "missing_word",
+    );
+    const extraErrors = [...(normalizedErrorAnalysis.grammarErrors || [])].filter(
+      (e: any) => e?.type === "unnecessary_word",
+    );
+
+    const consumeMatchingError = (
+      list: any[],
+      matcher: (error: any) => boolean,
+    ) => {
+      const idx = list.findIndex(matcher);
+      if (idx === -1) return null;
+      const [found] = list.splice(idx, 1);
+      return found;
+    };
+
+    const parts: React.ReactNode[] = [];
+
+    operations.forEach((op, idx) => {
+      if (op.type === "correct") {
+        parts.push(
+          <span
+            key={`dict-correct-${idx}`}
+            className="text-emerald-600 dark:text-emerald-400"
+          >
+            {op.correct.raw}
+          </span>,
+        );
+      }
+
+      if (op.type === "missing") {
+        const error = consumeMatchingError(
+          missingErrors,
+          (e) => normalizeWord(e?.text || "") === op.correct.normalized,
+        ) || {
+          text: op.correct.raw,
+          type: "missing_word",
+          correction: op.correct.raw,
+          explanation: `You missed the word: "${op.correct.raw}"`,
+        };
+
+        parts.push(
+          <span
+            key={`dict-missing-${idx}`}
+            className="cursor-pointer font-bold text-rose-500 underline decoration-rose-500/30 decoration-2 underline-offset-4 hover:bg-rose-500/10 transition-colors"
+            onClick={() => setSelectedError(error)}
+          >
+            ({op.correct.raw})
+          </span>,
+        );
+      }
+
+      if (op.type === "extra") {
+        const error = consumeMatchingError(
+          extraErrors,
+          (e) => normalizeWord(e?.text || "") === op.user.normalized,
+        ) || {
+          text: op.user.raw,
+          type: "unnecessary_word",
+          correction: "",
+          explanation: `Unnecessary word that should be removed: "${op.user.raw}"`,
+        };
+
+        parts.push(
+          <span
+            key={`dict-extra-${idx}`}
+            className="cursor-pointer text-slate-400 line-through decoration-slate-400/50 decoration-2 hover:bg-slate-500/10 transition-colors"
+            onClick={() => setSelectedError(error)}
+          >
+            {op.user.raw}
+          </span>,
+        );
+      }
+
+      if (op.type === "spelling") {
+        const error = consumeMatchingError(
+          spellingErrors,
+          (e) =>
+            normalizeWord(e?.text || "") === op.user.normalized &&
+            normalizeWord(e?.correction || e?.suggestion || "") ===
+              op.correct.normalized,
+        ) ||
+          consumeMatchingError(
+            spellingErrors,
+            (e) => normalizeWord(e?.text || "") === op.user.normalized,
+          ) || {
+            text: op.user.raw,
+            type: "spelling_error",
+            correction: op.correct.raw,
+            explanation: `Wrong word: "${op.user.raw}" should be "${op.correct.raw}"`,
+          };
+
+        parts.push(
+          <span
+            key={`dict-spelling-user-${idx}`}
+            className="cursor-pointer font-bold text-amber-500 line-through decoration-amber-500/30 decoration-2 hover:bg-amber-500/10 transition-colors"
+            onClick={() => setSelectedError(error)}
+          >
+            {op.user.raw}
+          </span>,
+        );
+        parts.push(" ");
+        parts.push(
+          <span
+            key={`dict-spelling-correction-${idx}`}
+            className="cursor-pointer font-bold text-amber-600 dark:text-amber-400 underline decoration-amber-400/30 decoration-2 underline-offset-4"
+            onClick={() => setSelectedError(error)}
+          >
+            ({op.correct.raw})
+          </span>,
+        );
+      }
+
+      if (idx < operations.length - 1) {
+        parts.push(" ");
+      }
+    });
+
+    return parts;
+  };
+
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
       <div className="flex min-h-screen items-center justify-center px-4 py-6 text-center sm:p-6">
         <div
-          className="fixed inset-0 bg-gray-500/75 dark:bg-gray-900/75"
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm"
           onClick={onClose}
         />
 
-        <div className="relative z-[201] inline-block w-full max-w-5xl overflow-hidden rounded-lg border border-gray-200 bg-white text-left align-middle shadow-2xl transition-all dark:border-gray-700 dark:bg-gray-800">
-          <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-6 py-4 dark:border-gray-700">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Write From Dictation Response Analysis
-              </h3>
-              <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
-                {typeof questionNumber === "number" && (
-                  <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                    Question {questionNumber}
-                  </span>
-                )}
-                <span>{formatDate(response.createdAt)}</span>
+        <div className="relative z-[201] flex w-full max-w-6xl max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-3xl border border-slate-200 bg-slate-50 text-left align-middle shadow-[0_30px_120px_rgba(15,23,42,0.22)] transition-all dark:border-slate-700/70 dark:bg-slate-950 dark:shadow-[0_30px_120px_rgba(15,23,42,0.55)]">
+          <div className="border-b border-slate-200 bg-gradient-to-r from-sky-50 via-white to-indigo-50 px-6 py-5 sm:px-8 dark:border-white/10 dark:from-slate-900 dark:via-slate-900 dark:to-indigo-950">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="space-y-3 flex-1">
+                <div className="inline-flex items-center gap-2 rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-sky-700 dark:text-sky-300">
+                  Listening Practice
+                </div>
+                <div className="flex flex-1 flex-row justify-between gap-6">
+                  <div className="space-y-3">
+                    <div>
+                      <h3 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">
+                        Write From Dictation Analysis
+                      </h3>
+                      <p className="mt-1 max-w-2xl text-sm text-slate-600 dark:text-slate-400">
+                        Review your transcribed sentence against the original recording.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                      {typeof questionNumber === 'number' && (
+                        <span className="rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-xs font-semibold text-sky-700 dark:text-sky-300">
+                          Question {questionNumber}
+                        </span>
+                      )}
+                      <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-300">
+                        {formatDate(response.createdAt)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-slate-700/70 dark:bg-slate-900/80 dark:shadow-[0_18px_60px_rgba(15,23,42,0.24)]">
+                    <p className="text-xs uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
+                      Total Score
+                    </p>
+                    <div className="mt-2 flex items-end gap-2">
+                      <span
+                        className={`text-3xl font-semibold ${getScoreColor(
+                          totalScore,
+                          totalMax || 1,
+                        )}`}
+                      >
+                        {totalScore}
+                      </span>
+                      {totalMax > 0 && (
+                        <span className="pb-1 text-sm text-slate-500 dark:text-slate-400">
+                          / {totalMax}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 self-start lg:self-auto">
+                <button
+                  onClick={onClose}
+                  className="rounded-full border border-slate-200 bg-white p-2.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+                  aria-label="Close response details"
+                >
+                  <X className="h-5 w-5" />
+                </button>
               </div>
             </div>
-
-            <button
-              onClick={onClose}
-              className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"
-              aria-label="Close response details"
-            >
-              <X className="h-5 w-5" />
-            </button>
           </div>
 
-          <div className="p-6">
-            <div className="max-h-[70vh] space-y-6 overflow-y-auto overscroll-contain pr-1">
-              {renderScoringChart()}
+          <div className="custom-scrollbar flex-1 overflow-y-auto p-4 sm:p-6">
+            <div className="grid gap-5 xl:grid-cols-2">
+              <div className="min-w-0 flex flex-col gap-5">
+                {renderScoringChart()}
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
-                  <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Your Score:{" "}
-                    <span className={getScoreColor(totalScore, totalMax || 1)}>
-                      {totalScore}
-                    </span>
-                    {totalMax > 0 && (
-                      <span className="ml-2 text-gray-500 dark:text-gray-400">
-                        / {totalMax} points
-                      </span>
-                    )}
-                  </h4>
-                </div>
-
-                <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
-                  <div className="flex items-center gap-2">
-                    <Clock3 className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
-                      Time Taken
-                    </h4>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                   <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-slate-700/70 dark:bg-slate-900/80 dark:shadow-[0_18px_60px_rgba(15,23,42,0.24)]">
+                    <div className="mb-4 flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-indigo-500/20 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300">
+                        <Clock3 className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-base font-semibold text-slate-900 dark:text-slate-50">
+                          Time Taken
+                        </h4>
+                      </div>
+                    </div>
+                    <p className="text-3xl font-bold text-slate-900 dark:text-slate-100">
+                      {response.timeTakenSeconds ?? analysis.timeTaken ?? 0}
+                      <span className="ml-1 text-base font-medium text-slate-500 dark:text-slate-400">s</span>
+                    </p>
                   </div>
-                  <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
-                    {timeTaken}s
-                  </p>
+
+                  <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-slate-700/70 dark:bg-slate-900/80 dark:shadow-[0_18px_60px_rgba(15,23,42,0.24)]">
+                    <div className="mb-4 flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                        <Keyboard className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-base font-semibold text-slate-900 dark:text-slate-50">
+                          Word Count
+                        </h4>
+                      </div>
+                    </div>
+                    <p className="text-3xl font-bold text-slate-900 dark:text-slate-100">
+                      {userAnswer.split(/\s+/).filter(Boolean).length}
+                      <span className="ml-1 text-base font-medium text-slate-500 dark:text-slate-400">words</span>
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
-                <div className="flex flex-col justify-between gap-3 border-b border-gray-100 px-6 py-4 dark:border-gray-700 lg:flex-row lg:items-center">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-                    <h4 className="font-bold text-gray-800 dark:text-gray-200">
-                      Your Response
-                    </h4>
+              <div className="min-w-0 flex flex-col gap-5">
+                <div className="rounded-3xl border border-slate-200 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-slate-700/70 dark:bg-slate-900/80 dark:shadow-[0_18px_60px_rgba(15,23,42,0.24)]">
+                  <div className="border-b border-slate-200 px-5 py-4 dark:border-white/10">
+                    <div className="flex flex-col gap-4">
+                       <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+                         <FileText className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                         Transcript Comparison
+                       </div>
+                       <div className="flex flex-wrap gap-3 text-[10px] font-bold uppercase tracking-wider">
+                          <div className="flex items-center gap-1.5 text-emerald-500">
+                             <div className="h-2 w-2 rounded-full bg-emerald-500"></div>
+                             Correct
+                          </div>
+                          <div className="flex items-center gap-1.5 text-rose-500">
+                             <div className="h-2 w-2 rounded-full bg-rose-500"></div>
+                             Missing
+                          </div>
+                          <div className="flex items-center gap-1.5 text-amber-500">
+                             <div className="h-2 w-2 rounded-full bg-amber-500"></div>
+                             Spelling
+                          </div>
+                          <div className="flex items-center gap-1.5 text-slate-400">
+                             <div className="h-2 w-2 rounded-full bg-slate-400"></div>
+                             Extra
+                          </div>
+                       </div>
+                    </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-4 text-xs">
-                    <div className="flex items-center gap-1.5">
-                      <span className="inline-block h-3 w-3 rounded-full bg-teal-500" />
-                      <span className="text-gray-600 dark:text-gray-400">
-                        Correct
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="inline-block h-3 w-3 rounded-full bg-red-500" />
-                      <span className="text-gray-600 dark:text-gray-400">
-                        Missing word
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="inline-block h-3 w-3 rounded-full bg-gray-400" />
-                      <span className="text-gray-600 dark:text-gray-400">
-                        Extra word
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="inline-block h-3 w-3 rounded-full bg-orange-500" />
-                      <span className="text-gray-600 dark:text-gray-400">
-                        Wrong / misspelled
-                      </span>
-                    </div>
-                    <span className="text-gray-500 dark:text-gray-400">
-                      Click highlighted words for details
-                    </span>
+
+                  <div className="px-5 py-6">
+                     <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-5 dark:border-slate-800 dark:bg-slate-900/50">
+                        <p className="text-lg leading-relaxed font-medium italic select-none">
+                           {correctText ? renderHighlightedText() : userAnswer}
+                        </p>
+                     </div>
+                     
+                     {isNonEmptyString(correctText) && (
+                       <div className="mt-6 space-y-2">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                             <Target className="h-3 w-3" />
+                             Correct Sentence
+                          </p>
+                          <div className="rounded-xl border border-emerald-500/10 bg-emerald-500/5 p-4">
+                             <p className="text-sm italic text-emerald-700 dark:text-emerald-300">
+                                {correctText}
+                             </p>
+                          </div>
+                       </div>
+                     )}
                   </div>
                 </div>
-
-                <div className="p-6 text-base italic leading-relaxed text-gray-700 dark:text-gray-300">
-                  {correctText ? (
-                    renderDictationHighlightedText(
-                      userAnswer,
-                      correctText,
-                      normalizedErrorAnalysis,
-                      (error: AnalysisErrorItem) => setSelectedError(error),
-                    )
-                  ) : (
-                    <p className="whitespace-pre-wrap">{userAnswer}</p>
-                  )}
-                </div>
-
-                {isNonEmptyString(correctText) && (
-                  <div className="px-6 pb-5">
-                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-700 dark:bg-emerald-900/20">
-                      <p className="mb-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
-                        Correct sentence
-                      </p>
-                      <p className="text-sm italic text-emerald-800 dark:text-emerald-300">
-                        {correctText}
-                      </p>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
 
-            <div className="mt-6 flex justify-end border-t border-gray-200 pt-4 dark:border-gray-700">
-              <button
-                onClick={onClose}
-                className="rounded-lg bg-gray-600 px-6 py-2 font-medium text-white transition-colors hover:bg-gray-700"
-              >
-                Close
-              </button>
-            </div>
+            {selectedError && (
+               <div className="mt-5 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700/70 dark:bg-slate-900/80 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                  <div className="flex items-start justify-between">
+                     <div className="flex items-center gap-3">
+                        <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${getErrorColorClass(selectedError.type)} text-white`}>
+                           <Info className="h-5 w-5" />
+                        </div>
+                        <div>
+                           <h4 className="text-lg font-semibold text-slate-900 dark:text-slate-50 capitalize">
+                              {selectedError.type?.replace(/_/g, " ")} Error
+                           </h4>
+                           <p className="text-sm text-slate-500">Detailed feedback for the selected word.</p>
+                        </div>
+                     </div>
+                     <button onClick={() => setSelectedError(null)} className="text-slate-400 hover:text-slate-600">
+                        <X className="h-5 w-5" />
+                     </button>
+                  </div>
+                  
+                  <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                     <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-950/50">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Your Input</p>
+                        <p className="mt-1 text-sm font-semibold text-rose-500">{selectedError.text || "(blank)"}</p>
+                     </div>
+                     <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-950/50">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Correction</p>
+                        <p className="mt-1 text-sm font-semibold text-emerald-500">{selectedError.correction || "N/A"}</p>
+                     </div>
+                  </div>
+                  
+                  <div className="mt-4 rounded-2xl border border-sky-500/10 bg-sky-500/5 p-4">
+                     <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                        {selectedError.explanation}
+                     </p>
+                  </div>
+               </div>
+            )}
           </div>
         </div>
-
-        {selectedError && (
-          <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/50 p-4">
-            <div className="w-full max-w-md rounded-lg border border-gray-200 bg-white p-4 shadow-xl dark:border-gray-700 dark:bg-gray-800">
-              <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div
-                    className={`h-3 w-3 rounded-full ${getErrorColor(
-                      selectedError.type,
-                    )}`}
-                  />
-                  <h3 className="text-base font-semibold capitalize text-gray-900 dark:text-white">
-                    {selectedError.type === "unnecessary_word"
-                      ? "Unnecessary Word"
-                      : selectedError.type === "missing_word"
-                        ? "Missing Word"
-                        : selectedError.type === "spelling_error"
-                          ? "Spelling Mistake"
-                          : (selectedError.type || "dictation").replace(
-                              /_/g,
-                              " ",
-                            )}{" "}
-                    Error
-                  </h3>
-                </div>
-                <button
-                  onClick={() => setSelectedError(null)}
-                  className="rounded-full p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-gray-200"
-                >
-                  <XCircle className="h-4 w-4" />
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                {selectedError.type !== "missing_word" &&
-                  selectedError.type !== "unnecessary_word" && (
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
-                        Your text:
-                      </label>
-                      <div className="rounded border border-red-200 bg-red-50 p-2 dark:border-red-800 dark:bg-red-900/20">
-                        <span className="text-sm font-medium text-red-800 dark:text-red-200">
-                          "{selectedError.text}"
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                {selectedError.type === "missing_word" && (
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
-                      Missing word:
-                    </label>
-                    <div className="rounded border border-red-200 bg-red-50 p-2 dark:border-red-800 dark:bg-red-900/20">
-                      <span className="text-sm font-medium text-red-800 dark:text-red-200">
-                        "{selectedError.text}"
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {selectedError.type === "unnecessary_word" && (
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
-                      Extra word:
-                    </label>
-                    <div className="rounded border border-orange-200 bg-orange-50 p-2 dark:border-orange-800 dark:bg-orange-900/20">
-                      <span className="text-sm font-medium text-orange-800 dark:text-orange-200">
-                        "{selectedError.text}"
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {isNonEmptyString(selectedError.correction) &&
-                  selectedError.type !== "unnecessary_word" && (
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
-                        Suggested correction:
-                      </label>
-                      <div className="rounded border border-green-200 bg-green-50 p-2 dark:border-green-800 dark:bg-green-900/20">
-                        <span className="text-sm font-medium text-green-800 dark:text-green-200">
-                          "{selectedError.correction}"
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
-                    Explanation:
-                  </label>
-                  <div className="rounded border border-blue-200 bg-blue-50 p-2 dark:border-blue-800 dark:bg-blue-900/20">
-                    <span className="text-xs leading-relaxed text-blue-800 dark:text-blue-200">
-                      {selectedError.explanation ||
-                        "Review this issue and compare it with the correct sentence."}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 flex justify-end">
-                <button
-                  onClick={() => setSelectedError(null)}
-                  className="rounded bg-gray-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-gray-600"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
