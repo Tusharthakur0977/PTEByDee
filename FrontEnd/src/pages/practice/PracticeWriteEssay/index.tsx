@@ -21,11 +21,9 @@ import {
   getPracticeQuestions,
 } from '../../../services/portal';
 import { PteQuestionTypeName } from '../../../types/pte';
-import {
-  formatScoringText,
-  renderHighlightedTextByWords,
-} from '../../../utils/Helpers';
+import { formatScoringText } from '../../../utils/Helpers';
 import ResponseDetailModal from './ResponseDetailModal';
+import { renderWEHighlightedText } from './WEHighlightRenderer';
 
 export interface QuestionsData {
   id: string;
@@ -151,7 +149,10 @@ const PracticeWriteEssay: React.FC = () => {
         options,
       );
       if (response.questions && response.questions.length > 0) {
-        setQuestions((prev) => [...prev, ...(response.questions as QuestionsData[])]);
+        setQuestions((prev) => [
+          ...prev,
+          ...(response.questions as QuestionsData[]),
+        ]);
         setPaginationInfo(response.pagination);
         return response.questions.length;
       }
@@ -162,7 +163,13 @@ const PracticeWriteEssay: React.FC = () => {
     } finally {
       setIsLoadingMore(false);
     }
-  }, [difficultyLevel, isLoadingMore, paginationInfo?.hasNext, paginationInfo?.limit, paginationInfo?.page]);
+  }, [
+    difficultyLevel,
+    isLoadingMore,
+    paginationInfo?.hasNext,
+    paginationInfo?.limit,
+    paginationInfo?.page,
+  ]);
 
   const handlePrevious = () => setCurrentIndex((i) => Math.max(0, i - 1));
 
@@ -191,6 +198,7 @@ const PracticeWriteEssay: React.FC = () => {
     setShowPreviousResponses(false);
     setSelectedResponse(null);
     setShowResponseModal(false);
+    setUserAnswer('');
 
     // Reset Preparation Time
     clearPrepTimer();
@@ -365,7 +373,9 @@ const PracticeWriteEssay: React.FC = () => {
 
   const handleExit = () => {
     if (window.confirm('Are you sure you want to exit?')) {
-      navigate('/portal');
+      window.location.pathname.startsWith('/practiceQuestion')
+        ? navigate(-1)
+        : navigate('/portal');
     }
   };
 
@@ -375,7 +385,11 @@ const PracticeWriteEssay: React.FC = () => {
         <div className='text-center'>
           <p className='text-red-500 text-lg mb-4'>{error}</p>
           <button
-            onClick={() => navigate('/portal')}
+            onClick={() =>
+              window.location.pathname.startsWith('/practiceQuestion')
+                ? navigate(-1)
+                : navigate('/portal')
+            }
             className='bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg'
           >
             Back to Portal
@@ -451,63 +465,65 @@ const PracticeWriteEssay: React.FC = () => {
           </div>
         </div>
         {!window.location.pathname.startsWith('/practiceQuestion') && (
-        <div className='flex items-center gap-3'>
-                  <div className='relative group'>
-                    <button
-                      onClick={() => setShowDifficultyFilter(!showDifficultyFilter)}
-                      className='p-2 text-gray-300 hover:text-white'
-                      title='Filter by difficulty'
-                    >
-                      <Filter className='w-4 h-4 text-gray-400 dark:text-white' />
-                    </button>
-                    {showDifficultyFilter && (
-                      <div className='absolute right-0 mt-2 w-48 bg-gray-700 rounded-lg shadow-lg p-3 z-50'>
-                        <p className='text-xs text-gray-400 mb-2 font-semibold'>
-                          Difficulty Level
-                        </p>
-                        <div className='space-y-2'>
-                          {(['all', 'EASY', 'MEDIUM', 'HARD'] as const).map((level) => (
-                            <label
-                              key={level}
-                              className='flex items-center gap-2 cursor-pointer'
-                            >
-                              <input
-                                type='radio'
-                                name='difficulty'
-                                value={level}
-                                checked={difficultyLevel === level}
-                                onChange={(e) => {
-                                  setDifficultyLevel(e.target.value as any);
-                                  setShowDifficultyFilter(false);
-                                }}
-                                className='w-4 h-4'
-                              />
-                              <span className='text-white text-sm'>
-                                {level === 'all' ? 'All Levels' : level}
-                              </span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
+          <div className='flex items-center gap-3'>
+            <div className='relative group'>
+              <button
+                onClick={() => setShowDifficultyFilter(!showDifficultyFilter)}
+                className='p-2 text-gray-300 hover:text-white'
+                title='Filter by difficulty'
+              >
+                <Filter className='w-4 h-4 text-gray-400 dark:text-white' />
+              </button>
+              {showDifficultyFilter && (
+                <div className='absolute right-0 mt-2 w-48 bg-gray-700 rounded-lg shadow-lg p-3 z-50'>
+                  <p className='text-xs text-gray-400 mb-2 font-semibold'>
+                    Difficulty Level
+                  </p>
+                  <div className='space-y-2'>
+                    {(['all', 'EASY', 'MEDIUM', 'HARD'] as const).map(
+                      (level) => (
+                        <label
+                          key={level}
+                          className='flex items-center gap-2 cursor-pointer'
+                        >
+                          <input
+                            type='radio'
+                            name='difficulty'
+                            value={level}
+                            checked={difficultyLevel === level}
+                            onChange={(e) => {
+                              setDifficultyLevel(e.target.value as any);
+                              setShowDifficultyFilter(false);
+                            }}
+                            className='w-4 h-4'
+                          />
+                          <span className='text-white text-sm'>
+                            {level === 'all' ? 'All Levels' : level}
+                          </span>
+                        </label>
+                      ),
                     )}
                   </div>
-        
-                  <button
-                    onClick={() => setShowQuestionSidebar(true)}
-                    className='p-2 text-gray-300 hover:text-white'
-                    title='View all questions'
-                  >
-                    <BarChart3 className='w-4 h-4 text-gray-400 dark:text-white' />
-                  </button>
-                  <button
-                    onClick={() => setShowPreviousResponses(true)}
-                    className='flex items-center gap-2 p-2 text-gray-400 text-sm font-semibold'
-                    title='Previous Attempts'
-                  >
-                    <History className='w-4 h-4' />
-                  </button>
                 </div>
-      )}
+              )}
+            </div>
+
+            <button
+              onClick={() => setShowQuestionSidebar(true)}
+              className='p-2 text-gray-300 hover:text-white'
+              title='View all questions'
+            >
+              <BarChart3 className='w-4 h-4 text-gray-400 dark:text-white' />
+            </button>
+            <button
+              onClick={() => setShowPreviousResponses(true)}
+              className='flex items-center gap-2 p-2 text-gray-400 text-sm font-semibold'
+              title='Previous Attempts'
+            >
+              <History className='w-4 h-4' />
+            </button>
+          </div>
+        )}
       </div>
 
       {isLoading && (
@@ -834,17 +850,17 @@ const PracticeWriteEssay: React.FC = () => {
                               Vocabulary
                             </span>
                           </div>
-                          <span className='text-gray-500 dark:text-gray-400 text-xs'>
-                            * Click colored words for explanation
+                          <span className='text-gray-500 dark:text-gray-400 text-xs font-semibold'>
+                            * Strikethrough words are errors with green
+                            corrections next to them
                           </span>
                         </div>
                       </div>
                       <div className='p-6 text-base leading-relaxed text-gray-700 dark:text-gray-300 italic'>
-                        {renderHighlightedTextByWords(
+                        {renderWEHighlightedText(
                           evaluationResult.evaluation.detailedAnalysis.userText,
                           evaluationResult.evaluation.detailedAnalysis
                             .errorAnalysis,
-                          (err: any) => setSelectedError(err),
                         )}
                       </div>
                     </div>
@@ -924,31 +940,36 @@ const PracticeWriteEssay: React.FC = () => {
         /* FOOTER NAVIGATION */
       }
       {!window.location.pathname.startsWith('/practiceQuestion') && (
-      <div className='border-t dark:border-gray-700 px-6 py-4 flex justify-between items-center dark:bg-gray-800'>
-              <button
-                onClick={handlePrevious}
-                disabled={currentIndex === 0}
-                className='flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded-lg disabled:opacity-50'
-              >
-                <ChevronLeft className='w-4 h-4' />
-                Previous
-              </button>
-      
-              <span className='text-gray-400 text-sm'>
-                {currentIndex + 1} / {paginationInfo ? Math.min(questions.length, paginationInfo.total) : questions.length}
-                {paginationInfo && paginationInfo.total > questions.length && ` (${paginationInfo.total} total)`}
-              </span>
-      
-              <button
-                onClick={handleNext}
-                disabled={isLoadingMore}
-                className='flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50'
-              >
-                {isLoadingMore ? 'Loading...' : 'Next'}
-                <ChevronRight className='w-4 h-4' />
-              </button>
-            </div>
-    )}
+        <div className='border-t dark:border-gray-700 px-6 py-4 flex justify-between items-center dark:bg-gray-800'>
+          <button
+            onClick={handlePrevious}
+            disabled={currentIndex === 0}
+            className='flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded-lg disabled:opacity-50'
+          >
+            <ChevronLeft className='w-4 h-4' />
+            Previous
+          </button>
+
+          <span className='text-gray-400 text-sm'>
+            {currentIndex + 1} /{' '}
+            {paginationInfo
+              ? Math.min(questions.length, paginationInfo.total)
+              : questions.length}
+            {paginationInfo &&
+              paginationInfo.total > questions.length &&
+              ` (${paginationInfo.total} total)`}
+          </span>
+
+          <button
+            onClick={handleNext}
+            disabled={isLoadingMore}
+            className='flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50'
+          >
+            {isLoadingMore ? 'Loading...' : 'Next'}
+            <ChevronRight className='w-4 h-4' />
+          </button>
+        </div>
+      )}
 
       {/* Modal for wrong word */}
       {selectedError && (

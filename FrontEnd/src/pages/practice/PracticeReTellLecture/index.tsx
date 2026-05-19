@@ -325,7 +325,7 @@ const PracticeReTellLecture: React.FC = () => {
 
   const handleExit = () => {
     if (window.confirm('Are you sure you want to exit?')) {
-      navigate('/portal');
+      window.location.pathname.startsWith('/practiceQuestion') ? navigate(-1) : navigate('/portal');
     }
   };
 
@@ -335,7 +335,7 @@ const PracticeReTellLecture: React.FC = () => {
         <div className='text-center'>
           <p className='text-red-500 text-lg mb-4'>{error}</p>
           <button
-            onClick={() => navigate('/portal')}
+            onClick={() => window.location.pathname.startsWith('/practiceQuestion') ? navigate(-1) : navigate('/portal')}
             className='bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg'
           >
             Back to Portal

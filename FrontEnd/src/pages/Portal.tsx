@@ -52,11 +52,30 @@ const Portal: React.FC = () => {
   React.useEffect(() => {
     if (!tabParam) {
       const lastTab = sessionStorage.getItem('portal_active_tab') || 'practice';
-      const routeTab = lastTab === 'predicted' ? 'prediction' : lastTab;
-      navigate(`/portal/${routeTab}`, { replace: true });
+      const lastPredictedType = sessionStorage.getItem('last_predicted_question_type');
+      if (lastTab === 'predicted' && lastPredictedType) {
+        sessionStorage.removeItem('last_predicted_question_type');
+        navigate(`/portal/prediction?type=${lastPredictedType}`, { replace: true });
+      } else {
+        const routeTab = lastTab === 'predicted' ? 'prediction' : lastTab;
+        navigate(`/portal/${routeTab}`, { replace: true });
+      }
     } else {
       sessionStorage.setItem('portal_active_tab', activeTab);
       
+      // If we land on prediction tab, check and clear fallback
+      if (activeTab === 'predicted') {
+        const hasType = new URLSearchParams(location.search).has('type');
+        const lastPredictedType = sessionStorage.getItem('last_predicted_question_type');
+        if (hasType && lastPredictedType) {
+          sessionStorage.removeItem('last_predicted_question_type');
+        } else if (!hasType && lastPredictedType) {
+          sessionStorage.removeItem('last_predicted_question_type');
+          navigate(`/portal/prediction?type=${lastPredictedType}`, { replace: true });
+          return;
+        }
+      }
+
       // Parse question type search param only in practice tab
       if (activeTab === 'practice') {
         const queryType = new URLSearchParams(location.search).get('type');

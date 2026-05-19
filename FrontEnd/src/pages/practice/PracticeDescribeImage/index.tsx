@@ -519,7 +519,7 @@ const PracticeDescribeImage: React.FC = () => {
   const handleExit = () => {
     if (window.confirm('Are you sure you want to exit?')) {
       audioRecorderRef.current?.stopAndRelease();
-      navigate('/portal');
+      window.location.pathname.startsWith('/practiceQuestion') ? navigate(-1) : navigate('/portal');
     }
   };
 
@@ -529,7 +529,7 @@ const PracticeDescribeImage: React.FC = () => {
         <div className='text-center'>
           <p className='text-red-500 text-lg mb-4'>{error}</p>
           <button
-            onClick={() => navigate('/portal')}
+            onClick={() => window.location.pathname.startsWith('/practiceQuestion') ? navigate(-1) : navigate('/portal')}
             className='bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg'
           >
             Back to Portal

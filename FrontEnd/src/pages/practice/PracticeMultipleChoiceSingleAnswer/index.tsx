@@ -237,7 +237,7 @@ const PracticeMultipleChoiceSingleAnswer: React.FC = () => {
 
   const handleExit = () => {
     if (window.confirm('Are you sure you want to exit?')) {
-      navigate('/portal');
+      window.location.pathname.startsWith('/practiceQuestion') ? navigate(-1) : navigate('/portal');
     }
   };
 

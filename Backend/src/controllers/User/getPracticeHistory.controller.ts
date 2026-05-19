@@ -307,42 +307,44 @@ export const getPracticeHistory = asyncHandler(
       const hasPrevPage = pageNumber > 1;
 
       // Transform responses for frontend
-      const transformedResponses = practiceResponses.map((response) => {
-        const promptSource =
-          response.question.questionStatement || response.question.textContent;
-        const promptPreview = promptSource
-          ? promptSource.length > 140
-            ? `${promptSource.substring(0, 140)}...`
-            : promptSource
-          : 'No preview available';
+      const transformedResponses = practiceResponses
+        .filter((response) => response.question !== null && response.question !== undefined)
+        .map((response) => {
+          const promptSource =
+            response.question.questionStatement || response.question.textContent;
+          const promptPreview = promptSource
+            ? promptSource.length > 140
+              ? `${promptSource.substring(0, 140)}...`
+              : promptSource
+            : 'No preview available';
 
-        return {
-          id: response.id,
-          questionId: response.questionId,
-          questionCode: response.question.questionCode,
-          questionType: response.questionType,
-          questionTypeLabel: response.question.questionType.name
-            .split('_')
-            .map(
-              (word: string) =>
-                word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-            )
-            .join(' '),
-          sectionName: response.question.questionType.pteSection.name,
-          difficultyLevel: response.question.difficultyLevel,
-          promptPreview,
-          hasAudio: !!response.question.audioUrl,
-          hasImage: !!response.question.imageUrl,
-          isCorrect: response.isCorrect,
-          score: response.score,
-          ...getPracticeResponseMarks(
-            response.score,
-            getPracticeResponseMaxMarks(response.question)
-          ),
-          timeTakenSeconds: response.timeTakenSeconds,
-          createdAt: response.createdAt,
-        };
-      });
+          return {
+            id: response.id,
+            questionId: response.questionId,
+            questionCode: response.question.questionCode,
+            questionType: response.questionType,
+            questionTypeLabel: response.question.questionType.name
+              .split('_')
+              .map(
+                (word: string) =>
+                  word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+              )
+              .join(' '),
+            sectionName: response.question.questionType.pteSection.name,
+            difficultyLevel: response.question.difficultyLevel,
+            promptPreview,
+            hasAudio: !!response.question.audioUrl,
+            hasImage: !!response.question.imageUrl,
+            isCorrect: response.isCorrect,
+            score: response.score,
+            ...getPracticeResponseMarks(
+              response.score,
+              getPracticeResponseMaxMarks(response.question)
+            ),
+            timeTakenSeconds: response.timeTakenSeconds,
+            createdAt: response.createdAt,
+          };
+        });
 
       return sendResponse(
         res,

@@ -179,10 +179,10 @@ const QuestionPreview: React.FC<QuestionPreviewProps> = ({
             value={predictionLevel !== 'NONE' ? 'HIGH' : 'NONE'}
             onChange={(e) => handlePredictionChange(e.target.value)}
             disabled={updatingPrediction}
-            className='rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 disabled:opacity-50'
+            className='rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 disabled:opacity-50'
           >
-            <option value='NONE'>Standard Question</option>
-            <option value='HIGH'>🔥 Predicted Question</option>
+            <option value='NONE' className='bg-white dark:bg-slate-900 dark:text-slate-300'>Standard Question</option>
+            <option value='HIGH' className='bg-white dark:bg-slate-900 dark:text-slate-300'>🔥 Predicted Question</option>
           </select>
           <button
             onClick={onEdit}
@@ -291,7 +291,7 @@ const QuestionPreview: React.FC<QuestionPreviewProps> = ({
               </div>
               <button
                 onClick={handleAudioPlay}
-                className='flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-1.5 text-sm text-white transition-colors hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200'
+                className='flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-1.5 text-sm text-white transition-colors hover:bg-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700 dark:border dark:border-slate-700'
               >
                 {playingAudio ? (
                   <Pause className='w-3 h-3' />

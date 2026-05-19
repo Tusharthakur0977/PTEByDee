@@ -17,6 +17,7 @@ import PreviousResponses from '../../../components/PreviousResponses';
 import QuestionSidebar from '../../../components/QuestionSidebar';
 import ResponseDetailModal from './ResponseDetailModal';
 import api from '../../../services/api';
+import { renderSWTHighlightedText } from './SWTHighlightRenderer';
 import {
   getPracticeQuestionById,
   getPracticeQuestions,
@@ -193,6 +194,8 @@ const PracticeSummarizeWrittenText: React.FC = () => {
     setShowPreviousResponses(false);
     setSelectedResponse(null);
     setShowResponseModal(false);
+    setUserAnswer('');
+    setError(null);
     setResetKey((prev) => prev + 1);
 
     // Reset Preparation Time
@@ -369,7 +372,7 @@ const PracticeSummarizeWrittenText: React.FC = () => {
 
   const handleExit = () => {
     if (window.confirm('Are you sure you want to exit?')) {
-      navigate('/portal');
+      window.location.pathname.startsWith('/practiceQuestion') ? navigate(-1) : navigate('/portal');
     }
   };
 
@@ -379,7 +382,7 @@ const PracticeSummarizeWrittenText: React.FC = () => {
         <div className='text-center'>
           <p className='text-red-500 text-lg mb-4'>{error}</p>
           <button
-            onClick={() => navigate('/portal')}
+            onClick={() => window.location.pathname.startsWith('/practiceQuestion') ? navigate(-1) : navigate('/portal')}
             className='bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg'
           >
             Back to Portal
@@ -833,11 +836,11 @@ const PracticeSummarizeWrittenText: React.FC = () => {
                             </div>
                           </div>
                           <span className='text-gray-500 dark:text-gray-400 text-xs'>
-                            * Click colored words for explanation
+                            * Incorrect words marked with line-through, correct suggestions shown next to them in green
                           </span>
                         </div>
                         <div className='p-6 text-base leading-relaxed text-gray-700 dark:text-gray-300 italic'>
-                          {renderHighlightedTextByWords(
+                          {renderSWTHighlightedText(
                             evaluationResult.evaluation.detailedAnalysis
                               .userText,
                             {
@@ -845,7 +848,6 @@ const PracticeSummarizeWrittenText: React.FC = () => {
                                 .errorAnalysis,
                               grammarErrors: [],
                             },
-                            (err: any) => setSelectedError(err),
                           )}
                         </div>
                       </div>

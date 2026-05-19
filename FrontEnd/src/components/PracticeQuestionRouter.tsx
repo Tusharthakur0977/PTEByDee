@@ -43,6 +43,9 @@ const PracticeQuestionRouter: React.FC = () => {
     if (questionId) {
       sessionStorage.setItem('activeQuestionId', questionId);
     }
+    if (normalizedType) {
+      sessionStorage.setItem('last_predicted_question_type', normalizedType);
+    }
 
     // Toggle global CSS prediction-mode to hide the Previous/Next footers
     document.body.classList.add('prediction-mode');

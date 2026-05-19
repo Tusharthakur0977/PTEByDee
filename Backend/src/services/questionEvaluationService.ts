@@ -2817,7 +2817,7 @@ async function evaluateSummarizeWrittenText(
     .split(/\s+/)
     .filter((word: string | any[]) => word.length > 0).length;
 
-const prompt = `
+  const prompt = `
 **Your Role:** Expert PTE Academic grader for "Summarize Written Text" (SWT) acting strictly like an automated computer scoring engine.
 **Objective:** Evaluate the user's summary against the original text. Return ONLY minified JSON.
 
@@ -2827,42 +2827,60 @@ const prompt = `
 - **Word Count:** ${wordCount}
 
 ---
-### **Step 1: Core Selection & Matching Rules**
-- **Identify Core Concept Keywords:** Main topics, advantages, material properties, and cause-effect facts mentioned in the text.
-- **PTE Grading Reality:** SWT is a text-extraction and compression task. If the user successfully extracts key facts, links them together using connectors, and maintains a clear relationship to the topic, they must be rewarded. 
-- **CRITICAL GENERAL RULE:** Do NOT search for specific "mandatory" human-selected key details or specific omissions to penalize the response. If the summary captures a broad, substantial layout of the text's factual ecosystem (around 70%+ coverage of any valid core points combined), award full marks.
+### **Step 1: Core Selection & Aspect-Based Matching Rules**
+1. **Extract Main Aspects First:** Identify the 4 to 6 major aspects/main ideas of the original passage (e.g., Cause, Effect, Solution, Comparison, main Outcome/Conclusion). Focus on actual content-related chunks rather than simple keywords.
+2. **Execute Aspect Comparison:** Compare the user's summary against these extracted aspects. Determine exactly how many of these major aspects are meaningfully represented.
+   - **Rule:** Simple English expression is rewarded. If the core idea/fact is successfully captured and communicated, it counts as represented. Do NOT penalize for lack of complex vocabulary.
+   - **Rule:** Do NOT grade on semantic similarity of the entire text. Instead, base the Content score strictly on the Aspect Coverage Detection Table below.
 
 ---
 ### **Step 2: Scoring Rubrics & Strict Criteria**
 
-1. Content (0–4)
-- **4 (Comprehensive):** Summary captures 70% or more of the main ideas/facts from the text, logically linking them into a single coherent sentence. Direct extraction of phrases connected cleanly must receive full marks. Do NOT reduce to 3 for "missing details" if the coverage threshold is met.
-- **3 (Adequate):** Summary captures between 50% to 69% of the main ideas/facts. Minor structural gaps or omissions.
-- **2 (Partial):** Summary captures around 40% to 49% of the main ideas/facts, showing a basic connection to the core topic.
-- **1 (Minimal):** Captures less than 40% of the ideas, lacks proper sentence logic, or has weak relevance to the topic.
-- **0:** Off-topic or completely unintelligible.
+1. **Content (0–4)**
+   - **4/4 — Excellent Content (80%–100% aspects covered):** Covers almost all major aspects/main ideas of the passage. Includes around 4–5 meaningful content-related idea chunks. Information is accurate and relevant with no major misunderstanding/distortion. Minor missing detail is acceptable.
+   - **3/4 — Good Content (60%–79% aspects covered):** Covers most important aspects. Misses 1 major point OR partially explains some ideas. Mostly relevant throughout. Some idea development may be weaker or repetitive (e.g. 3 strong relevant ideas and 1 weak/generic idea).
+   - **2/4 — Fair Content (40%–59% aspects covered):** Covers only some aspects of the passage. Multiple important ideas are missing. Contains generic statements. Only a partial understanding is visible, showing some relevant phrases but incomplete coverage (e.g., user discusses the topic generally and only covers 2 content points, missing the core discussion). *Be extremely strict here to avoid false-high scores.*
+   - **1/4 — Poor Content (20%–39% aspects covered):** Very limited relevant information. Mostly keyword dumping or random copied phrases with weak connection to the main ideas. Core aspects are absent (e.g. writing generalities like "Technology is important and people use it in modern society" when the passage was specifically about AI ethics, job loss, regulation, and privacy).
+   - **0/4 — No Meaningful Content (Below 20% aspects covered):** Irrelevant response, off-topic, extremely incomplete, meaning distorted, or no identifiable major aspects.
 
-*Feedback Rule for Content:* If the score is 4, the feedback must be entirely positive. Do NOT include phrases like "but misses details regarding..." or "omits information about...".
+*Feedback Rules for Content:*
+- Provide a clear, constructive text-based evaluation of the user's content coverage. Mention which aspects were well-captured and what important aspects could be added.
+- If the content score is 4, the feedback must be entirely positive (do NOT include phrases like "but misses details regarding...").
+- Keep lines short.
 
-2. Form (0–1)
-- **1:** Exactly ONE complete sentence, 5–75 words, not ALL CAPS.
-- **0:** Multiple sentences, fragments, <5 or >75 words, or ALL CAPS.
+2. **Form (0–1)**
+   - **1:** Exactly ONE complete sentence, 5–75 words, not ALL CAPS.
+   - **0:** Multiple sentences, fragments, <5 or >75 words, or ALL CAPS.
 
-3. Grammar (0–2)
-- **2:** Correct structure. Ignore minor punctuation issues, comma splices, or connector-heavy structures unless meaning becomes completely unclear.
-- **1:** Some noticeable grammar issues, but meaning remains clear.
-- **0:** Serious structural errors that distort meaning.
+3. **Grammar (0–2)**
+   - **2:** Correct structure. Ignore minor punctuation issues, comma splices, or connector-heavy structures unless meaning becomes completely unclear.
+   - **1:** Some noticeable grammar issues, but meaning remains clear.
+   - **0:** Serious structural errors that distort meaning.
 
-4. Vocabulary (0–2)
-- **2:** Words used are contextually accurate and relevant to the topic (using direct words/phrases extracted from the source text is perfectly acceptable and expected).
-- **1:** Includes a few incorrect or mismatched word choices, but the overall meaning is still understandable.
-- **0:** Major word choice errors or nonsense words that disrupt communication.
+4. **Vocabulary (0–2)**
+   - **2:** Standard formal academic language. Highly precise word choices, correct academic collocations. No informal slang or colloquialisms.
+   - **1:** Standard meaning is clear, but includes 1 or 2 informal expressions, wrong collocations, or spelling mistakes (e.g., using "tiny topic", "crazy crowd", or "hugs the history"). *Be extremely vigilant in detecting these and grading down to 1/2 or 0/2.*
+   - **0:** Contains multiple informal words, severe spelling/vocabulary errors, or nonsense words.
 
 ---
 ### **Step 3: Error Analysis Instructions**
-- **Index:** Starts at 0. Split ONLY on whitespace. Punctuation is NOT a separate word.
-- **Format:** Single-word error: {"start": index, "end": index + 1}. Include "before" and "after" words for context.
-- **Types:** 'spelling', 'grammar', 'vocabulary'.
+- **Crucial Rule:** For Summarize Written Text, **classify all spelling errors as 'vocabulary' type** and place them in the **"vocabularyIssues"** array. Do NOT place anything in the "spellingErrors" array (keep it empty).
+- **Types of Errors:**
+  1. **grammarErrors:** Spelled correctly but grammatically wrong (e.g., subject-verb agreement, wrong tense, singular/plural mismatch).
+  2. **vocabularyIssues:** This includes:
+     - All misspelled words (e.g., "responsibiliteis", "knowladge").
+     - Informal language, slang, or colloquialisms that violate formal academic writing standards (e.g., "tiny topic", "crazy crowd", "legal stuff", "cool", "kids", "folks", "gossip", "museum workers").
+     - Incorrect collocations or inappropriate word choices where the word meaning is slightly off or unacademic (e.g., using "hugs" instead of "embraces" or "encompasses", "broad science" instead of "field of study" or "discipline").
+- **Error Object Format (MUST match this structure):**
+  {
+    "text": "the exact incorrect word/phrase from the summary",
+    "type": "grammar" or "vocabulary",
+    "position": { "start": wordIndex, "end": wordIndex + 1 },
+    "context": { "before": "word before error", "after": "word after error" },
+    "correction": "suggested correct spelling/grammar replacement",
+    "explanation": "concise explanation of the issue"
+  }
+- **Index:** Starts at 0. Split the summary ONLY on whitespace to count word indices (e.g., word 0, word 1, etc.). Do not treat punctuation marks as separate words.
 
 ---
 ### **Expected Output Format**
@@ -2872,9 +2890,27 @@ Return ONLY a single, minified JSON object. No markdown wrapping. No trailing te
   "scores": {"content": 0, "form": 0, "grammar": 0, "vocabulary": 0},
   "feedback": {"content": "", "form": "", "grammar": "", "vocabulary": ""},
   "errorAnalysis": {
-    "grammarErrors": [],
+    "grammarErrors": [
+      {
+        "text": "incorrect grammar phrase",
+        "type": "grammar",
+        "position": {"start": 0, "end": 1},
+        "context": {"before": "", "after": ""},
+        "correction": "corrected grammar",
+        "explanation": "grammar explanation"
+      }
+    ],
     "spellingErrors": [],
-    "vocabularyIssues": []
+    "vocabularyIssues": [
+      {
+        "text": "misspelledWord",
+        "type": "vocabulary",
+        "position": {"start": 0, "end": 1},
+        "context": {"before": "", "after": ""},
+        "correction": "correctSpelling",
+        "explanation": "spelling mistake"
+      }
+    ]
   }
 }
 `;
@@ -2958,19 +2994,27 @@ Return ONLY a single, minified JSON object. No markdown wrapping. No trailing te
         evaluation.errorAnalysis?.grammarErrors || [],
         wordCount,
       ),
-      spellingErrors: normalizeErrors(
-        evaluation.errorAnalysis?.spellingErrors || [],
-        wordCount,
-      ),
+      spellingErrors: [] as any[],
       vocabularyIssues: normalizeErrors(
         evaluation.errorAnalysis?.vocabularyIssues || [],
         wordCount,
       ),
     };
 
+    // Also migrate any spelling errors placed directly in the raw spellingErrors array
+    const rawSpellingErrors = normalizeErrors(
+      evaluation.errorAnalysis?.spellingErrors || [],
+      wordCount,
+    );
+    rawSpellingErrors.forEach((error) => {
+      error.type = 'vocabulary';
+      errorAnalysis.vocabularyIssues.push(error);
+    });
+
     normalizedErrors.forEach((error) => {
       if (error.type === 'spelling') {
-        errorAnalysis.spellingErrors.push(error);
+        error.type = 'vocabulary';
+        errorAnalysis.vocabularyIssues.push(error);
       } else if (error.type === 'grammar') {
         errorAnalysis.grammarErrors.push(error);
       } else {

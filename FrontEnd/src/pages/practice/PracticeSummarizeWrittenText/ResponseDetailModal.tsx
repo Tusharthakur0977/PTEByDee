@@ -20,6 +20,7 @@ import {
   formatScoringText,
   renderHighlightedText,
 } from "../../../utils/Helpers";
+import { renderSWTHighlightedText } from "./SWTHighlightRenderer";
 
 interface ResponseDetailModalProps {
   response: PreviousResponse | null;
@@ -382,15 +383,14 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
                       <div className="space-y-3">
                         <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 text-base leading-8 text-slate-900 shadow-inner dark:border-slate-700/70 dark:bg-slate-950 dark:text-slate-100">
                           <p className="leading-8 break-words whitespace-normal">
-                            {renderHighlightedText(
+                            {renderSWTHighlightedText(
                               userAnswer,
                               errorAnalysis,
-                              (error: AnalysisErrorItem) => setSelectedError(error),
                             )}
                           </p>
                         </div>
                         <p className="text-xs text-slate-500 dark:text-slate-400">
-                          Click on the highlighted words to view detailed error analysis and suggestions.
+                          Incorrect words are marked with a line-through, and correct suggestions are displayed next to them in green.
                         </p>
                       </div>
                     ) : (

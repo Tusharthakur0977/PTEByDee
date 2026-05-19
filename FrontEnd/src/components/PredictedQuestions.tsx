@@ -428,15 +428,6 @@ const PredictedQuestions: React.FC = () => {
                       </div>
 
                       <div className='flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800/80'>
-                        <div className='flex items-center gap-1.5 text-xs font-semibold text-slate-400'>
-                          <span>Last Attempt: </span>
-                          <span className='text-slate-500 dark:text-slate-300 font-medium'>
-                            {q.lastAttemptedAt
-                              ? new Date(q.lastAttemptedAt).toLocaleDateString()
-                              : 'Never'}
-                          </span>
-                        </div>
-
                         <div className='flex items-center gap-1 text-orange-600 dark:text-orange-400 text-sm font-bold opacity-80 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all'>
                           <span>Practice</span>
                           <ArrowRight className='h-4 w-4' />

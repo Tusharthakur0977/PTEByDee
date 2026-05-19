@@ -21,12 +21,9 @@ import {
   getPracticeQuestions,
 } from '../../../services/portal';
 import { PteQuestionTypeName } from '../../../types/pte';
-import {
-  formatScoringText,
-  renderHighlightedText,
-  renderHighlightedTextByWords,
-} from '../../../utils/Helpers';
+import { formatScoringText } from '../../../utils/Helpers';
 import ResponseDetailModal from './ResponseDetailModal';
+import { renderSSTHighlightedText } from './SSTHighlightRenderer';
 
 export interface QuestionsData {
   id: string;
@@ -339,7 +336,7 @@ const PracticeSummarizeSpokenText: React.FC = () => {
 
   const handleExit = () => {
     if (window.confirm('Are you sure you want to exit?')) {
-      navigate('/portal');
+      window.location.pathname.startsWith('/practiceQuestion') ? navigate(-1) : navigate('/portal');
     }
   };
 
@@ -772,56 +769,35 @@ const PracticeSummarizeSpokenText: React.FC = () => {
                         Your Response
                       </h4>
                       <div className='flex flex-wrap items-center gap-4 text-sm'>
-                        {/* Speaking error types */}
-                        <div className='flex items-center space-x-2'>
-                          <div className='w-3 h-3 bg-orange-500 rounded-full'></div>
-                          <span className='text-gray-600 dark:text-gray-400'>
-                            Pronunciation
-                          </span>
-                        </div>
-                        <div className='flex items-center space-x-2'>
-                          <div className='w-3 h-3 bg-yellow-500 rounded-full'></div>
-                          <span className='text-gray-600 dark:text-gray-400'>
-                            Fluency
-                          </span>
-                        </div>
-                        <div className='flex items-center space-x-2'>
-                          <div className='w-3 h-3 bg-pink-500 rounded-full'></div>
-                          <span className='text-gray-600 dark:text-gray-400'>
-                            Content
-                          </span>
-                        </div>
                         <div className='flex items-center space-x-2'>
                           <div className='w-3 h-3 bg-red-500 rounded-full'></div>
                           <span className='text-gray-600 dark:text-gray-400'>
                             Grammar
                           </span>
                         </div>
+                        <div className='flex items-center space-x-2'>
+                          <div className='w-3 h-3 bg-blue-500 rounded-full'></div>
+                          <span className='text-gray-600 dark:text-gray-400'>
+                            Spelling
+                          </span>
+                        </div>
+                        <div className='flex items-center space-x-2'>
+                          <div className='w-3 h-3 bg-purple-500 rounded-full'></div>
+                          <span className='text-gray-600 dark:text-gray-400'>
+                            Vocabulary
+                          </span>
+                        </div>
 
-                        <span className='text-gray-500 dark:text-gray-400 text-xs'>
-                          * Click colored words for explanation
+                        <span className='text-gray-500 dark:text-gray-400 text-xs font-semibold'>
+                          * Strikethrough words are errors with green corrections next to them
                         </span>
                       </div>
                     </div>
-                    {/* <div className='p-6 text-base leading-relaxed text-gray-700 dark:text-gray-300 italic'>
-                      {renderHighlightedText(
-                        evaluationResult.evaluation.detailedAnalysis.userText,
-                        normalizeErrorAnalysis(
-                          evaluationResult.evaluation.detailedAnalysis
-                            .errorAnalysis,
-                        ),
-                        (err: any) => setSelectedError(err),
-                      )}
-                    </div> */}
                     <div className='p-6 text-base leading-relaxed text-gray-700 dark:text-gray-300 italic'>
-                      {renderHighlightedTextByWords(
+                      {renderSSTHighlightedText(
                         evaluationResult.evaluation.detailedAnalysis.userText,
-                        {
-                          ...evaluationResult.evaluation.detailedAnalysis
-                            .errorAnalysis,
-                          grammarErrors: [],
-                        },
-                        (err: any) => setSelectedError(err),
+                        evaluationResult.evaluation.detailedAnalysis
+                          .errorAnalysis,
                       )}
                     </div>
                   </div>

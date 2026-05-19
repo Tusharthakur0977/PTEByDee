@@ -517,7 +517,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                         onChange={(e) =>
                           updateParagraph(index, 'text', e.target.value)
                         }
-                        className='w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                        className='w-full px-3 py-2 border border-slate-200 bg-white rounded-lg text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100'
                         placeholder={`Enter paragraph ${index + 1} text`}
                         rows={3}
                         required
@@ -561,7 +561,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                     textContent: e.target.value,
                   }))
                 }
-                className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                className='w-full px-4 py-3 border border-slate-200 bg-white rounded-xl text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100'
                 rows={6}
                 placeholder='Enter text with _____ for blanks. Example: The weather is _____ today and it will be _____ tomorrow.'
                 required
@@ -592,7 +592,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                   (blank: any, blankIndex: number) => (
                     <div
                       key={blank.id}
-                      className='border border-gray-200 rounded-lg p-4 bg-gray-50'
+                      className='border border-slate-200 rounded-xl p-4 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/60'
                     >
                       <div className='flex items-center justify-between mb-3'>
                         <h4 className='text-sm font-medium text-slate-700 dark:text-slate-200'>
@@ -622,7 +622,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                                 e.target.value,
                               )
                             }
-                            className='w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-indigo-500 focus:border-transparent'
+                            className='w-full px-3 py-2 border border-slate-200 bg-white rounded-lg text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100'
                             placeholder='Enter the correct answer'
                             required
                           />
@@ -662,7 +662,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                                         e.target.value,
                                       )
                                     }
-                                    className='flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:border-transparent'
+                                    className='flex-1 px-2 py-1 text-sm border border-slate-200 bg-white rounded text-slate-900 focus:ring-1 focus:ring-indigo-500 focus:border-transparent dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100'
                                     placeholder={`Option ${optionIndex + 1}`}
                                   />
                                   <button
@@ -728,11 +728,11 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
         return (
           <div className='space-y-6'>
             {/* Auto-generation notice */}
-            <div className='bg-blue-50 border border-blue-200 rounded-lg p-4'>
+            <div className='bg-blue-50 border border-blue-200 rounded-xl p-4 dark:bg-blue-950/20 dark:border-blue-900/40'>
               <div className='flex items-start space-x-3'>
                 <div className='flex-shrink-0'>
                   <svg
-                    className='w-5 h-5 text-blue-400'
+                    className='w-5 h-5 text-blue-400 dark:text-blue-500'
                     fill='currentColor'
                     viewBox='0 0 20 20'
                   >
@@ -744,18 +744,18 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                   </svg>
                 </div>
                 <div>
-                  <h4 className='text-sm font-medium text-blue-800'>
+                  <h4 className='text-sm font-medium text-blue-800 dark:text-blue-400'>
                     Auto-Generated Content
                   </h4>
-                  <p className='text-sm text-blue-700 mt-1'>
+                  <p className='text-sm text-blue-700 dark:text-blue-300 mt-1'>
                     For Listening Fill in the Blanks questions, the text content
                     with blanks will be automatically generated from your
                     uploaded audio file.
                   </p>
-                  <p className='text-sm text-blue-700 mt-2'>
+                  <p className='text-sm text-blue-700 dark:text-blue-300 mt-2'>
                     Simply upload an audio file and the system will:
                   </p>
-                  <ul className='text-sm text-blue-700 mt-1 ml-4 list-disc'>
+                  <ul className='text-sm text-blue-700 dark:text-blue-300 mt-1 ml-4 list-disc'>
                     <li>Transcribe the audio content</li>
                     <li>Identify key words to remove</li>
                     <li>Create multiple choice options for each blank</li>
@@ -778,7 +778,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                     textContent: e.target.value,
                   }))
                 }
-                className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                className='w-full px-4 py-3 border border-slate-200 bg-white rounded-xl text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100'
                 rows={6}
                 placeholder='Leave empty to auto-generate from audio, or enter custom text with _____ for blanks.'
               />
@@ -795,11 +795,11 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
         return (
           <div className='space-y-6'>
             {/* Auto-generation notice */}
-            <div className='bg-blue-50 border border-blue-200 rounded-lg p-4'>
+            <div className='bg-blue-50 border border-blue-200 rounded-xl p-4 dark:bg-blue-950/20 dark:border-blue-900/40'>
               <div className='flex items-start space-x-3'>
                 <div className='flex-shrink-0'>
                   <svg
-                    className='w-5 h-5 text-blue-400'
+                    className='w-5 h-5 text-blue-400 dark:text-blue-500'
                     fill='currentColor'
                     viewBox='0 0 20 20'
                   >
@@ -811,18 +811,18 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                   </svg>
                 </div>
                 <div>
-                  <h4 className='text-sm font-medium text-blue-800'>
+                  <h4 className='text-sm font-medium text-blue-800 dark:text-blue-400'>
                     Auto-Generated Content
                   </h4>
-                  <p className='text-sm text-blue-700 mt-1'>
+                  <p className='text-sm text-blue-700 dark:text-blue-300 mt-1'>
                     For Highlight Incorrect Words questions, the text with
                     errors will be automatically generated from your uploaded
                     audio file.
                   </p>
-                  <p className='text-sm text-blue-700 mt-2'>
+                  <p className='text-sm text-blue-700 dark:text-blue-300 mt-2'>
                     Simply upload an audio file and the system will:
                   </p>
-                  <ul className='text-sm text-blue-700 mt-1 ml-4 list-disc'>
+                  <ul className='text-sm text-blue-700 dark:text-blue-300 mt-1 ml-4 list-disc'>
                     <li>Transcribe the audio content</li>
                     <li>Replace 3-5 words with similar but incorrect words</li>
                     <li>Create a list of incorrect words for evaluation</li>
@@ -845,7 +845,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                     textContent: e.target.value,
                   }))
                 }
-                className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                className='w-full px-4 py-3 border border-slate-200 bg-white rounded-xl text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100'
                 rows={4}
                 placeholder='Leave empty to auto-generate from audio, or enter custom text with intentional errors...'
               />
@@ -877,7 +877,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                             incorrectWords: newWords,
                           }));
                         }}
-                        className='flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                        className='flex-1 px-3 py-2 border border-slate-200 bg-white rounded-lg text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100'
                         placeholder={`Incorrect word ${index + 1}`}
                       />
                       <button
@@ -975,7 +975,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                     manualTranscript: e.target.value,
                   }))
                 }
-                className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                className='w-full px-4 py-3 border border-slate-200 bg-white rounded-xl text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100'
                 rows={8}
                 placeholder='Enter the complete transcript of the group discussion. This is what students will hear and need to summarize. Example: "Person A: I think climate change is the biggest challenge... Person B: I agree, but we should also consider..."'
                 required={!formData.audioKey}
@@ -1252,7 +1252,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                     durationMillis: parseInt(e.target.value) * 1000 || null,
                   }))
                 }
-                className='w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                className={inputClass}
                 min='1'
                 placeholder='e.g., 40 for 40 seconds'
               />
@@ -1284,7 +1284,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                             textContent: e.target.value,
                           }))
                         }
-                        className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                        className='w-full px-4 py-3 border border-slate-200 bg-white rounded-xl text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100'
                         rows={8}
                         placeholder='Enter the text content for this question...'
                         required
@@ -1307,7 +1307,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                           questionStatement: e.target.value,
                         }))
                       }
-                      className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                      className='w-full px-4 py-3 border border-slate-200 bg-white rounded-xl text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100'
                       placeholder='e.g., "What can we infer from the passage?", "Which of the following statements are incorrect?"'
                       required
                     />
@@ -1492,7 +1492,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                             wordCountMin: parseInt(e.target.value) || null,
                           }))
                         }
-                        className='w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                        className='w-full px-4 py-2 border border-slate-200 bg-white rounded-xl text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100'
                         min='1'
                         required
                       />
@@ -1510,7 +1510,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                             wordCountMax: parseInt(e.target.value) || null,
                           }))
                         }
-                        className='w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                        className='w-full px-4 py-2 border border-slate-200 bg-white rounded-xl text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100'
                         min='1'
                         required
                       />
@@ -1600,7 +1600,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                                 onChange={(e) =>
                                   updateOption(index, 'text', e.target.value)
                                 }
-                                className='flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                                className='flex-1 px-3 py-2 border border-slate-200 bg-white rounded-lg text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100'
                                 placeholder={`Option ${index + 1}`}
                                 required
                               />
@@ -1668,8 +1668,8 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
 
             {/* Question Type Help */}
             {selectedQuestionType && (
-              <div className='rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-600/50 dark:bg-amber-800/10'>
-                <h4 className='text-sm font-medium text-amber-800 mb-2'>
+              <div className='rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-slate-800 dark:bg-slate-900/60'>
+                <h4 className='text-sm font-semibold text-amber-800 dark:text-amber-400 mb-2'>
                   {selectedQuestionType.name
                     .split('_')
                     .map(
@@ -1680,7 +1680,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                     .join(' ')}{' '}
                   Requirements:
                 </h4>
-                <ul className='text-sm text-amber-700 space-y-1'>
+                <ul className='text-sm text-amber-700 dark:text-slate-300 space-y-1'>
                   {requirements.requiresText && (
                     <li>• Text content is required</li>
                   )}

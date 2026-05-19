@@ -318,11 +318,12 @@ const QuestionManagement: React.FC = () => {
                   }}
                   className={inputClass}
                 >
-                  <option value=''>All Sections</option>
+                  <option value='' className='bg-white dark:bg-slate-900 dark:text-slate-100'>All Sections</option>
                   {Object.keys(questionTypes).map((sectionName) => (
                     <option
                       key={sectionName}
                       value={questionTypes[sectionName].section?.id}
+                      className='bg-white dark:bg-slate-900 dark:text-slate-100'
                     >
                       {sectionName}
                     </option>
@@ -337,12 +338,13 @@ const QuestionManagement: React.FC = () => {
                   }}
                   className={inputClass}
                 >
-                  <option value=''>All Question Types</option>
+                  <option value='' className='bg-white dark:bg-slate-900 dark:text-slate-100'>All Question Types</option>
                   {Object.values(questionTypes).flatMap((section: any) =>
                     section.questionTypes.map((qt: QuestionType) => (
                       <option
                         key={qt.name}
                         value={qt.name}
+                        className='bg-white dark:bg-slate-900 dark:text-slate-100'
                       >
                         {formatQuestionTypeName(qt.name)}
                       </option>
@@ -358,11 +360,12 @@ const QuestionManagement: React.FC = () => {
                   }}
                   className={inputClass}
                 >
-                  <option value=''>All Tests</option>
+                  <option value='' className='bg-white dark:bg-slate-900 dark:text-slate-100'>All Tests</option>
                   {tests.map((test) => (
                     <option
                       key={test.id}
                       value={test.id}
+                      className='bg-white dark:bg-slate-900 dark:text-slate-100'
                     >
                       {test.title}
                     </option>
@@ -377,9 +380,9 @@ const QuestionManagement: React.FC = () => {
                   }}
                   className={inputClass}
                 >
-                  <option value=''>All Questions</option>
-                  <option value='PREDICTED'>🔥 Predicted Questions</option>
-                  <option value='NONE'>⚪ Standard Questions</option>
+                  <option value='' className='bg-white dark:bg-slate-900 dark:text-slate-100'>All Questions</option>
+                  <option value='PREDICTED' className='bg-white dark:bg-slate-900 dark:text-slate-100'>🔥 Predicted Questions</option>
+                  <option value='NONE' className='bg-white dark:bg-slate-900 dark:text-slate-100'>⚪ Standard Questions</option>
                 </select>
               </div>
             </div>
