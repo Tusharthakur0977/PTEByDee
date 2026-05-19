@@ -29,6 +29,8 @@ interface QuestionTypeSelectorProps {
 }
 
 const QuestionTypeSelector: React.FC<QuestionTypeSelectorProps> = ({
+  selectedType,
+  onTypeSelect,
   className = "",
 }) => {
   const navigate = useNavigate();
@@ -288,9 +290,13 @@ const QuestionTypeSelector: React.FC<QuestionTypeSelectorProps> = ({
                   return (
                     <button
                       key={questionType.type}
-                      onClick={() =>
-                        navigate(getPracticePagePath(questionType.type))
-                      }
+                      onClick={() => {
+                        if (onTypeSelect) {
+                          onTypeSelect(questionType.type);
+                        } else {
+                          navigate(getPracticePagePath(questionType.type));
+                        }
+                      }}
                       className={`group relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-left transition-all duration-200 hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 ${getColorClasses(
                         category.color,
                         "hover",

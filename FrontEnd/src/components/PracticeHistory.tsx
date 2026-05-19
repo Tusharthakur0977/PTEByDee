@@ -102,16 +102,6 @@ const PracticeHistory: React.FC = () => {
 
   return (
     <div className='space-y-6'>
-      {/* Compact Header */}
-      <div className='text-center'>
-        <h2 className='text-xl font-bold text-gray-900 dark:text-white mb-2'>
-          Practice History
-        </h2>
-        <p className='text-sm text-gray-600 dark:text-gray-300'>
-          Review your practice sessions and track progress
-        </p>
-      </div>
-
       {/* Compact Filters */}
       <div className='bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4'>
         <div className='grid grid-cols-1 md:grid-cols-4 gap-3'>
@@ -145,7 +135,8 @@ const PracticeHistory: React.FC = () => {
                   .split('_')
                   .map(
                     (word) =>
-                      word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+                      word.charAt(0).toUpperCase() +
+                      word.slice(1).toLowerCase(),
                   )
                   .join(' ')}
               </option>
@@ -254,7 +245,7 @@ const PracticeHistory: React.FC = () => {
                               <Calendar className='h-3 w-3' />
                               <span>
                                 {new Date(
-                                  response.createdAt
+                                  response.createdAt,
                                 ).toLocaleDateString()}
                               </span>
                             </div>
@@ -298,7 +289,7 @@ const PracticeHistory: React.FC = () => {
                     {(pagination.currentPage - 1) * pagination.limit + 1}-
                     {Math.min(
                       pagination.currentPage * pagination.limit,
-                      pagination.totalResponses
+                      pagination.totalResponses,
                     )}{' '}
                     of {pagination.totalResponses}
                   </div>

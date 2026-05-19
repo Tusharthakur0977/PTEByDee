@@ -1181,10 +1181,10 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                 </div>
                 <div>
                   <label className='block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2'>
-                    Prediction Level *
+                    Predicted Question *
                   </label>
                   <select
-                    value={formData.predictionLevel}
+                    value={formData.predictionLevel !== 'NONE' ? 'HIGH' : 'NONE'}
                     onChange={(e) =>
                       setFormData((prev) => ({
                         ...prev,
@@ -1194,13 +1194,11 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                     className={inputClass}
                     required
                   >
-                    <option value='NONE'>None</option>
-                    <option value='LOW'>Low</option>
-                    <option value='MEDIUM'>Medium</option>
-                    <option value='HIGH'>High</option>
+                    <option value='NONE'>No</option>
+                    <option value='HIGH'>Yes</option>
                   </select>
                   <p className='text-xs text-slate-500 dark:text-slate-400 mt-1'>
-                    Mark this question as predicted (None, Low, Medium, High)
+                    Mark this question as predicted
                   </p>
                 </div>
               </div>

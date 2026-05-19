@@ -93,24 +93,12 @@ const QuestionPreview: React.FC<QuestionPreviewProps> = ({
   };
 
   const getPredictionBadge = (level: string) => {
-    const badges: { [key: string]: { bg: string; text: string; label: string } } = {
-      HIGH: {
-        bg: 'bg-red-100 dark:bg-red-900/30',
-        text: 'text-red-700 dark:text-red-300',
-        label: '🔥 High',
-      },
-      MEDIUM: {
-        bg: 'bg-amber-100 dark:bg-amber-900/30',
-        text: 'text-amber-700 dark:text-amber-300',
-        label: '🟡 Medium',
-      },
-      LOW: {
-        bg: 'bg-blue-100 dark:bg-blue-900/30',
-        text: 'text-blue-700 dark:text-blue-300',
-        label: '🟢 Low',
-      },
+    if (level === 'NONE') return null;
+    return {
+      bg: 'bg-orange-100 dark:bg-orange-950/40',
+      text: 'text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-900',
+      label: '🔥 Predicted',
     };
-    return badges[level] || null;
   };
 
   const handlePredictionChange = async (newLevel: string) => {
@@ -188,15 +176,13 @@ const QuestionPreview: React.FC<QuestionPreviewProps> = ({
 
         <div className='flex items-center gap-2'>
           <select
-            value={predictionLevel}
+            value={predictionLevel !== 'NONE' ? 'HIGH' : 'NONE'}
             onChange={(e) => handlePredictionChange(e.target.value)}
             disabled={updatingPrediction}
             className='rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 disabled:opacity-50'
           >
-            <option value='NONE'>No Prediction</option>
-            <option value='HIGH'>🔥 High</option>
-            <option value='MEDIUM'>🟡 Medium</option>
-            <option value='LOW'>🟢 Low</option>
+            <option value='NONE'>Standard Question</option>
+            <option value='HIGH'>🔥 Predicted Question</option>
           </select>
           <button
             onClick={onEdit}

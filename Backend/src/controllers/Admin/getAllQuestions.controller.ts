@@ -71,7 +71,11 @@ export const getAllQuestions = asyncHandler(
 
       // Filter by prediction level
       if (predictionLevel && predictionLevel !== 'ALL') {
-        whereClause.predictionLevel = predictionLevel;
+        if (predictionLevel === 'PREDICTED') {
+          whereClause.predictionLevel = { not: 'NONE' };
+        } else {
+          whereClause.predictionLevel = predictionLevel;
+        }
       }
 
       // Build orderBy clause

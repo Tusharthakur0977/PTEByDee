@@ -37,6 +37,7 @@ import PaymentManagement from "./pages/admin/PaymentManagement";
 import QuestionManagement from "./pages/admin/QuestionManagement";
 import SupportTickets from "./pages/admin/SupportTickets";
 import UserManagement from "./pages/admin/UserManagement";
+import PracticeQuestionRouter from "./components/PracticeQuestionRouter";
 // Practice pages
 import PracticeAnswerShortQuestion from "./pages/practice/PracticeAnswerShortQuestion";
 import PracticeDescribeImage from "./pages/practice/PracticeDescribeImage";
@@ -164,6 +165,14 @@ function App() {
                       }
                     />
                     <Route
+                      path="/portal/:activeTab"
+                      element={
+                        <ProtectedRoute>
+                          <Portal />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
                       path="/portal/test/:testId/instructions"
                       element={
                         <ProtectedRoute>
@@ -189,6 +198,14 @@ function App() {
                     />
 
                     {/* Practice routes - require authentication */}
+                    <Route
+                      path="/practiceQuestion/:questionType/:questionId"
+                      element={
+                        <ProtectedRoute>
+                          <PracticeQuestionRouter />
+                        </ProtectedRoute>
+                      }
+                    />
                     {/* SPEAKING */}
                     <Route
                       path="/practice/answer-short-question"

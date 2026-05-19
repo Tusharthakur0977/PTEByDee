@@ -377,11 +377,9 @@ const QuestionManagement: React.FC = () => {
                   }}
                   className={inputClass}
                 >
-                  <option value=''>All Prediction Levels</option>
-                  <option value='HIGH'>🔴 High</option>
-                  <option value='MEDIUM'>🟡 Medium</option>
-                  <option value='LOW'>🟢 Low</option>
-                  <option value='NONE'>⚪ None</option>
+                  <option value=''>All Questions</option>
+                  <option value='PREDICTED'>🔥 Predicted Questions</option>
+                  <option value='NONE'>⚪ Standard Questions</option>
                 </select>
               </div>
             </div>

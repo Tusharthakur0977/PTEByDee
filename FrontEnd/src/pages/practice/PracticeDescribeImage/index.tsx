@@ -629,62 +629,64 @@ const PracticeDescribeImage: React.FC = () => {
             </div>
           </div>
         </div>
+        {!window.location.pathname.startsWith('/practiceQuestion') && (
         <div className='flex items-center gap-3'>
-          <div className='relative group'>
-            <button
-              onClick={() => setShowDifficultyFilter(!showDifficultyFilter)}
-              className='p-2 text-gray-300 hover:text-white'
-              title='Filter by difficulty'
-            >
-              <Filter className='w-4 h-4 text-gray-400 dark:text-white' />
-            </button>
-            {showDifficultyFilter && (
-              <div className='absolute right-0 mt-2 w-48 bg-gray-700 rounded-lg shadow-lg p-3 z-50'>
-                <p className='text-xs text-gray-400 mb-2 font-semibold'>
-                  Difficulty Level
-                </p>
-                <div className='space-y-2'>
-                  {(['all', 'EASY', 'MEDIUM', 'HARD'] as const).map((level) => (
-                    <label
-                      key={level}
-                      className='flex items-center gap-2 cursor-pointer'
+                  <div className='relative group'>
+                    <button
+                      onClick={() => setShowDifficultyFilter(!showDifficultyFilter)}
+                      className='p-2 text-gray-300 hover:text-white'
+                      title='Filter by difficulty'
                     >
-                      <input
-                        type='radio'
-                        name='difficulty'
-                        value={level}
-                        checked={difficultyLevel === level}
-                        onChange={(e) => {
-                          setDifficultyLevel(e.target.value as any);
-                          setShowDifficultyFilter(false);
-                        }}
-                        className='w-4 h-4'
-                      />
-                      <span className='text-white text-sm'>
-                        {level === 'all' ? 'All Levels' : level}
-                      </span>
-                    </label>
-                  ))}
+                      <Filter className='w-4 h-4 text-gray-400 dark:text-white' />
+                    </button>
+                    {showDifficultyFilter && (
+                      <div className='absolute right-0 mt-2 w-48 bg-gray-700 rounded-lg shadow-lg p-3 z-50'>
+                        <p className='text-xs text-gray-400 mb-2 font-semibold'>
+                          Difficulty Level
+                        </p>
+                        <div className='space-y-2'>
+                          {(['all', 'EASY', 'MEDIUM', 'HARD'] as const).map((level) => (
+                            <label
+                              key={level}
+                              className='flex items-center gap-2 cursor-pointer'
+                            >
+                              <input
+                                type='radio'
+                                name='difficulty'
+                                value={level}
+                                checked={difficultyLevel === level}
+                                onChange={(e) => {
+                                  setDifficultyLevel(e.target.value as any);
+                                  setShowDifficultyFilter(false);
+                                }}
+                                className='w-4 h-4'
+                              />
+                              <span className='text-white text-sm'>
+                                {level === 'all' ? 'All Levels' : level}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+        
+                  <button
+                    onClick={() => setShowQuestionSidebar(true)}
+                    className='p-2 text-gray-300 hover:text-white'
+                    title='View all questions'
+                  >
+                    <BarChart3 className='w-4 h-4 text-gray-400 dark:text-white' />
+                  </button>
+                  <button
+                    onClick={() => setShowPreviousResponses(true)}
+                    className='flex items-center gap-2 p-2 text-gray-400 text-sm font-semibold'
+                    title='Previous Attempts'
+                  >
+                    <History className='w-4 h-4' />
+                  </button>
                 </div>
-              </div>
-            )}
-          </div>
-
-          <button
-            onClick={() => setShowQuestionSidebar(true)}
-            className='p-2 text-gray-300 hover:text-white'
-            title='View all questions'
-          >
-            <BarChart3 className='w-4 h-4 text-gray-400 dark:text-white' />
-          </button>
-          <button
-            onClick={() => setShowPreviousResponses(true)}
-            className='flex items-center gap-2 p-2 text-gray-400 text-sm font-semibold'
-            title='Previous Attempts'
-          >
-            <History className='w-4 h-4' />
-          </button>
-        </div>
+      )}
       </div>
 
       {isLoading && (

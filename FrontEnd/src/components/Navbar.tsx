@@ -40,7 +40,12 @@ const Navbar: React.FC = () => {
     >
   >({});
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) => {
+    if (path === '/portal') {
+      return location.pathname.startsWith('/portal');
+    }
+    return location.pathname === path;
+  };
   const navLinkClass = (active: boolean) =>
     `rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 ${
       active
@@ -256,7 +261,7 @@ const Navbar: React.FC = () => {
                 onMouseLeave={() => setIsPortalMenuOpen(false)}
               >
                 <Link
-                  to='/portal'
+                  to='/portal/practice'
                   onClick={() => setIsPortalMenuOpen(false)}
                   className={navLinkClass(isActive('/portal'))}
                 >
@@ -295,7 +300,7 @@ const Navbar: React.FC = () => {
                                 return (
                                   <li key={questionType.id}>
                                     <Link
-                                      to={getPracticePagePath(typeName)}
+                                      to={`/portal/practice?type=${typeName}`}
                                       onClick={() => setIsPortalMenuOpen(false)}
                                       className='text-sm leading-snug text-slate-600 transition-colors hover:text-blue-700 dark:text-slate-300 dark:hover:text-emerald-300'
                                     >
@@ -485,7 +490,7 @@ const Navbar: React.FC = () => {
                   {isPortalMenuOpen && (
                     <div className='mt-2 space-y-3 px-2 pb-2'>
                       <Link
-                        to='/portal'
+                        to='/portal/practice'
                         onClick={() => setIsMenuOpen(false)}
                         className='block rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-blue-200 hover:bg-white hover:text-blue-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-emerald-700 dark:hover:text-emerald-300'
                       >
@@ -515,7 +520,7 @@ const Navbar: React.FC = () => {
                               return (
                                 <li key={questionType.id}>
                                   <Link
-                                    to={getPracticePagePath(typeName)}
+                                    to={`/portal/practice?type=${typeName}`}
                                     onClick={() => setIsMenuOpen(false)}
                                     className='block rounded-lg px-2.5 py-2 text-sm text-slate-600 transition-colors hover:bg-white hover:text-blue-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-emerald-300'
                                   >

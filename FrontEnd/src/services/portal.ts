@@ -189,6 +189,21 @@ export const getPracticeQuestions = async (
     skip = 0,
   } = options;
 
+  let specificQuestion: any = null;
+  const activeQuestionId = sessionStorage.getItem('activeQuestionId');
+  if (activeQuestionId) {
+    try {
+      specificQuestion = await getPracticeQuestionById(activeQuestionId);
+      if (specificQuestion && specificQuestion.type !== questionType) {
+        specificQuestion = null;
+      }
+    } catch (e) {
+      console.error('Error fetching specific question:', e);
+    } finally {
+      sessionStorage.removeItem('activeQuestionId');
+    }
+  }
+
   const cacheKey = buildPracticeQuestionsCacheKey(questionType, {
     limit,
     random,
@@ -197,9 +212,11 @@ export const getPracticeQuestions = async (
     imageType,
   });
 
-  const cachedRequest = practiceQuestionsRequestCache.get(cacheKey);
-  if (cachedRequest) {
-    return cachedRequest;
+  if (!activeQuestionId) {
+    const cachedRequest = practiceQuestionsRequestCache.get(cacheKey);
+    if (cachedRequest) {
+      return cachedRequest;
+    }
   }
 
   const params = new URLSearchParams({
@@ -222,12 +239,21 @@ export const getPracticeQuestions = async (
 
   const requestPromise = publicApi
     .get(`/user/practice-questions/${questionType}?${params}`)
-    .then((response) => response.data.data)
+    .then((response) => {
+      const data = response.data.data;
+      if (specificQuestion) {
+        const filtered = data.questions.filter((q: any) => q.id !== specificQuestion.id);
+        data.questions = [specificQuestion, ...filtered];
+      }
+      return data;
+    })
     .finally(() => {
       practiceQuestionsRequestCache.delete(cacheKey);
     });
 
-  practiceQuestionsRequestCache.set(cacheKey, requestPromise);
+  if (!activeQuestionId) {
+    practiceQuestionsRequestCache.set(cacheKey, requestPromise);
+  }
   return requestPromise;
 };
 

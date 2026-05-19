@@ -10,58 +10,13 @@ import {
   Flame,
 } from 'lucide-react';
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams, useNavigate, useLocation } from 'react-router-dom';
 import PracticeHistory from '../components/PracticeHistory';
-import PracticeQuestion from '../components/PracticeQuestions';
-import QuestionResponseHistory from '../components/QuestionResponseHistory';
-import QuestionSidebar from '../components/QuestionSidebar';
 import QuestionTypeSelector from '../components/QuestionTypeSelector';
 import PredictedQuestions from '../components/PredictedQuestions';
+import { getPracticePagePath } from '../utils/questionTypeToSlug';
 import { mockTests } from '../data/mockPte';
-import {
-  getPracticeQuestions,
-  getQuestionWithResponses,
-} from '../services/portal';
 import { PteQuestionTypeName } from '../types/pte';
-
-// Helper functions for question transformation
-const getInstructionsForQuestionType = (questionType: string): string => {
-  const instructions: { [key: string]: string } = {
-    READ_ALOUD:
-      'Look at the text below. In 40 seconds, you must read this text aloud as naturally and clearly as possible.',
-    REPEAT_SENTENCE:
-      'You will hear a sentence. Please repeat the sentence exactly as you hear it.',
-    DESCRIBE_IMAGE:
-      'Look at the image below. In 25 seconds, please speak into the microphone and describe in detail what the image is showing.',
-    RE_TELL_LECTURE:
-      'You will hear a lecture. After listening to the lecture, in 10 seconds, please speak into the microphone and retell what you have just heard from the lecture in your own words.',
-    ANSWER_SHORT_QUESTION:
-      'You will hear a question. Please give a simple and short answer.',
-  };
-  return instructions[questionType] || 'Complete the question as instructed.';
-};
-
-const getPreparationTimeForQuestionType = (questionType: string): number => {
-  const preparationTimes: { [key: string]: number } = {
-    READ_ALOUD: 35,
-    REPEAT_SENTENCE: 0,
-    DESCRIBE_IMAGE: 25,
-    RE_TELL_LECTURE: 10,
-    ANSWER_SHORT_QUESTION: 0,
-  };
-  return preparationTimes[questionType] || 0;
-};
-
-const getRecordingTimeForQuestionType = (questionType: string): number => {
-  const recordingTimes: { [key: string]: number } = {
-    READ_ALOUD: 40,
-    REPEAT_SENTENCE: 15,
-    DESCRIBE_IMAGE: 40,
-    RE_TELL_LECTURE: 40,
-    ANSWER_SHORT_QUESTION: 10,
-  };
-  return recordingTimes[questionType] || 40;
-};
 
 const Portal: React.FC = () => {
   const freeTests = mockTests.filter(
@@ -70,441 +25,65 @@ const Portal: React.FC = () => {
   const premiumTests = mockTests.filter(
     (test: { isFree: boolean }) => !test.isFree,
   );
-  const [activeTab, setActiveTab] = React.useState<
-    'practice' | 'tests' | 'history' | 'predicted'
-  >('practice');
-  const [selectedQuestionType, setSelectedQuestionType] =
-    React.useState<PteQuestionTypeName | null>(null);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = React.useState(0);
-  const [practiceQuestions, setPracticeQuestions] = React.useState<any[]>([]);
-  const [isLoadingQuestions, setIsLoadingQuestions] = React.useState(false);
-  const [questionError, setQuestionError] = React.useState<string | null>(null);
+  const { activeTab: tabParam } = useParams<{ activeTab?: string }>();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  // New state for enhanced features
-  const [showQuestionSidebar, setShowQuestionSidebar] = React.useState(false);
-  const [selectedQuestionId, setSelectedQuestionId] = React.useState<
-    string | null
-  >(null);
-  const [showResponseHistory, setShowResponseHistory] = React.useState(false);
-  const [selectedQuestionForPractice, setSelectedQuestionForPractice] =
-    React.useState<any>(null);
-  const [isLoadingSelectedQuestion, setIsLoadingSelectedQuestion] =
-    React.useState(false);
-  const [practiceFilters, setPracticeFilters] = React.useState({
-    practiceStatus: 'all' as 'practiced' | 'unpracticed' | 'all',
-    difficultyLevel: 'all' as 'EASY' | 'MEDIUM' | 'HARD' | 'all',
-  });
+  // Helper to map route tab names to the active tab states
+  const getMappedTab = (tab: string | undefined): 'practice' | 'tests' | 'history' | 'predicted' => {
+    if (!tab) return 'practice';
+    const t = tab.toLowerCase();
+    if (t === 'prediction' || t === 'predicted') return 'predicted';
+    if (t === 'tests' || t === 'test') return 'tests';
+    if (t === 'history') return 'history';
+    return 'practice';
+  };
 
+  const activeTab = getMappedTab(tabParam);
+
+  // Helper to normalize the query type
+  const normalizeQuestionType = (typeStr: string | null): PteQuestionTypeName | null => {
+    if (!typeStr) return null;
+    const clean = typeStr.toUpperCase().replace(/-/g, '_');
+    return clean as PteQuestionTypeName;
+  };
+
+  // Synchronize on mount and handle root /portal visits and query parameter parsing
   React.useEffect(() => {
-    if (selectedQuestionType) {
-      fetchPracticeQuestions();
-    }
-  }, [selectedQuestionType]);
-
-  React.useEffect(() => {
-    if (selectedQuestionType) {
-      fetchPracticeQuestions();
-    }
-  }, [practiceFilters]);
-
-  const fetchPracticeQuestions = async () => {
-    if (!selectedQuestionType) return;
-
-    try {
-      setIsLoadingQuestions(true);
-      setQuestionError(null);
-
-      const options: any = {
-        limit: 200,
-        random: true,
-      };
-
-      if (practiceFilters.difficultyLevel !== 'all') {
-        options.difficultyLevel = practiceFilters.difficultyLevel;
-      }
-
-      if (practiceFilters.practiceStatus !== 'all') {
-        options.practiceStatus = practiceFilters.practiceStatus;
-      }
-
-      const response = await getPracticeQuestions(
-        selectedQuestionType,
-        options,
-      );
-      setPracticeQuestions(response.questions);
-      setCurrentQuestionIndex(0);
-    } catch (error: any) {
-      console.error('Error fetching practice questions:', error);
-      setQuestionError(
-        error.response?.data?.message || 'Failed to load practice questions',
-      );
-      setPracticeQuestions([]);
-    } finally {
-      setIsLoadingQuestions(false);
-    }
-  };
-
-  const handleQuestionComplete = (response: any) => {
-    // If we completed a selected question, go back to practice session
-    if (selectedQuestionForPractice) {
-      setSelectedQuestionForPractice(null);
-    }
-  };
-
-  const handleNextQuestion = () => {
-    if (currentQuestionIndex < practiceQuestions.length - 1) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
+    if (!tabParam) {
+      const lastTab = sessionStorage.getItem('portal_active_tab') || 'practice';
+      const routeTab = lastTab === 'predicted' ? 'prediction' : lastTab;
+      navigate(`/portal/${routeTab}`, { replace: true });
     } else {
-      // End of practice session
-      setSelectedQuestionType(null);
-      setCurrentQuestionIndex(0);
-      setShowQuestionSidebar(false);
-      setSelectedQuestionId(null);
-      setShowResponseHistory(false);
+      sessionStorage.setItem('portal_active_tab', activeTab);
+      
+      // Parse question type search param only in practice tab
+      if (activeTab === 'practice') {
+        const queryType = new URLSearchParams(location.search).get('type');
+        if (queryType) {
+          const normalized = normalizeQuestionType(queryType);
+          if (normalized) {
+            navigate(getPracticePagePath(normalized), { replace: true });
+          }
+        }
+      }
     }
-  };
+  }, [tabParam, activeTab, location.search]);
 
-  const handlePreviousQuestion = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(currentQuestionIndex - 1);
-    }
-  };
-
-  const loadQuestionForPractice = async (questionId: string) => {
-    try {
-      setIsLoadingSelectedQuestion(true);
-      const response = await getQuestionWithResponses(questionId);
-
-      // Get question type from either new or old structure
-      const questionData = response.question as any; // Use any to handle dynamic structure
-      const questionType =
-        questionData.type ||
-        questionData.questionType ||
-        questionData.rawQuestion?.questionType;
-      const questionCode =
-        questionData.questionCode || questionData.rawQuestion?.questionCode;
-
-      // Transform the question data to match PracticeQuestion structure
-      const transformedQuestion = {
-        id: questionData.id,
-        type: questionType as PteQuestionTypeName,
-        difficultyLevel: questionData.difficultyLevel,
-        title:
-          questionData.title ||
-          `${questionType?.replace(/_/g, ' ')} - ${questionCode}`,
-        instructions:
-          questionData.instructions ||
-          getInstructionsForQuestionType(questionType),
-        content: questionData.content || {
-          text:
-            questionData.textContent || questionData.rawQuestion?.textContent,
-          questionStatement:
-            questionData.questionStatement ||
-            questionData.rawQuestion?.questionStatement,
-          audioUrl: questionData.audioUrl || questionData.rawQuestion?.audioUrl,
-          imageUrl: questionData.imageUrl || questionData.rawQuestion?.imageUrl,
-          options: questionData.options || questionData.rawQuestion?.options,
-          paragraphs: questionData.content?.paragraphs,
-          blanks: questionData.content?.blanks,
-          timeLimit:
-            questionData.content?.timeLimit ||
-            (questionType === 'SUMMARIZE_SPOKEN_TEXT' ||
-            questionType === 'SUMMARIZE_WRITTEN_TEXT'
-              ? 600 // 10 minutes for summarize spoken text and summarize written text
-              : questionType === 'WRITE_ESSAY'
-                ? 1200 // 20 minutes for write essay
-                : Math.floor(
-                    (questionData.durationMillis ||
-                      questionData.rawQuestion?.durationMillis ||
-                      300000) / 1000,
-                  )),
-          preparationTime: getPreparationTimeForQuestionType(questionType),
-          recordingTime: getRecordingTimeForQuestionType(questionType),
-          wordLimit:
-            questionData.content?.wordLimit ||
-            (questionData.wordCountMin && questionData.wordCountMax
-              ? {
-                  min: questionData.wordCountMin,
-                  max: questionData.wordCountMax,
-                }
-              : undefined),
-        },
-        questionCode: questionCode,
-      };
-
-      setSelectedQuestionForPractice(transformedQuestion);
-      setShowQuestionSidebar(false);
-      setShowResponseHistory(false);
-      setSelectedQuestionId(null);
-    } catch (error: any) {
-      console.error('Error loading question for practice:', error);
-      setQuestionError(
-        error.response?.data?.message || 'Failed to load question',
-      );
-    } finally {
-      setIsLoadingSelectedQuestion(false);
-    }
-  };
-
-  const handleQuestionSelect = (
-    questionId: string,
-    action: 'practice' | 'history' = 'history',
-  ) => {
-    if (action === 'practice') {
-      loadQuestionForPractice(questionId);
-    } else {
-      setSelectedQuestionId(questionId);
-      setShowResponseHistory(true);
-      setShowQuestionSidebar(false);
-      setSelectedQuestionForPractice(null);
-    }
-  };
-
-  const handleFilterChange = (filters: {
-    practiceStatus: 'practiced' | 'unpracticed' | 'all';
-    difficultyLevel: 'EASY' | 'MEDIUM' | 'HARD' | 'all';
-  }) => {
-    setPracticeFilters(filters);
+  const setActiveTab = (tab: 'practice' | 'tests' | 'history' | 'predicted') => {
+    const routeTab = tab === 'predicted' ? 'prediction' : tab;
+    navigate(`/portal/${routeTab}`);
   };
   const renderTabContent = () => {
     switch (activeTab) {
       case 'practice': {
-        if (!selectedQuestionType) {
-          return (
-            <div className='relative'>
-              <QuestionTypeSelector
-                selectedType={selectedQuestionType}
-                onTypeSelect={(type) => {
-                  setSelectedQuestionType(type);
-                  setShowQuestionSidebar(false);
-                  setSelectedQuestionId(null);
-                  setShowResponseHistory(false);
-                  setSelectedQuestionForPractice(null);
-                }}
-              />
-            </div>
-          );
-        }
-
-        if (showResponseHistory && selectedQuestionId) {
-          return (
-            <div className='relative'>
-              <QuestionResponseHistory
-                questionId={selectedQuestionId}
-                onClose={() => {
-                  setShowResponseHistory(false);
-                  setSelectedQuestionId(null);
-                }}
-              />
-            </div>
-          );
-        }
-
-        if (isLoadingQuestions) {
-          return (
-            <div className='text-center py-8'>
-              <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4'></div>
-              <h3 className='text-lg font-semibold text-gray-900 dark:text-white mb-2'>
-                Loading Questions
-              </h3>
-              <p className='text-gray-600 dark:text-gray-300'>
-                Fetching practice questions for{' '}
-                {selectedQuestionType?.replace(/_/g, ' ').toLowerCase()}...
-              </p>
-            </div>
-          );
-        }
-
-        if (questionError) {
-          return (
-            <div className='text-center py-8'>
-              <div className='text-red-400 dark:text-red-500 mb-4'>
-                <BookOpen className='h-12 w-12 mx-auto' />
-              </div>
-              <h3 className='text-lg font-semibold text-gray-900 dark:text-white mb-2'>
-                Error Loading Questions
-              </h3>
-              <p className='text-gray-600 dark:text-gray-300 mb-6'>
-                {questionError}
-              </p>
-              <div className='space-x-4'>
-                <button
-                  onClick={fetchPracticeQuestions}
-                  className='bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200'
-                >
-                  Try Again
-                </button>
-                <button
-                  onClick={() => setSelectedQuestionType(null)}
-                  className='border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 px-6 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200'
-                >
-                  Back to Question Types
-                </button>
-              </div>
-            </div>
-          );
-        }
-
-        if (practiceQuestions.length === 0) {
-          return (
-            <div className='text-center py-8'>
-              <div className='text-gray-400 dark:text-gray-500 dark:text-gray-400 mb-4'>
-                <BookOpen className='h-12 w-12 mx-auto' />
-              </div>
-              <h3 className='text-lg font-semibold text-gray-900 dark:text-white mb-2'>
-                No questions available
-              </h3>
-              <p className='text-gray-600 dark:text-gray-300 mb-6'>
-                No practice questions match your current filters for this
-                question type.
-              </p>
-              <div className='space-x-4'>
-                <button
-                  onClick={() => {
-                    setPracticeFilters({
-                      practiceStatus: 'all',
-                      difficultyLevel: 'all',
-                    });
-                  }}
-                  className='bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200'
-                >
-                  Clear Filters
-                </button>
-                <button
-                  onClick={() => setSelectedQuestionType(null)}
-                  className='border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 px-6 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200'
-                >
-                  Back to Question Types
-                </button>
-              </div>
-            </div>
-          );
-        }
-
-        // Determine which question to show
-        const questionToShow =
-          selectedQuestionForPractice ||
-          practiceQuestions[currentQuestionIndex];
-        const isShowingSelectedQuestion = !!selectedQuestionForPractice;
-
-        if (isLoadingSelectedQuestion) {
-          return (
-            <div className='flex items-center justify-center py-12'>
-              <div className='text-center'>
-                <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4'></div>
-                <p className='text-gray-600 dark:text-gray-400'>
-                  Loading question...
-                </p>
-              </div>
-            </div>
-          );
-        }
-
-        if (!questionToShow) {
-          return (
-            <div className='text-center py-12'>
-              <p className='text-gray-600 dark:text-gray-400'>
-                No question available
-              </p>
-            </div>
-          );
-        }
-
         return (
-          <div className='space-y-4'>
-            <div className='flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:flex-row lg:items-center lg:justify-between'>
-              <button
-                onClick={() => {
-                  if (isShowingSelectedQuestion) {
-                    setSelectedQuestionForPractice(null);
-                  } else {
-                    setSelectedQuestionType(null);
-                    setShowQuestionSidebar(false);
-                    setSelectedQuestionId(null);
-                    setShowResponseHistory(false);
-                  }
-                }}
-                className='flex items-center space-x-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium'
-              >
-                <ArrowRight className='h-4 w-4 rotate-180' />
-                <span>
-                  {isShowingSelectedQuestion
-                    ? 'Back to Practice Session'
-                    : 'Back to Question Types'}
-                </span>
-              </button>
-              <div className='flex flex-col gap-3 lg:flex-row lg:items-center'>
-                {/* Filters */}
-                <div className='flex items-center space-x-2'>
-                  <select
-                    value={practiceFilters.practiceStatus}
-                    onChange={(e) =>
-                      handleFilterChange({
-                        ...practiceFilters,
-                        practiceStatus: e.target.value as any,
-                      })
-                    }
-                    className='rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white'
-                  >
-                    <option value='all'>All</option>
-                    <option value='practiced'>Practiced</option>
-                    <option value='unpracticed'>New</option>
-                  </select>
-                  <select
-                    value={practiceFilters.difficultyLevel}
-                    onChange={(e) =>
-                      handleFilterChange({
-                        ...practiceFilters,
-                        difficultyLevel: e.target.value as any,
-                      })
-                    }
-                    className='rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white'
-                  >
-                    <option value='all'>All Levels</option>
-                    <option value='EASY'>Easy</option>
-                    <option value='MEDIUM'>Medium</option>
-                    <option value='HARD'>Hard</option>
-                  </select>
-                </div>
-
-                <button
-                  onClick={() => setShowQuestionSidebar(true)}
-                  className='inline-flex items-center space-x-1 rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800'
-                >
-                  <BarChart3 className='h-4 w-4' />
-                  <span>All Questions</span>
-                </button>
-
-                <div className='rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-300'>
-                  {isShowingSelectedQuestion ? (
-                    <span>
-                      Selected Question: {questionToShow.questionCode}
-                    </span>
-                  ) : (
-                    <span>
-                      Question {currentQuestionIndex + 1} of{' '}
-                      {practiceQuestions.length}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-            <PracticeQuestion
-              question={questionToShow}
-              onComplete={handleQuestionComplete}
-              onNext={
-                isShowingSelectedQuestion ? undefined : handleNextQuestion
-              }
-              onPrevious={
-                isShowingSelectedQuestion ? undefined : handlePreviousQuestion
-              }
-              hasPrevious={
-                !isShowingSelectedQuestion && currentQuestionIndex > 0
-              }
-              hasNext={
-                !isShowingSelectedQuestion &&
-                currentQuestionIndex < practiceQuestions.length - 1
-              }
+          <div className='relative'>
+            <QuestionTypeSelector
+              selectedType={null}
+              onTypeSelect={(type) => {
+                navigate(getPracticePagePath(type));
+              }}
             />
           </div>
         );
@@ -668,17 +247,48 @@ const Portal: React.FC = () => {
     </div>
   );
 
+  const getHeaderContent = () => {
+    switch (activeTab) {
+      case 'predicted':
+        return {
+          title: 'Most Predicted Questions',
+          desc: 'Highly vetted questions carrying an elevated likelihood of appearing in upcoming exams.',
+        };
+      case 'history':
+        return {
+          title: 'Track Performance and Past Exam Attempts.',
+          desc: 'Detailed AI analytics, score breakdown histories, and feedback transcripts of your practice sessions.',
+        };
+      case 'tests':
+        return {
+          title: 'Evaluate Your Readiness with Realistic Mock Tests.',
+          desc: 'Simulate actual exam environments with immediate comprehensive AI scoring and breakdown.',
+        };
+      case 'practice':
+      default:
+        return {
+          title: 'Practice, test, and review in one focused portal.',
+          desc: 'Targeted practice, mock tests, and history without distractions.',
+        };
+    }
+  };
+
+  const headerContent = getHeaderContent();
+
   return (
     <div className='min-h-screen bg-slate-50 dark:bg-slate-950'>
       <section className='border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950'>
         <div className='container mx-auto px-4 py-6'>
           <div className='flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between'>
-            <div className='max-w-3xl'>
-              <h1 className='text-2xl font-semibold tracking-tight text-slate-900 dark:text-white sm:text-3xl'>
-                Practice, test, and review in one focused portal.
+            <div className='max-w-3xl min-h-[96px] sm:min-h-[80px] flex flex-col justify-center'>
+              <h1 key={`${activeTab}-title`} className='text-2xl font-semibold tracking-tight text-slate-900 dark:text-white sm:text-3xl animate-in fade-in duration-300 flex items-center gap-3'>
+                {activeTab === 'predicted' && (
+                  <Flame className='h-8 w-8 text-orange-500 fill-orange-500 animate-pulse flex-shrink-0' />
+                )}
+                <span>{headerContent.title}</span>
               </h1>
-              <p className='mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300 sm:text-base'>
-                Targeted practice, mock tests, and history without distractions.
+              <p key={`${activeTab}-desc`} className='mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300 sm:text-base animate-in fade-in duration-300'>
+                {headerContent.desc}
               </p>
             </div>
 
@@ -735,19 +345,6 @@ const Portal: React.FC = () => {
       <div className='container mx-auto px-4 py-8'>
         <div className='mx-auto max-w-7xl'>{renderTabContent()}</div>
       </div>
-
-      {/* Question Sidebar */}
-      {selectedQuestionType && (
-        <QuestionSidebar
-          isOpen={showQuestionSidebar}
-          onClose={() => setShowQuestionSidebar(false)}
-          questionType={selectedQuestionType}
-          selectedQuestionId={selectedQuestionId!}
-          onQuestionSelect={handleQuestionSelect}
-          practiceStatus={practiceFilters.practiceStatus}
-          difficultyLevel={practiceFilters.difficultyLevel}
-        />
-      )}
     </div>
   );
 };

@@ -35,6 +35,7 @@ export const createQuestion = asyncHandler(
       questionCode: providedQuestionCode, // Allow optional manual override
       questionTypeId,
       difficultyLevel = 'MEDIUM', // Default to MEDIUM if not provided
+      predictionLevel = 'NONE', // Default to NONE
       textContent,
       questionStatement,
       audioKey,
@@ -53,6 +54,17 @@ export const createQuestion = asyncHandler(
     } = req.body;
 
     try {
+      // Validate prediction level
+      const validLevels = ['NONE', 'LOW', 'MEDIUM', 'HIGH'];
+      if (predictionLevel && !validLevels.includes(predictionLevel)) {
+        return sendResponse(
+          res,
+          STATUS_CODES.BAD_REQUEST,
+          null,
+          'Invalid prediction level value. Allowed values are NONE, LOW, MEDIUM, HIGH.',
+        );
+      }
+
       // Input validation
       if (!questionTypeId) {
         return sendResponse(
@@ -498,6 +510,7 @@ export const createQuestion = asyncHandler(
           questionCode,
           questionTypeId,
           difficultyLevel,
+          predictionLevel,
           textContent: finalTextContent,
           questionStatement: questionStatement || null,
           audioUrl: audioKey || null, // Store S3 key in audioUrl field
