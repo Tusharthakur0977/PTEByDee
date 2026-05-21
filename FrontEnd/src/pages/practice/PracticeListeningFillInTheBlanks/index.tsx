@@ -39,6 +39,7 @@ export interface Content {
   timeLimit: number;
   preparationTime: number;
   recordingTime: number;
+  questionStatement: string;
 }
 
 const PracticeListeningFillInTheBlanks: React.FC = () => {
@@ -472,7 +473,7 @@ const PracticeListeningFillInTheBlanks: React.FC = () => {
                   onEnded={handleAudioEnded}
                   key={`audio-${currentQuestion?.id}-${audioResetKey}`}
                   questionId={currentQuestion?.id}
-                  questionAudioText={currentQuestion?.content?.text || ''}
+                  questionAudioText={currentQuestion?.content?.questionStatement || ''}
                   ref={audioRef}
                 />
               </div>
@@ -512,8 +513,8 @@ const PracticeListeningFillInTheBlanks: React.FC = () => {
                               // Display mode - show answer with styling
                               <span
                                 className={`inline-block px-2 py-1 rounded-md border-2 font-semibold ${isCorrect
-                                    ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-900 dark:text-emerald-100 border-emerald-400 dark:border-emerald-600'
-                                    : 'bg-rose-100 dark:bg-rose-900/40 text-rose-900 dark:text-rose-100 border-rose-400 dark:border-rose-600 line-through'
+                                  ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-900 dark:text-emerald-100 border-emerald-400 dark:border-emerald-600'
+                                  : 'bg-rose-100 dark:bg-rose-900/40 text-rose-900 dark:text-rose-100 border-rose-400 dark:border-rose-600 line-through'
                                   }`}
                               >
                                 {userAnswer}

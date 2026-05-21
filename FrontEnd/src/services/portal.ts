@@ -34,6 +34,7 @@ export interface PracticeQuestion {
     timeLimit?: number; // in seconds
     preparationTime?: number; // in seconds
     recordingTime?: number; // in seconds
+    questionStatement?: string;
   } | any;
   hasUserResponses?: boolean;
   lastAttemptedAt?: string;
