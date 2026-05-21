@@ -10,9 +10,13 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "baseUrl": ".",
-    // Remove or fix typeRoots to include node_modules/@types
-    "typeRoots": ["./node_modules/@types", "./src/types"]
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts", "scripts/**/*.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts",
+    "codeScripts/**/*.ts",
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }
