@@ -2828,29 +2828,32 @@ async function evaluateSummarizeWrittenText(
 
 ---
 ### **Step 1: Core Selection & Aspect-Based Matching Rules**
-1. **Extract Main Aspects First:** Identify the 4 to 6 major aspects/main ideas of the original passage (e.g., Cause, Effect, Solution, Comparison, main Outcome/Conclusion). Focus on actual content-related chunks rather than simple keywords.
+1. **Extract Main Aspects First:** Identify the 4 to 6 major aspects/main ideas of the original passage (e.g., Cause, Effect, Solution, Comparison, main Outcome/Conclusion). Focus on actual content-related chunks rather than simple keywords. **CRITICAL:** Never classify specific examples (e.g., specific professions, specific guidelines like the Hippocratic Oath) or supporting minor details as "Main Aspects". Only extract the high-level concepts.
 2. **Execute Aspect Comparison:** Compare the user's summary against these extracted aspects. Determine exactly how many of these major aspects are meaningfully represented.
    - **Rule:** Simple English expression is rewarded. If the core idea/fact is successfully captured and communicated, it counts as represented. Do NOT penalize for lack of complex vocabulary.
-   - **Rule:** Do NOT grade on semantic similarity of the entire text. Instead, base the Content score strictly on the Aspect Coverage Detection Table below.
+   - **Rule:** Do NOT grade on semantic similarity of the entire text. Instead, base the Content score strictly on the percentage of main aspects captured.
 
 ---
 ### **Step 2: Scoring Rubrics & Strict Criteria**
 
 1. **Content (0–4)**
-   - **4/4 — Excellent Content (80%–100% aspects covered):** Covers almost all major aspects/main ideas of the passage. Includes around 4–5 meaningful content-related idea chunks. Information is accurate and relevant with no major misunderstanding/distortion. Minor missing detail is acceptable.
-   - **3/4 — Good Content (60%–79% aspects covered):** Covers most important aspects. Misses 1 major point OR partially explains some ideas. Mostly relevant throughout. Some idea development may be weaker or repetitive (e.g. 3 strong relevant ideas and 1 weak/generic idea).
-   - **2/4 — Fair Content (40%–59% aspects covered):** Covers only some aspects of the passage. Multiple important ideas are missing. Contains generic statements. Only a partial understanding is visible, showing some relevant phrases but incomplete coverage (e.g., user discusses the topic generally and only covers 2 content points, missing the core discussion). *Be extremely strict here to avoid false-high scores.*
-   - **1/4 — Poor Content (20%–39% aspects covered):** Very limited relevant information. Mostly keyword dumping or random copied phrases with weak connection to the main ideas. Core aspects are absent (e.g. writing generalities like "Technology is important and people use it in modern society" when the passage was specifically about AI ethics, job loss, regulation, and privacy).
-   - **0/4 — No Meaningful Content (Below 20% aspects covered):** Irrelevant response, off-topic, extremely incomplete, meaning distorted, or no identifiable major aspects.
+   - **Important Rule:** Do not penalize the user or deduct points for missing specific examples, minor details, or supporting evidence from the original passage. Do NOT penalize the user for slight logical inaccuracies, awkward connections, or minor distortions in meaning, as long as the core keywords and concepts are present. Be highly lenient towards awarding 4/4 if the user connects 3-4 main ideas.
+   - **4/4 — Excellent Content (80%–100% aspects covered):** Covers almost all major aspects/main ideas of the passage. Includes 3–5 meaningful content-related idea chunks. Information is generally relevant. Do not penalize for slight awkwardness in phrasing or minor distortions in how clauses are connected. If the core concepts are present, award 4/4.
+   - **3/4 — Good Content (60%–79% aspects covered):** Covers most important aspects. Misses 1-2 major points. Mostly relevant throughout. Some idea development may be weaker or repetitive.
+   - **2/4 — Fair Content (40%–59% aspects covered):** Covers only some aspects of the passage. Multiple important ideas are missing. Contains generic statements. Only a partial understanding is visible, showing some relevant phrases but incomplete coverage.
+   - **1/4 — Poor Content (20%–39% aspects covered):** Very limited relevant information. Mostly keyword dumping or random copied phrases with weak connection to the main ideas. Core aspects are absent.
+   - **0/4 — No Meaningful Content (Below 20% aspects covered):** Irrelevant response, off-topic, extremely incomplete, meaning distorted beyond recognition, or no identifiable major aspects.
 
 *Feedback Rules for Content:*
 - Provide a clear, constructive text-based evaluation of the user's content coverage. Mention which aspects were well-captured and what important aspects could be added.
+- IMPORTANT: Do NOT mention missing examples, minor details, or supporting evidence in your feedback as a negative point. If the user misses examples, ignore it entirely in your feedback. Only mention missing MAIN concepts.
 - If the content score is 4, the feedback must be entirely positive (do NOT include phrases like "but misses details regarding...").
 - Keep lines short.
 
 2. **Form (0–1)**
-   - **1:** Exactly ONE complete sentence, 5–75 words, not ALL CAPS.
-   - **0:** Multiple sentences, fragments, <5 or >75 words, or ALL CAPS.
+   - **Important Rule:** Use the provided \`Word Count\` strictly. The limit is between 5 and 75 words **inclusive**.
+   - **1:** Exactly ONE complete sentence, Word Count is between 5 and 75 words inclusive, not ALL CAPS.
+   - **0:** Multiple sentences, fragments, Word Count is < 5 or > 75 words, or ALL CAPS.
 
 3. **Grammar (0–2)**
    - **2:** Correct structure. Ignore minor punctuation issues, comma splices, or connector-heavy structures unless meaning becomes completely unclear.
