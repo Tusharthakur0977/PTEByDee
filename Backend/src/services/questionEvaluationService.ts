@@ -3987,32 +3987,40 @@ async function evaluateSummarizeSpokenText(
 
 ---
 ### **1. Pre-Scoring Evaluation (MANDATORY)**
-**Step A: Content selection:**
-- Identify "Important Idea Phrases": Main idea, key supporting points, emphasized concepts, and results.
-- **Rule:** Full paraphrasing is NOT required. Direct phrases from the lecture are ALLOWED.
-- **Goal:** Minimum 4–5 relevant phrases for full marks.
+**Step A: Keyword/Content Selection:**
+- Identify 5-8 highly relevant keywords or core phrases from the transcript.
+- Check how many of these core keywords/phrases the user successfully included.
 
-**Step B: Sentence Formation Check (CRITICAL):**
-- **Rule:** Must be ONE complete sentence.
-- **Strict Fragment Check:** Phrases like "the speaker mentioned that..." MUST be followed by a complete clause (Subject + Verb). If only keywords follow, apply Grammar penalty.
+**Step B: Template Forgiveness (CRITICAL):**
+- PTE machine scoring relies heavily on keyword matching rather than deep semantic logic.
+- **Rule:** Do NOT penalize the user for using generic template structures (e.g., "The lecture was about...", "Firstly, the speaker mentioned...").
+- **Rule:** Do NOT penalize the content score if the logical relationship between the keywords is altered or misrepresented, as long as the correct keywords from the audio are present.
 
 ---
 ### **2. Scoring Rubrics**
-1. **Content (0-4):** Priority is idea coverage over grammar.
-   - 4: Includes 4–5 key ideas logically connected.
-   - 3: 3 relevant ideas. 2: 2 ideas. 1: 1 idea. 0: Off-topic.
+1. **Content (0-4):** Graded purely on the presence of key vocabulary/phrases from the transcript.
+   - 4: Contains 4 or more key phrases/keywords from the transcript.
+   - 3: Contains 3 key phrases/keywords.
+   - 2: Contains 2 key phrases/keywords.
+   - 1: Contains 1 key phrase/keyword.
+   - 0: Contains no relevant keywords.
 
 2. **Form (0-2):**
-   - 2: Exactly ONE complete sentence AND 5–75 words.
-   - 0: Not one sentence OR outside 5–75 word limit.
+   - 2: Contains 50-70 words.
+   - 1: Contains 40-49 words or 71-100 words.
+   - 0: Contains less than 40 words or more than 100 words. Summary is written in capital letters, contains no punctuation or consists only of bullet points or very short sentences.
 
-3. **Grammar (0-2):** Base 2. Deduct **0.25 per error**.
-   - **Articles:** Check for "the" before specific phrases and "of" phrases (e.g., "the importance of...").
-   - **Continuous Form:** Verbs after "about, focuses on, related to, involves" MUST be in -ing form.
-   - **Parallelism:** Ensure verb forms match in lists (e.g., "reducing and protecting").
-   - **Connectors:** Words like "Firstly, Moreover, Overall" MUST be followed by a full clause.
+3. **Grammar (0-2):**
+   - Grade Grammar strictly based on structural correctness (e.g., verb tense, articles, clause structure).
+   - If a template is used, grade the grammar of how the keywords were inserted into the template. Do not penalize grammar just because the sentence logic sounds "robotic".
+   - 2: Has correct grammatical structure.
+   - 1: Contains grammatical errors but with no hindrance to communication.
+   - 0: Has defective grammatical structure which could hinder communication.
 
-4. **Vocabulary (0-2):** 2: Academic word choice. 1: Basic. 0: Poor choice/obscured meaning.
+4. **Vocabulary (0-2):**
+   - 2: Demonstrates words used directly from the academic lecture appropriately.
+   - 1: Contains lexical errors but with no hindrance to communication.
+   - 0: Has defective word choice which could hinder communication.
 
 5. **Spelling (0-2):** Base 2. Deduct **0.5 per error**. Min 0.
 
@@ -4049,7 +4057,33 @@ async function evaluateSummarizeSpokenText(
     // Extract individual scores for each trait
     const scores = evaluation.scores || {};
     const contentScore = scores.content || 0;
-    const formScore = scores.form || 0;
+
+    // Enforce form score programmatically based on PTE rules
+    let formScore = 0;
+    const isAllCaps =
+      userText.length > 0 &&
+      userText === userText.toUpperCase() &&
+      /[A-Z]/.test(userText.toUpperCase());
+    const hasNoPunctuation = userText.length > 0 && !/[.,;!?]/.test(userText);
+    const hasBulletPoints = /^[-*•]|\n[-*•]/m.test(userText);
+
+    if (
+      wordCount < 40 ||
+      wordCount > 100 ||
+      isAllCaps ||
+      hasNoPunctuation ||
+      hasBulletPoints
+    ) {
+      formScore = 0;
+    } else if (wordCount >= 50 && wordCount <= 70) {
+      formScore = 2;
+    } else if (
+      (wordCount >= 40 && wordCount <= 49) ||
+      (wordCount >= 71 && wordCount <= 100)
+    ) {
+      formScore = 1;
+    }
+
     const grammarScore = scores.grammar || 0;
     const vocabularyScore = scores.vocabulary || 0;
     const spellingScore = scores.spelling || 0;
@@ -4057,10 +4091,7 @@ async function evaluateSummarizeSpokenText(
     // Calculate the total achieved score and the total possible score
     const totalAchievedScore =
       contentScore + formScore + grammarScore + vocabularyScore + spellingScore;
-    const totalMaxScore = 9;
-
-    // Calculate the overall score as actual points earned
-    const overallScore = totalAchievedScore;
+    const totalMaxScore = 12;
 
     // Calculate percentage for isCorrect check (65% threshold)
     const percentageScore = Math.round(
@@ -4068,16 +4099,10 @@ async function evaluateSummarizeSpokenText(
     );
 
     return {
-      score: { scored: overallScore, max: totalMaxScore },
+      score: { scored: totalAchievedScore, max: totalMaxScore },
       isCorrect: percentageScore >= 65,
-      feedback:
-        evaluation.feedback?.summary ||
-        'Spoken text summary evaluated successfully.',
-      suggestions: evaluation.suggestions || [
-        'Focus on main ideas from the audio',
-        'Stay within word count limits (50-70 words)',
-        'Use proper grammar and vocabulary',
-      ],
+      feedback: '',
+      suggestions: [],
       detailedAnalysis: {
         scores: {
           content: { score: contentScore, max: 4 },
@@ -4106,7 +4131,7 @@ async function evaluateSummarizeSpokenText(
   } catch (error) {
     console.error('OpenAI evaluation error for Summarize Spoken Text:', error);
     return {
-      score: { scored: 0, max: 9 },
+      score: { scored: 0, max: 12 },
       isCorrect: false,
       feedback: 'Unable to evaluate response at this time.',
       suggestions: ['Please try again later'],
