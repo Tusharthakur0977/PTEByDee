@@ -321,6 +321,7 @@ export const getPracticeQuestions = asyncHandler(
                 question.questionType.name,
                 question.durationMillis!
               ),
+              questionStatement: question.questionType.name === 'LISTENING_FILL_IN_THE_BLANKS' ? question.questionStatement : undefined,
             },
           };
         })

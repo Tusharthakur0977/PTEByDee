@@ -504,6 +504,12 @@ export const createQuestion = asyncHandler(
         };
       }
 
+      // Handle questionStatement assignment
+      let finalQuestionStatement = questionStatement || null;
+      if (questionType.name === 'LISTENING_FILL_IN_THE_BLANKS') {
+        finalQuestionStatement = audioTranscript || manualTranscript || textContent || finalQuestionStatement;
+      }
+
       // Create the question
       const question = await prisma.question.create({
         data: {
@@ -512,7 +518,7 @@ export const createQuestion = asyncHandler(
           difficultyLevel,
           predictionLevel,
           textContent: finalTextContent,
-          questionStatement: questionStatement || null,
+          questionStatement: finalQuestionStatement,
           audioUrl: audioKey || null, // Store S3 key in audioUrl field
           imageUrl: imageKey || null, // Store S3 key in imageUrl field
           options: finalOptions || null,

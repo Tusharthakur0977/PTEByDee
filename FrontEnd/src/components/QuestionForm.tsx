@@ -11,13 +11,10 @@ import {
   X,
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
+import { describeImageTypeOptions } from '../constants/describeImageTypes';
 import api from '../services/api';
 import QuestionImageUpload from './QuestionImageUpload';
-import { describeImageTypeOptions } from '../constants/describeImageTypes';
 
-const modalOverlayClass = 'fixed inset-0 z-50 overflow-y-auto bg-slate-950/70';
-const modalContentClass =
-  'relative inline-block transform overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-2xl transition-all dark:border-slate-800 dark:bg-slate-950';
 const panelClass =
   'rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900';
 const sectionHeadingClass =
@@ -40,6 +37,9 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
   questionTypes,
   tests,
 }) => {
+  const isFillInBlanks = Boolean(question?.questionType?.name?.includes('FILL_IN_THE_BLANKS'));
+  const isReorderParagraphs = question?.questionType?.name === 'RE_ORDER_PARAGRAPHS';
+
   const [formError, setFormError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     questionCode: question?.questionCode || '',
@@ -52,7 +52,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
     questionStatement: question?.questionStatement || '',
     audioKey: question?.audioUrl || '',
     imageKey: question?.imageUrl || '',
-    options: question?.options || [],
+    options: isFillInBlanks ? [] : (question?.options || []),
     correctAnswers: question?.correctAnswers || [],
     wordCountMin: question?.wordCountMin || null,
     wordCountMax: question?.wordCountMax || null,
@@ -60,8 +60,8 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
     originalTextWithErrors: question?.originalTextWithErrors || '',
     incorrectWords: question?.incorrectWords || [],
     // New fields for enhanced question types
-    paragraphs: question?.paragraphs || [],
-    blanks: question?.blanks || [],
+    paragraphs: question?.paragraphs || (isReorderParagraphs ? question?.correctAnswers : []) || [],
+    blanks: question?.blanks || (isFillInBlanks ? question?.options : []) || [],
     tags: question?.tags || [],
     manualTranscript: '', // NEW: Manual transcript for SUMMARIZE_GROUP_DISCUSSION
   });
@@ -1271,7 +1271,8 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
 
                 {/* Text Content */}
                 {requirements.requiresText &&
-                  !requirements.requiresParagraphs && (
+                  !requirements.requiresParagraphs &&
+                  !requirements.requiresBlanks && (
                     <div className='mb-6'>
                       <label className='block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2'>
                         Text Content *
@@ -1344,12 +1345,12 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                               </p>
                               {selectedQuestionType?.name ===
                                 'ANSWER_SHORT_QUESTION' && (
-                                <p className='mt-1 text-green-600'>
-                                  🤖 AI will automatically extract correct
-                                  answers from the audio transcription using
-                                  OpenAI
-                                </p>
-                              )}
+                                  <p className='mt-1 text-green-600'>
+                                    🤖 AI will automatically extract correct
+                                    answers from the audio transcription using
+                                    OpenAI
+                                  </p>
+                                )}
                             </div>
                           )}
 
@@ -1423,11 +1424,10 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
 
                           <label
                             htmlFor='audio-upload'
-                            className={`inline-flex items-center gap-2 px-6 py-3 border border-blue-300 rounded-lg shadow-sm text-sm font-medium text-blue-700 bg-white hover:bg-blue-50 cursor-pointer transition-colors ${
-                              uploadingAudio
-                                ? 'opacity-50 cursor-not-allowed'
-                                : ''
-                            }`}
+                            className={`inline-flex items-center gap-2 px-6 py-3 border border-blue-300 rounded-lg shadow-sm text-sm font-medium text-blue-700 bg-white hover:bg-blue-50 cursor-pointer transition-colors ${uploadingAudio
+                              ? 'opacity-50 cursor-not-allowed'
+                              : ''
+                              }`}
                           >
                             <Upload className='w-4 h-4' />
                             {uploadingAudio
@@ -1448,33 +1448,33 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                 {/* Image URL */}
                 {(requirements.requiresImage ||
                   requirements.allowsOptionalImage) && (
-                  <div className='mb-6'>
-                    <QuestionImageUpload
-                      onImageUpload={(imageData) => {
-                        setFormData((prev) => ({
-                          ...prev,
-                          imageKey: imageData.imageKey,
-                        }));
-                      }}
-                      currentImageUrl={formData.imageKey}
-                      currentImageKey={formData.imageKey}
-                      label={
-                        requirements.requiresImage
-                          ? 'Question Image'
-                          : 'Optional Lecture Image'
-                      }
-                      required={requirements.requiresImage}
-                    />
-                    {!requirements.requiresImage &&
-                      requirements.allowsOptionalImage && (
-                        <p className='text-xs text-slate-500 dark:text-slate-400 mt-1'>
-                          You can optionally upload an image that will be shown
-                          to learners when they practice this Retell Lecture
-                          question.
-                        </p>
-                      )}
-                  </div>
-                )}
+                    <div className='mb-6'>
+                      <QuestionImageUpload
+                        onImageUpload={(imageData) => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            imageKey: imageData.imageKey,
+                          }));
+                        }}
+                        currentImageUrl={formData.imageKey}
+                        currentImageKey={formData.imageKey}
+                        label={
+                          requirements.requiresImage
+                            ? 'Question Image'
+                            : 'Optional Lecture Image'
+                        }
+                        required={requirements.requiresImage}
+                      />
+                      {!requirements.requiresImage &&
+                        requirements.allowsOptionalImage && (
+                          <p className='text-xs text-slate-500 dark:text-slate-400 mt-1'>
+                            You can optionally upload an image that will be shown
+                            to learners when they practice this Retell Lecture
+                            question.
+                          </p>
+                        )}
+                    </div>
+                  )}
 
                 {/* Word Count Limits */}
                 {requirements.requiresWordCount && (
@@ -1556,11 +1556,10 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                           return (
                             <div
                               key={option.id || index}
-                              className={`flex items-center gap-3 rounded-lg border p-3 bg-white ${
-                                option.isCorrect
-                                  ? 'border-emerald-300 ring-1 ring-emerald-200'
-                                  : 'border-gray-200'
-                              }`}
+                              className={`flex items-center gap-3 rounded-lg border p-3 bg-white ${option.isCorrect
+                                ? 'border-emerald-300 ring-1 ring-emerald-200'
+                                : 'border-gray-200'
+                                }`}
                             >
                               <input
                                 type={isSingleAnswer ? 'radio' : 'checkbox'}

@@ -171,6 +171,15 @@ export const updateQuestion = asyncHandler(
         updateData.textContent = manualTranscript.trim();
       }
 
+      // Handle manual transcript for LISTENING_FILL_IN_THE_BLANKS questionStatement
+      if (
+        manualTranscript !== undefined &&
+        manualTranscript.trim() &&
+        effectiveQuestionTypeName === 'LISTENING_FILL_IN_THE_BLANKS'
+      ) {
+        updateData.questionStatement = manualTranscript.trim();
+      }
+
       // Handle blanks data for fill-in-the-blanks questions
       if (blanks !== undefined && Array.isArray(blanks)) {
         // Transform blanks array into the format expected by the database

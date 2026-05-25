@@ -39,6 +39,7 @@ export interface Content {
   timeLimit: number;
   preparationTime: number;
   recordingTime: number;
+  questionStatement: string;
 }
 
 const PracticeListeningFillInTheBlanks: React.FC = () => {
@@ -92,7 +93,7 @@ const PracticeListeningFillInTheBlanks: React.FC = () => {
     try {
       setIsLoading(true);
       const options: any = {
-        limit: 10,
+        limit: 100,
         random: false,
       };
 
@@ -122,7 +123,7 @@ const PracticeListeningFillInTheBlanks: React.FC = () => {
       const options: any = {
         limit: 10,
         random: false,
-          skip: paginationInfo.page * paginationInfo.limit,
+        skip: paginationInfo.page * paginationInfo.limit,
       };
 
       const response = await getPracticeQuestions(
@@ -370,63 +371,63 @@ const PracticeListeningFillInTheBlanks: React.FC = () => {
           </div>
         </div>
         {!window.location.pathname.startsWith('/practiceQuestion') && (
-        <div className='flex items-center gap-3'>
-                  <div className='relative group'>
-                    <button
-                      onClick={() => setShowDifficultyFilter(!showDifficultyFilter)}
-                      className='p-2 text-gray-300 hover:text-white'
-                      title='Filter by difficulty'
-                    >
-                      <Filter className='w-4 h-4 text-gray-400 dark:text-white' />
-                    </button>
-                    {showDifficultyFilter && (
-                      <div className='absolute right-0 mt-2 w-48 bg-gray-700 rounded-lg shadow-lg p-3 z-50'>
-                        <p className='text-xs text-gray-400 mb-2 font-semibold'>
-                          Difficulty Level
-                        </p>
-                        <div className='space-y-2'>
-                          {(['all', 'EASY', 'MEDIUM', 'HARD'] as const).map((level) => (
-                            <label
-                              key={level}
-                              className='flex items-center gap-2 cursor-pointer'
-                            >
-                              <input
-                                type='radio'
-                                name='difficulty'
-                                value={level}
-                                checked={difficultyLevel === level}
-                                onChange={(e) => {
-                                  setDifficultyLevel(e.target.value as any);
-                                  setShowDifficultyFilter(false);
-                                }}
-                                className='w-4 h-4'
-                              />
-                              <span className='text-white text-sm'>
-                                {level === 'all' ? 'All Levels' : level}
-                              </span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+          <div className='flex items-center gap-3'>
+            <div className='relative group'>
+              <button
+                onClick={() => setShowDifficultyFilter(!showDifficultyFilter)}
+                className='p-2 text-gray-300 hover:text-white'
+                title='Filter by difficulty'
+              >
+                <Filter className='w-4 h-4 text-gray-400 dark:text-white' />
+              </button>
+              {showDifficultyFilter && (
+                <div className='absolute right-0 mt-2 w-48 bg-gray-700 rounded-lg shadow-lg p-3 z-50'>
+                  <p className='text-xs text-gray-400 mb-2 font-semibold'>
+                    Difficulty Level
+                  </p>
+                  <div className='space-y-2'>
+                    {(['all', 'EASY', 'MEDIUM', 'HARD'] as const).map((level) => (
+                      <label
+                        key={level}
+                        className='flex items-center gap-2 cursor-pointer'
+                      >
+                        <input
+                          type='radio'
+                          name='difficulty'
+                          value={level}
+                          checked={difficultyLevel === level}
+                          onChange={(e) => {
+                            setDifficultyLevel(e.target.value as any);
+                            setShowDifficultyFilter(false);
+                          }}
+                          className='w-4 h-4'
+                        />
+                        <span className='text-white text-sm'>
+                          {level === 'all' ? 'All Levels' : level}
+                        </span>
+                      </label>
+                    ))}
                   </div>
-        
-                  <button
-                    onClick={() => setShowQuestionSidebar(true)}
-                    className='p-2 text-gray-300 hover:text-white'
-                    title='View all questions'
-                  >
-                    <BarChart3 className='w-4 h-4 text-gray-400 dark:text-white' />
-                  </button>
-                  <button
-                    onClick={() => setShowPreviousResponses(true)}
-                    className='flex items-center gap-2 p-2 text-gray-400 text-sm font-semibold'
-                    title='Previous Attempts'
-                  >
-                    <History className='w-4 h-4' />
-                  </button>
                 </div>
-      )}
+              )}
+            </div>
+
+            <button
+              onClick={() => setShowQuestionSidebar(true)}
+              className='p-2 text-gray-300 hover:text-white'
+              title='View all questions'
+            >
+              <BarChart3 className='w-4 h-4 text-gray-400 dark:text-white' />
+            </button>
+            <button
+              onClick={() => setShowPreviousResponses(true)}
+              className='flex items-center gap-2 p-2 text-gray-400 text-sm font-semibold'
+              title='Previous Attempts'
+            >
+              <History className='w-4 h-4' />
+            </button>
+          </div>
+        )}
       </div>
 
       {isLoading && (
@@ -472,7 +473,7 @@ const PracticeListeningFillInTheBlanks: React.FC = () => {
                   onEnded={handleAudioEnded}
                   key={`audio-${currentQuestion?.id}-${audioResetKey}`}
                   questionId={currentQuestion?.id}
-                  questionAudioText={currentQuestion?.content?.text || ''}
+                  questionAudioText={currentQuestion?.content?.questionStatement || ''}
                   ref={audioRef}
                 />
               </div>
@@ -511,11 +512,10 @@ const PracticeListeningFillInTheBlanks: React.FC = () => {
                             {isCompleted ? (
                               // Display mode - show answer with styling
                               <span
-                                className={`inline-block px-2 py-1 rounded-md border-2 font-semibold ${
-                                  isCorrect
-                                    ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-900 dark:text-emerald-100 border-emerald-400 dark:border-emerald-600'
-                                    : 'bg-rose-100 dark:bg-rose-900/40 text-rose-900 dark:text-rose-100 border-rose-400 dark:border-rose-600 line-through'
-                                }`}
+                                className={`inline-block px-2 py-1 rounded-md border-2 font-semibold ${isCorrect
+                                  ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-900 dark:text-emerald-100 border-emerald-400 dark:border-emerald-600'
+                                  : 'bg-rose-100 dark:bg-rose-900/40 text-rose-900 dark:text-rose-100 border-rose-400 dark:border-rose-600 line-through'
+                                  }`}
                               >
                                 {userAnswer}
                               </span>
@@ -538,11 +538,10 @@ const PracticeListeningFillInTheBlanks: React.FC = () => {
                                 className={`
                                 inline-block px-2 py-1 text-sm font-medium rounded-md border-2
                                 transition-all duration-200 min-w-[80px] max-w-[150px] text-center
-                                ${
-                                  userAnswer.trim()
+                                ${userAnswer.trim()
                                     ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-400 dark:border-blue-500 text-blue-800 dark:text-blue-200'
                                     : 'bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400'
-                                }
+                                  }
                                 hover:border-blue-400 dark:hover:border-blue-500
                                 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500
                                 disabled:opacity-50 disabled:cursor-not-allowed
@@ -622,7 +621,7 @@ const PracticeListeningFillInTheBlanks: React.FC = () => {
                     <tbody className='divide-y divide-gray-100 dark:divide-gray-700'>
                       {Object.entries(
                         evaluationResult.evaluation.detailedAnalysis.scores ||
-                          {},
+                        {},
                       ).map(([component, scoreData]: any) => (
                         <tr
                           key={component}
@@ -703,21 +702,21 @@ const PracticeListeningFillInTheBlanks: React.FC = () => {
                 {/* Explanation */}
                 {evaluationResult?.evaluation?.detailedAnalysis
                   ?.explanation && (
-                  <div className='bg-white dark:bg-gray-800 rounded-2xl border border-blue-200 dark:border-blue-800 shadow-sm overflow-hidden'>
-                    {/* Header */}
-                    <div className='px-6 py-4 border-b border-blue-100 dark:border-blue-800 flex items-center gap-2'>
-                      <span className='text-xl'>📘</span>
-                      <h4 className='font-bold text-blue-900 dark:text-blue-200 text-lg'>
-                        Answer Explanation
-                      </h4>
-                    </div>
+                    <div className='bg-white dark:bg-gray-800 rounded-2xl border border-blue-200 dark:border-blue-800 shadow-sm overflow-hidden'>
+                      {/* Header */}
+                      <div className='px-6 py-4 border-b border-blue-100 dark:border-blue-800 flex items-center gap-2'>
+                        <span className='text-xl'>📘</span>
+                        <h4 className='font-bold text-blue-900 dark:text-blue-200 text-lg'>
+                          Answer Explanation
+                        </h4>
+                      </div>
 
-                    {/* Content */}
-                    <div className='p-6 text-sm leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-line'>
-                      {evaluationResult.evaluation.detailedAnalysis.explanation}
+                      {/* Content */}
+                      <div className='p-6 text-sm leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-line'>
+                        {evaluationResult.evaluation.detailedAnalysis.explanation}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
                 {/* Answer Analysis - Show Correct vs Selected Options */}
                 {/* {evaluationResult?.evaluation?.detailedAnalysis && (
@@ -876,31 +875,31 @@ const PracticeListeningFillInTheBlanks: React.FC = () => {
         className='mt-6'
       />
       {!window.location.pathname.startsWith('/practiceQuestion') && (
-      <div className='bg-gray-800 border-t border-gray-700 px-6 py-4 flex justify-between items-center'>
-              <button
-                onClick={handlePrevious}
-                disabled={currentIndex === 0}
-                className='flex items-center gap-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition'
-              >
-                <ChevronLeft className='w-5 h-5' />
-                Previous
-              </button>
-      
-              <span className='text-gray-400 text-sm'>
-                {currentIndex + 1} / {paginationInfo ? Math.min(questions.length, paginationInfo.total) : questions.length}
-                {paginationInfo && paginationInfo.total > questions.length && ` (${paginationInfo.total} total)`}
-              </span>
-      
-              <button
-                onClick={handleNext}
-                disabled={isLoadingMore}
-                className='flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition'
-              >
-                {isLoadingMore ? 'Loading...' : 'Next'}
-                <ChevronRight className='w-5 h-5' />
-              </button>
-            </div>
-    )}
+        <div className='bg-gray-800 border-t border-gray-700 px-6 py-4 flex justify-between items-center'>
+          <button
+            onClick={handlePrevious}
+            disabled={currentIndex === 0}
+            className='flex items-center gap-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition'
+          >
+            <ChevronLeft className='w-5 h-5' />
+            Previous
+          </button>
+
+          <span className='text-gray-400 text-sm'>
+            {currentIndex + 1} / {paginationInfo ? Math.min(questions.length, paginationInfo.total) : questions.length}
+            {paginationInfo && paginationInfo.total > questions.length && ` (${paginationInfo.total} total)`}
+          </span>
+
+          <button
+            onClick={handleNext}
+            disabled={isLoadingMore}
+            className='flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition'
+          >
+            {isLoadingMore ? 'Loading...' : 'Next'}
+            <ChevronRight className='w-5 h-5' />
+          </button>
+        </div>
+      )}
 
       {/* Question Sidebar */}
       <QuestionSidebar
