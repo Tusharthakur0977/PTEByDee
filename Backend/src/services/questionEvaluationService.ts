@@ -4007,31 +4007,40 @@ async function evaluateSummarizeSpokenText(
    - 0: Contains less than 40 words or more than 100 words. Summary is written in capital letters, contains no punctuation or consists only of bullet points or very short sentences.
 
 3. **Grammar (0-2):**
-   - Grade Grammar strictly based on structural correctness (e.g., verb tense, articles, clause structure).
-   - If a template is used, grade the grammar of how the keywords were inserted into the template. Do not penalize grammar just because the sentence logic sounds "robotic".
-   - 2: Has correct grammatical structure.
-   - 1: Contains grammatical errors but with no hindrance to communication.
+   - Grade Grammar strictly based on structural correctness (e.g., verb tense, articles, clause structure, subject-verb agreement).
+   - **CRITICAL:** DO NOT deduct points from Grammar for spelling mistakes. If a word is misspelled, deduct points from Spelling ONLY, not Grammar.
+   - 2: PERFECT grammatical structure. ZERO grammar errors.
+   - 1: Contains 1 or more grammatical errors (e.g., wrong tense, subject-verb disagreement) but with no hindrance to communication.
    - 0: Has defective grammatical structure which could hinder communication.
 
 4. **Vocabulary (0-2):**
-   - 2: Demonstrates words used directly from the academic lecture appropriately.
-   - 1: Contains lexical errors but with no hindrance to communication.
+   - 2: PERFECT word choice. Uses academic words appropriately. ZERO lexical errors.
+   - 1: Contains 1 or more lexical errors (wrong word choice but with no hindrance to communication).
    - 0: Has defective word choice which could hinder communication.
 
-5. **Spelling (0-2):** Base 2. Deduct **0.5 per error**. Min 0.
+5. **Spelling (0-2):** Base score is 2. You MUST deduct exactly 0.5 for EACH spelling error found in your "spellingErrors" array.
+   - 0 spelling errors = 2
+   - 1 spelling error = 1.5
+   - 2 spelling errors = 1.0
+   - 3 spelling errors = 0.5
+   - 4 or more spelling errors = 0
 
 ---
 ### **3. Error Analysis & Output**
-**Positioning:** 0-indexed. Split on whitespace only.
+- **spellingErrors**: Put ALL misspelled or non-existent words here ONLY. NEVER put a spelling mistake in grammarErrors.
+- **grammarErrors**: Perform a strict grammatical proofreading pass. Actively search for ANY subject-verb agreement errors (e.g., plural subject with singular verb like "people is"), wrong tenses, wrong prepositions, or missing articles. Put them all here.
+- **vocabularyIssues**: Actively search for poor, informal, or unnatural word choices in an academic context (e.g., using "good thing" instead of "benefit"). Put them here.
+**CRITICAL**: If you deduct points for Grammar (score < 2), you MUST list the exact errors in "grammarErrors". If you deduct points for Spelling (score < 2), you MUST list the exact errors in "spellingErrors". If you deduct points for Vocabulary (score < 2), you MUST list the exact errors in "vocabularyIssues". Do NOT deduct points without providing the errors in the arrays!
+**Positioning:** 0-indexed WORD index. Split the User Response by spaces, and provide the exact WORD index. "start" and "end" must be the same for a single word error. DO NOT use character indices! (Example: for the 5th word, position is {"start": 4, "end": 4}).
 **Error Object:** {"text":"","type":"","position":{"start":0,"end":0},"context":{"before":"","after":""},"correction":"","explanation":""}
 
 **Format:** Return ONLY minified JSON.
 {
-  "scores": {"content":0, "form":0, "grammar":0, "vocabulary":0, "spelling":0},
-  "feedback": {"content":"","form":"","grammar":"","vocabulary":"","spelling":""},
-  "errorAnalysis": {"grammarErrors":[], "spellingErrors":[], "vocabularyIssues":[] }
-}
-`;
+    "scores": { "content": 0, "form": 0, "grammar": 0, "vocabulary": 0, "spelling": 0 },
+    "feedback": { "content": "", "form": "", "grammar": "", "vocabulary": "", "spelling": "" },
+    "errorAnalysis": { "grammarErrors": [], "spellingErrors": [], "vocabularyIssues": [] }
+  }
+  `;
 
   try {
     const response = await openai.chat.completions.create({
@@ -4080,9 +4089,22 @@ async function evaluateSummarizeSpokenText(
       formScore = 1;
     }
 
-    const grammarScore = scores.grammar || 0;
-    const vocabularyScore = scores.vocabulary || 0;
-    const spellingScore = scores.spelling || 0;
+    let grammarScore = scores.grammar || 0;
+    if (evaluation.errorAnalysis?.grammarErrors && evaluation.errorAnalysis.grammarErrors.length > 0) {
+      if (grammarScore === 2) grammarScore = 1;
+    }
+
+    let vocabularyScore = scores.vocabulary || 0;
+    if (evaluation.errorAnalysis?.vocabularyIssues && evaluation.errorAnalysis.vocabularyIssues.length > 0) {
+      if (vocabularyScore === 2) vocabularyScore = 1;
+    }
+    
+    // Enforce spelling score programmatically based on the number of errors
+    let spellingScore = scores.spelling || 0;
+    if (evaluation.errorAnalysis?.spellingErrors) {
+      const errorCount = evaluation.errorAnalysis.spellingErrors.length;
+      spellingScore = Math.max(0, 2 - (errorCount * 0.5));
+    }
 
     // Calculate the total achieved score and the total possible score
     const totalAchievedScore =
@@ -4093,6 +4115,14 @@ async function evaluateSummarizeSpokenText(
     const percentageScore = Math.round(
       (totalAchievedScore / totalMaxScore) * 100,
     );
+
+    // Ensure spelling errors are not duplicated in grammar errors
+    if (evaluation.errorAnalysis?.spellingErrors?.length && evaluation.errorAnalysis?.grammarErrors?.length) {
+      const spellingWords = evaluation.errorAnalysis.spellingErrors.map((e: any) => e.text?.toLowerCase());
+      evaluation.errorAnalysis.grammarErrors = evaluation.errorAnalysis.grammarErrors.filter(
+        (ge: any) => !spellingWords.includes(ge.text?.toLowerCase())
+      );
+    }
 
     return {
       score: { scored: totalAchievedScore, max: totalMaxScore },
@@ -4117,7 +4147,10 @@ async function evaluateSummarizeSpokenText(
         timeTaken: timeTakenSeconds || 0,
         userText: userText,
         wordCount: wordCount,
-        errorAnalysis: evaluation.errorAnalysis || {
+        errorAnalysis: correctErrorPositions(
+          evaluation.errorAnalysis,
+          userText,
+        ) || {
           grammarErrors: [],
           spellingErrors: [],
           vocabularyIssues: [],
@@ -4419,7 +4452,7 @@ async function evaluateWriteFromDictation(
         }${extraWordsInResponse.length > 0
           ? ` Extra words: ${extraWordsInResponse.join(', ')}.`
           : ''
-        }`,
+        } `,
     suggestions: [
       'Focus on spelling accuracy',
       'Listen for punctuation cues in the audio',
@@ -4595,7 +4628,7 @@ async function evaluateSelectMissingWord(
       feedback: {
         summary: isCorrect
           ? `Correct! You selected: "${selectedOptionText}"`
-          : `Incorrect. You selected: "${selectedOptionText}". The correct answer is: "${correctOptionText}"`,
+          : `Incorrect. You selected: "${selectedOptionText}".The correct answer is: "${correctOptionText}"`,
       },
       explanation: explanation,
       timeTaken: timeTakenSeconds || 0,
@@ -4833,7 +4866,7 @@ async function generateListeningFillInTheBlanksAIFeedback(
     incorrectBlanks.forEach(([blankKey, result]: [string, any]) => {
       const blankNumber = blankKey.replace('blank', '');
       feedback += `• Blank ${blankNumber}: You wrote "${result.userAnswer || '(empty)'
-        }", but the correct answer is "${result.correctAnswer}"\n`;
+        }", but the correct answer is "${result.correctAnswer} "\n`;
     });
   }
 
