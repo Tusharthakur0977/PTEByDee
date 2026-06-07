@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, Clock, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Clock, Loader2, Share2, Check } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   getQuestionPreviousResponses,
@@ -40,9 +40,22 @@ const InlinePreviousAttempts: React.FC<InlinePreviousAttemptsProps> = ({
     questionCode: string;
     questionType: string;
     sectionName: string;
+    questionText?: string;
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleShare = async (responseId: string) => {
+    try {
+      const shareUrl = `${window.location.origin}/?sharedResponseId=${responseId}`;
+      await navigator.clipboard.writeText(shareUrl);
+      setCopiedId(responseId);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch (err) {
+      console.error("Failed to copy link:", err);
+    }
+  };
 
   const fetchResponses = async (page = 1) => {
     if (!questionId) return;
@@ -377,15 +390,39 @@ const InlinePreviousAttempts: React.FC<InlinePreviousAttemptsProps> = ({
                           ))}
                         </div>
                       )}
-                      {onViewResponse && (
+                      <div className='mt-3 flex items-center gap-4'>
+                        {onViewResponse && (
+                          <button
+                            type='button'
+                            className='text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline'
+                            onClick={() => onViewResponse({
+                              ...response,
+                              questionCode: questionInfo?.questionCode,
+                              questionText: questionInfo?.questionText
+                            })}
+                          >
+                            View full attempt
+                          </button>
+                        )}
                         <button
                           type='button'
-                          className='mt-3 text-xs font-medium text-blue-600 dark:text-blue-400'
-                          onClick={() => onViewResponse(response)}
+                          onClick={() => handleShare(response.id)}
+                          className='flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200 transition-colors'
+                          title='Share Response'
                         >
-                          View full attempt
+                          {copiedId === response.id ? (
+                            <>
+                              <Check className='h-3.5 w-3.5 text-emerald-500' />
+                              <span className='text-emerald-600 dark:text-emerald-400'>Copied</span>
+                            </>
+                          ) : (
+                            <>
+                              <Share2 className='h-3.5 w-3.5' />
+                              <span>Share</span>
+                            </>
+                          )}
                         </button>
-                      )}
+                      </div>
                     </article>
                   );
                 })}

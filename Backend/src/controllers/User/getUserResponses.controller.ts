@@ -210,3 +210,77 @@ export const getUserResponseStats = asyncHandler(
     }
   }
 );
+
+/**
+ * @desc    Get a single shared response by ID (Public)
+ * @route   GET /api/user/shared-responses/:id
+ * @access  Public
+ */
+export const getSharedResponse = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    try {
+      const response = await prisma.userResponse.findUnique({
+        where: { id },
+        include: {
+          question: {
+            include: {
+              questionType: {
+                include: {
+                  pteSection: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!response) {
+        return sendResponse(
+          res,
+          STATUS_CODES.NOT_FOUND,
+          null,
+          'Response not found.'
+        );
+      }
+
+      // Format response data to match what the frontend expects
+      const formattedResponse = {
+        id: response.id,
+        questionId: response.questionId,
+        questionCode: response.question.questionCode,
+        questionType: response.question.questionType.name,
+        sectionName: response.question.questionType.pteSection.name,
+        questionText: response.question.textContent || response.question.questionStatement || response.question.questionCode,
+        textResponse: response.textResponse,
+        audioResponseUrl: response.audioResponseUrl,
+        selectedOptions: response.selectedOptions,
+        orderedItems: response.orderedItems,
+        highlightedWords: response.highlightedWords,
+        questionScore: response.questionScore,
+        isCorrect: response.isCorrect,
+        aiFeedback: response.aiFeedback,
+        detailedAnalysis: response.detailedAnalysis,
+        timeTakenSeconds: response.timeTakenSeconds,
+        createdAt: response.createdAt,
+        updatedAt: response.updatedAt,
+      };
+
+      return sendResponse(
+        res,
+        STATUS_CODES.OK,
+        formattedResponse,
+        'Shared response retrieved successfully.'
+      );
+    } catch (error: any) {
+      console.error('Get shared response error:', error);
+      return sendResponse(
+        res,
+        STATUS_CODES.INTERNAL_SERVER_ERROR,
+        null,
+        'An error occurred while retrieving the shared response.'
+      );
+    }
+  }
+);

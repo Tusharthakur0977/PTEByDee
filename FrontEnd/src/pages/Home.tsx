@@ -1,5 +1,3 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
 import {
   ArrowRight,
   BookOpen,
@@ -14,12 +12,18 @@ import {
   Target,
   TrendingUp,
   Trophy,
-  Users,
 } from 'lucide-react';
+import React from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import CourseCard from '../components/CourseCard';
+import SharedResponseModalLoader from '../components/SharedResponseModalLoader';
 import { useAuth } from '../contexts/AuthContext';
-import { getFeaturedCourses } from '../services/courses';
 import type { Course } from '../services/courses';
+import { getFeaturedCourses } from '../services/courses';
+import {
+  getSharedQuestionResponse,
+  PreviousResponse,
+} from '../services/questionResponse';
 
 const platformStats = [
   { value: '10,000+', label: 'Learners supported' },
@@ -100,8 +104,38 @@ const portalFeatures = [
 
 const Home: React.FC = () => {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [featuredCourses, setFeaturedCourses] = React.useState<Course[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
+
+  // Shared Response State
+  const [sharedResponse, setSharedResponse] =
+    React.useState<PreviousResponse | null>(null);
+  const [isModalOpen, setIsModalOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    const sharedId = searchParams.get('sharedResponseId');
+    if (sharedId) {
+      const fetchSharedResponse = async () => {
+        try {
+          const data = await getSharedQuestionResponse(sharedId);
+          setSharedResponse(data);
+          setIsModalOpen(true);
+        } catch (error) {
+          console.error('Failed to load shared response:', error);
+          // Optionally, show a toast or alert here
+        }
+      };
+      fetchSharedResponse();
+    }
+  }, [searchParams]);
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    searchParams.delete('sharedResponseId');
+    setSearchParams(searchParams);
+    setTimeout(() => setSharedResponse(null), 300); // clear after animation
+  };
 
   React.useEffect(() => {
     const fetchFeaturedCourses = async () => {
@@ -459,7 +493,6 @@ const Home: React.FC = () => {
         <div className='container mx-auto px-5 sm:px-6 lg:px-8'>
           <div className='grid gap-12 lg:grid-cols-[0.95fr_1.05fr] lg:items-start'>
             <div>
-
               <h2 className='mt-5 text-3xl font-semibold text-slate-900 dark:text-white sm:text-4xl'>
                 Everything should feel like a education platform.
               </h2>
@@ -542,8 +575,6 @@ const Home: React.FC = () => {
             </Link>
           </div>
 
-
-
           <div className='mx-auto grid max-w-6xl grid-cols-1 justify-items-center gap-6 md:grid-cols-2 xl:grid-cols-3'>
             {isLoading
               ? [...Array(3)].map((_, index) => (
@@ -612,6 +643,14 @@ const Home: React.FC = () => {
           </div>
         </div>
       </section>
+
+      {/* Render Shared Response Modal if needed */}
+      <SharedResponseModalLoader
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        response={sharedResponse}
+        questionType={sharedResponse?.questionType || ''}
+      />
     </div>
   );
 };

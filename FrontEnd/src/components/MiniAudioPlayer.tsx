@@ -282,6 +282,9 @@ const AudioPlayer = React.forwardRef<
     setIsMuted(newVolume === 0);
   };
 
+  console.log(src);
+  
+
   if (error) {
     return (
       <div className='flex items-center gap-2 p-3 text-red-600 bg-red-50 rounded-md'>

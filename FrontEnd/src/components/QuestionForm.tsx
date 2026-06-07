@@ -168,6 +168,33 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
         );
       }
 
+      // Validation for manually configured blanks
+      if (requirements.requiresBlanks && formData.textContent) {
+        if (!formData.blanks || formData.blanks.length === 0) {
+          setFormError('Please configure at least one blank option when providing manual text content.');
+          setLoading(false);
+          return;
+        }
+        for (let i = 0; i < formData.blanks.length; i++) {
+          const blank = formData.blanks[i];
+          if (!blank.correctAnswer) {
+            setFormError(`Please provide a correct answer for Blank ${blank.position}.`);
+            setLoading(false);
+            return;
+          }
+          if (!blank.options || blank.options.length < 2) {
+            setFormError(`Please provide at least 2 dropdown options for Blank ${blank.position}.`);
+            setLoading(false);
+            return;
+          }
+          if (!blank.options.includes(blank.correctAnswer)) {
+            setFormError(`For Blank ${blank.position}, the correct answer must be included in the dropdown options.`);
+            setLoading(false);
+            return;
+          }
+        }
+      }
+
       // If there's a selected audio file, upload it first
       if (selectedAudioFile) {
         setUploadingAudio(true);
@@ -419,7 +446,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
       requiresBlanks: [
         'READING_FILL_IN_THE_BLANKS',
         'FILL_IN_THE_BLANKS_DRAG_AND_DROP',
-        // Note: LISTENING_FILL_IN_THE_BLANKS removed - blanks are auto-generated from audio
+        'LISTENING_FILL_IN_THE_BLANKS',
       ].includes(selectedQuestionType.name),
     };
 
@@ -455,6 +482,158 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
       }
     }
   }, [formData.textContent, requirements.requiresBlanks]);
+
+  const renderBlankOptions = () => (
+    <div className='mb-6'>
+      <div className='flex items-center justify-between mb-3'>
+        <label className='block text-sm font-medium text-slate-700 dark:text-slate-200'>
+          Blank Options *
+        </label>
+        <button
+          type='button'
+          onClick={addBlank}
+          className='px-3 py-1 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700 transition-colors flex items-center space-x-1'
+        >
+          <Plus className='w-3 h-3' />
+          <span>Add Blank</span>
+        </button>
+      </div>
+
+      <div className='space-y-4'>
+        {(formData.blanks || []).map(
+          (blank: any, blankIndex: number) => (
+            <div
+              key={blank.id}
+              className='border border-slate-200 rounded-xl p-4 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/60'
+            >
+              <div className='flex items-center justify-between mb-3'>
+                <h4 className='text-sm font-medium text-slate-700 dark:text-slate-200'>
+                  Blank {blank.position}
+                </h4>
+                <button
+                  type='button'
+                  onClick={() => removeBlank(blankIndex)}
+                  className='text-red-600 hover:text-red-700'
+                >
+                  <Trash2 className='w-4 h-4' />
+                </button>
+              </div>
+
+              <div className='space-y-3'>
+                <div>
+                  <label className='block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1'>
+                    Correct Answer *
+                  </label>
+                  <input
+                    type='text'
+                    value={blank.correctAnswer || ''}
+                    onChange={(e) =>
+                      updateBlank(
+                        blankIndex,
+                        'correctAnswer',
+                        e.target.value,
+                      )
+                    }
+                    className='w-full px-3 py-2 border border-slate-200 bg-white rounded-lg text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100'
+                    placeholder='Enter the correct answer'
+                    required
+                  />
+                </div>
+
+                <div>
+                  <div className='flex items-center justify-between mb-2'>
+                    <label className='block text-xs font-medium text-slate-600 dark:text-slate-400'>
+                      Dropdown Options
+                    </label>
+                    <button
+                      type='button'
+                      onClick={() => addBlankOption(blankIndex)}
+                      className='text-xs text-indigo-600 hover:text-indigo-700'
+                    >
+                      + Add Option
+                    </button>
+                  </div>
+                  <p className='text-xs text-slate-500 dark:text-slate-400 mb-2'>
+                    Add all options that will appear in the dropdown.
+                    The correct answer will be automatically included.
+                  </p>
+                  <div className='space-y-2'>
+                    {blank.options?.map(
+                      (option: string, optionIndex: number) => (
+                        <div
+                          key={optionIndex}
+                          className='flex items-center space-x-2'
+                        >
+                          <input
+                            type='text'
+                            value={option}
+                            onChange={(e) =>
+                              updateBlankOption(
+                                blankIndex,
+                                optionIndex,
+                                e.target.value,
+                              )
+                            }
+                            className='flex-1 px-2 py-1 text-sm border border-slate-200 bg-white rounded text-slate-900 focus:ring-1 focus:ring-indigo-500 focus:border-transparent dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100'
+                            placeholder={`Option ${optionIndex + 1}`}
+                          />
+                          <button
+                            type='button'
+                            onClick={() =>
+                              removeBlankOption(blankIndex, optionIndex)
+                            }
+                            className='text-red-600 hover:text-red-700'
+                          >
+                            <X className='w-3 h-3' />
+                          </button>
+                        </div>
+                      ),
+                    )}
+                  </div>
+
+                  {/* Auto-add correct answer button */}
+                  {blank.correctAnswer &&
+                    !blank.options?.includes(blank.correctAnswer) && (
+                      <button
+                        type='button'
+                        onClick={() => {
+                          const newBlanks = [
+                            ...(formData.blanks || []),
+                          ];
+                          if (
+                            !newBlanks[blankIndex].options.includes(
+                              blank.correctAnswer,
+                            )
+                          ) {
+                            newBlanks[blankIndex].options.push(
+                              blank.correctAnswer,
+                            );
+                            setFormData((prev) => ({
+                              ...prev,
+                              blanks: newBlanks,
+                            }));
+                          }
+                        }}
+                        className='mt-2 text-xs bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200 transition-colors'
+                      >
+                        + Add Correct Answer to Options
+                      </button>
+                    )}
+                </div>
+              </div>
+            </div>
+          ),
+        )}
+      </div>
+
+      {(formData.blanks || []).length === 0 && (
+        <p className='text-sm text-slate-500 dark:text-slate-400 text-center py-4'>
+          No blanks configured yet. Add text content with _____ to
+          automatically generate blank fields.
+        </p>
+      )}
+    </div>
+  );
 
   const renderQuestionTypeSpecificFields = () => {
     if (!selectedQuestionType) return null;
@@ -572,155 +751,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
             </div>
 
             {/* Blank options */}
-            <div className='mb-6'>
-              <div className='flex items-center justify-between mb-3'>
-                <label className='block text-sm font-medium text-slate-700 dark:text-slate-200'>
-                  Blank Options *
-                </label>
-                <button
-                  type='button'
-                  onClick={addBlank}
-                  className='px-3 py-1 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700 transition-colors flex items-center space-x-1'
-                >
-                  <Plus className='w-3 h-3' />
-                  <span>Add Blank</span>
-                </button>
-              </div>
-
-              <div className='space-y-4'>
-                {(formData.blanks || []).map(
-                  (blank: any, blankIndex: number) => (
-                    <div
-                      key={blank.id}
-                      className='border border-slate-200 rounded-xl p-4 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/60'
-                    >
-                      <div className='flex items-center justify-between mb-3'>
-                        <h4 className='text-sm font-medium text-slate-700 dark:text-slate-200'>
-                          Blank {blank.position}
-                        </h4>
-                        <button
-                          type='button'
-                          onClick={() => removeBlank(blankIndex)}
-                          className='text-red-600 hover:text-red-700'
-                        >
-                          <Trash2 className='w-4 h-4' />
-                        </button>
-                      </div>
-
-                      <div className='space-y-3'>
-                        <div>
-                          <label className='block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1'>
-                            Correct Answer *
-                          </label>
-                          <input
-                            type='text'
-                            value={blank.correctAnswer || ''}
-                            onChange={(e) =>
-                              updateBlank(
-                                blankIndex,
-                                'correctAnswer',
-                                e.target.value,
-                              )
-                            }
-                            className='w-full px-3 py-2 border border-slate-200 bg-white rounded-lg text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100'
-                            placeholder='Enter the correct answer'
-                            required
-                          />
-                        </div>
-
-                        <div>
-                          <div className='flex items-center justify-between mb-2'>
-                            <label className='block text-xs font-medium text-slate-600 dark:text-slate-400'>
-                              Dropdown Options
-                            </label>
-                            <button
-                              type='button'
-                              onClick={() => addBlankOption(blankIndex)}
-                              className='text-xs text-indigo-600 hover:text-indigo-700'
-                            >
-                              + Add Option
-                            </button>
-                          </div>
-                          <p className='text-xs text-slate-500 dark:text-slate-400 mb-2'>
-                            Add all options that will appear in the dropdown.
-                            The correct answer will be automatically included.
-                          </p>
-                          <div className='space-y-2'>
-                            {blank.options?.map(
-                              (option: string, optionIndex: number) => (
-                                <div
-                                  key={optionIndex}
-                                  className='flex items-center space-x-2'
-                                >
-                                  <input
-                                    type='text'
-                                    value={option}
-                                    onChange={(e) =>
-                                      updateBlankOption(
-                                        blankIndex,
-                                        optionIndex,
-                                        e.target.value,
-                                      )
-                                    }
-                                    className='flex-1 px-2 py-1 text-sm border border-slate-200 bg-white rounded text-slate-900 focus:ring-1 focus:ring-indigo-500 focus:border-transparent dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100'
-                                    placeholder={`Option ${optionIndex + 1}`}
-                                  />
-                                  <button
-                                    type='button'
-                                    onClick={() =>
-                                      removeBlankOption(blankIndex, optionIndex)
-                                    }
-                                    className='text-red-600 hover:text-red-700'
-                                  >
-                                    <X className='w-3 h-3' />
-                                  </button>
-                                </div>
-                              ),
-                            )}
-                          </div>
-
-                          {/* Auto-add correct answer button */}
-                          {blank.correctAnswer &&
-                            !blank.options?.includes(blank.correctAnswer) && (
-                              <button
-                                type='button'
-                                onClick={() => {
-                                  const newBlanks = [
-                                    ...(formData.blanks || []),
-                                  ];
-                                  if (
-                                    !newBlanks[blankIndex].options.includes(
-                                      blank.correctAnswer,
-                                    )
-                                  ) {
-                                    newBlanks[blankIndex].options.push(
-                                      blank.correctAnswer,
-                                    );
-                                    setFormData((prev) => ({
-                                      ...prev,
-                                      blanks: newBlanks,
-                                    }));
-                                  }
-                                }}
-                                className='mt-2 text-xs bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200 transition-colors'
-                              >
-                                + Add Correct Answer to Options
-                              </button>
-                            )}
-                        </div>
-                      </div>
-                    </div>
-                  ),
-                )}
-              </div>
-
-              {(formData.blanks || []).length === 0 && (
-                <p className='text-sm text-slate-500 dark:text-slate-400 text-center py-4'>
-                  No blanks configured yet. Add text content with _____ to
-                  automatically generate blank fields.
-                </p>
-              )}
-            </div>
+            {renderBlankOptions()}
           </div>
         );
 
@@ -788,6 +819,27 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
                 file.
               </p>
             </div>
+            
+            {/* Optional Full Transcript */}
+            <div className='mb-6'>
+              <label className='block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2'>
+                Full Transcript (Optional)
+              </label>
+              <textarea
+                value={formData.questionStatement}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    questionStatement: e.target.value,
+                  }))
+                }
+                className='w-full px-4 py-3 border border-slate-200 bg-white rounded-xl text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100'
+                rows={4}
+                placeholder='Enter the original transcript without blanks. Helpful for reference or if you are manually defining blanks.'
+              />
+            </div>
+
+            {formData.textContent && renderBlankOptions()}
           </div>
         );
 

@@ -215,8 +215,13 @@ export async function transcribeAudio(audioKey: string): Promise<TranscriptionRe
         }))
       : [];
 
+    // Clean up common Whisper hallucinations
+    let cleanedText = transcription.text.trim();
+    cleanedText = cleanedText.replace(/(?:\s*Thank you\.?)+\s*$/i, '');
+    cleanedText = cleanedText.replace(/(?:\s*Thanks for watching\.?)+\s*$/i, '');
+
     return {
-      text: transcription.text.trim(),
+      text: cleanedText,
       language: (transcription as any).language,
       duration: (transcription as any).duration,
       words: parsedWords,

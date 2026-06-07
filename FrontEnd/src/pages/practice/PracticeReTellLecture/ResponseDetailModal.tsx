@@ -314,6 +314,28 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
                         Review score breakdown, spoken response highlights, and fluency details in one place.
                       </p>
                     </div>
+                    
+                    {(() => {
+                      const qCode = response.questionCode || (response as any)?.question?.questionCode;
+                      const qText = response.questionText || (response as any)?.question?.questionText;
+                      if (!qCode && !qText) return null;
+                      return (
+                        <div className='mt-2 max-w-3xl rounded-xl border border-slate-200/60 bg-white/40 p-3 backdrop-blur-sm dark:border-slate-700/50 dark:bg-slate-900/40'>
+                          {qCode && (
+                            <div className='mb-1 flex items-center gap-2'>
+                              <span className='rounded bg-slate-200/50 px-2 py-0.5 text-xs font-semibold text-slate-700 dark:bg-slate-800/50 dark:text-slate-300'>
+                                {qCode}
+                              </span>
+                            </div>
+                          )}
+                          {qText && (
+                            <p className='text-sm italic leading-relaxed text-slate-700 dark:text-slate-300 line-clamp-2 hover:line-clamp-none transition-all'>
+                              "{qText}"
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()}
                     <div className="flex flex-wrap items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
                       {typeof questionNumber === "number" && (
                         <span className="rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-xs font-semibold text-sky-700 dark:text-sky-300">
@@ -325,7 +347,7 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
                       </span>
                     </div>
                   </div>
-                  <div className="rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-slate-700/70 dark:bg-slate-900/80 dark:shadow-[0_18px_60px_rgba(15,23,42,0.24)]">
+                  <div className="rounded-3xl self-start border border-slate-200 bg-white px-5 py-4 shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-slate-700/70 dark:bg-slate-900/80 dark:shadow-[0_18px_60px_rgba(15,23,42,0.24)]">
                     <p className="text-xs uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
                       Total Score
                     </p>

@@ -12,29 +12,34 @@ interface AnalysisErrorItem {
 
 const punctuationOnlyRegex = /^[.,!?;:"'()\[\]{}\-–—\n\r]+$/;
 
-const normalizeErrorItem = (error: any, fallbackType: string): AnalysisErrorItem => ({
-  ...error,
-  text:
-    typeof error?.text === "string"
-      ? error.text
-      : typeof error?.error === "string"
-        ? error.error
-        : "",
-  type:
-    fallbackType === "grammar"
-      ? error?.type === "unnecessary_word"
-        ? "unnecessary_word"
-        : "grammar"
-      : fallbackType === "spelling"
-        ? error?.type === "spelling_error"
-          ? "spelling_error"
-          : "spelling"
-        : fallbackType === "vocabulary"
-          ? error?.type === "missing_word"
-            ? "missing_word"
-            : "vocabulary"
-          : fallbackType,
-});
+const normalizeErrorItem = (error: any, fallbackType: string): AnalysisErrorItem => {
+  const suggestion = error?.suggestion || error?.correction;
+  return {
+    ...error,
+    correction: suggestion,
+    suggestion: suggestion,
+    text:
+      typeof error?.text === "string"
+        ? error.text
+        : typeof error?.error === "string"
+          ? error.error
+          : "",
+    type:
+      fallbackType === "grammar"
+        ? error?.type === "unnecessary_word"
+          ? "unnecessary_word"
+          : "grammar"
+        : fallbackType === "spelling"
+          ? error?.type === "spelling_error"
+            ? "spelling_error"
+            : "spelling"
+          : fallbackType === "vocabulary"
+            ? error?.type === "missing_word"
+              ? "missing_word"
+              : "vocabulary"
+            : fallbackType,
+  };
+};
 
 const collectNormalizedErrors = (errorAnalysis: any): AnalysisErrorItem[] => {
   const allErrors = [
@@ -129,19 +134,19 @@ export const renderWEHighlightedText = (
     (a, b) => (b.text || "").length - (a.text || "").length
   );
 
-  const lowerText = text.toLowerCase();
-
   sortedRemaining.forEach((error) => {
-    const errorTextLower = (error.text || "")
-      .toLowerCase()
-      .replace(/[.,!?;:"'()]/g, "");
-    if (!errorTextLower) return;
-    
-    let searchStart = 0;
-    let pos = -1;
-    
-    while ((pos = lowerText.indexOf(errorTextLower, searchStart)) !== -1) {
-      const end = pos + errorTextLower.length;
+    const cleanErrorText = (error.text || "").replace(/[.,!?;:"'()\[\]{}\-–—\n\r]/g, " ");
+    const errorWords = cleanErrorText.trim().split(/\s+/).filter(Boolean);
+    if (errorWords.length === 0) return;
+
+    const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regexPattern = errorWords.map(w => escapeRegExp(w)).join('\\W+');
+    const regex = new RegExp(regexPattern, 'gi');
+
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      const pos = match.index;
+      const end = pos + match[0].length;
       if (!isOverlapping(pos, end)) {
         matchedRanges.push({
           start: pos,
@@ -150,7 +155,6 @@ export const renderWEHighlightedText = (
         });
         break; // matched this error, move to next
       }
-      searchStart = pos + 1;
     }
   });
 
@@ -207,3 +211,4 @@ export const renderWEHighlightedText = (
 
   return <span>{result}</span>;
 };
+

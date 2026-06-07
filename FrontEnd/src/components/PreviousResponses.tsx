@@ -5,8 +5,10 @@ import {
   ChevronRight,
   Loader2,
   MessageSquareText,
+  Share2,
   Volume2,
   X,
+  Check,
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import {
@@ -38,9 +40,23 @@ const PreviousResponses: React.FC<PreviousResponsesProps> = ({
   const [totalPages, setTotalPages] = useState(1);
   const [totalResponses, setTotalResponses] = useState(0);
   const [questionType, setQuestionType] = useState<string>("");
+  const [questionCode, setQuestionCode] = useState<string>("");
+  const [questionText, setQuestionText] = useState<string>("");
   const [loadedQuestionId, setLoadedQuestionId] = useState<
     string | undefined
   >();
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleShare = async (responseId: string) => {
+    try {
+      const shareUrl = `${window.location.origin}/?sharedResponseId=${responseId}`;
+      await navigator.clipboard.writeText(shareUrl);
+      setCopiedId(responseId);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch (err) {
+      console.error("Failed to copy link:", err);
+    }
+  };
 
   const fetchData = async (page = 1, qId = questionId) => {
     if (!qId) return;
@@ -58,6 +74,8 @@ const PreviousResponses: React.FC<PreviousResponsesProps> = ({
 
       setResponses(responsesData.responses);
       setQuestionType(responsesData.question.questionType);
+      setQuestionCode(responsesData.question.questionCode || "");
+      setQuestionText(responsesData.question.questionText || "");
       setCurrentPage(responsesData.pagination.currentPage);
       setTotalPages(responsesData.pagination.totalPages);
       setTotalResponses(responsesData.pagination.totalResponses);
@@ -272,12 +290,29 @@ const PreviousResponses: React.FC<PreviousResponsesProps> = ({
                         )}
                       </div>
 
-                      <button
-                        onClick={() => onViewResponse(response)}
-                        className="px-3 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shrink-0 transition-colors"
-                      >
-                        View Details
-                      </button>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => handleShare(response.id)}
+                          className="p-2 text-gray-500 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 rounded-lg shrink-0 transition-colors"
+                          title="Share Response"
+                        >
+                          {copiedId === response.id ? (
+                            <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
+                          ) : (
+                            <Share2 className="h-4 w-4" />
+                          )}
+                        </button>
+                        <button
+                          onClick={() => onViewResponse({
+                            ...response,
+                            questionCode,
+                            questionText,
+                          })}
+                          className="px-3 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shrink-0 transition-colors"
+                        >
+                          View Details
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );

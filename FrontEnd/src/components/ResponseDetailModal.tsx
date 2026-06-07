@@ -1527,28 +1527,32 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
     ];
 
     if (
-      questionType === "ANSWER_SHORT_QUESTION" ||
-      questionType === "DESCRIBE_IMAGE" ||
-      questionType === "READ_ALOUD" ||
-      questionType === "RE_TELL_LECTURE" ||
-      questionType === "REPEAT_SENTENCE" ||
-      questionType === "SUMMARIZE_WRITTEN_TEXT" ||
-      questionType === "SUMMARIZE_GROUP_DISCUSSION" ||
-      questionType === "WRITE_ESSAY" ||
-      questionType === "FILL_IN_THE_BLANKS_DRAG_AND_DROP" ||
-      questionType === "READING_FILL_IN_THE_BLANKS" ||
-      questionType === "MULTIPLE_CHOICE_MULTIPLE_ANSWERS_READING" ||
-      questionType === "MULTIPLE_CHOICE_MULTIPLE_ANSWERS_LISTENING" ||
-      questionType === "MULTIPLE_CHOICE_SINGLE_ANSWER_READING" ||
-      questionType === "MULTIPLE_CHOICE_SINGLE_ANSWER_LISTENING" ||
-      questionType === "RE_ORDER_PARAGRAPHS" ||
-      questionType === "HIGHLIGHT_CORRECT_SUMMARY" ||
-      questionType === "HIGHLIGHT_INCORRECT_WORDS" ||
-      questionType === "SUMMARIZE_SPOKEN_TEXT" ||
-      questionType === "WRITE_FROM_DICTATION" ||
-      questionType === "SELECT_MISSING_WORD"
+      [
+        "ANSWER_SHORT_QUESTION",
+        "DESCRIBE_IMAGE",
+        "READ_ALOUD",
+        "RE_TELL_LECTURE",
+        "REPEAT_SENTENCE",
+        "SUMMARIZE_WRITTEN_TEXT",
+        "SUMMARIZE_GROUP_DISCUSSION",
+        "WRITE_ESSAY",
+        "FILL_IN_THE_BLANKS_DRAG_AND_DROP",
+        "READING_FILL_IN_THE_BLANKS",
+        "MULTIPLE_CHOICE_MULTIPLE_ANSWERS_READING",
+        "MULTIPLE_CHOICE_MULTIPLE_ANSWERS_LISTENING",
+        "MULTIPLE_CHOICE_SINGLE_ANSWER_READING",
+        "MULTIPLE_CHOICE_SINGLE_ANSWER_LISTENING",
+        "RE_ORDER_PARAGRAPHS",
+        "HIGHLIGHT_CORRECT_SUMMARY",
+        "HIGHLIGHT_INCORRECT_WORDS",
+        "SUMMARIZE_SPOKEN_TEXT",
+        "WRITE_FROM_DICTATION",
+        "SELECT_MISSING_WORD"
+      ].includes(questionType)
     ) {
-      const data = Object.entries(response.detailedAnalysis.scores).map(
+      if (!analysis || !analysis.scores) return null;
+      
+      const data = Object.entries(analysis.scores).map(
         ([name, values]: any) => ({
           name: formatScoringText(name),
           value: values.score,

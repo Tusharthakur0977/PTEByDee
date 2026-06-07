@@ -318,6 +318,8 @@ const PracticeWriteEssay: React.FC = () => {
   }, [isCompleted, isSubmitting, questions, currentIndex, userAnswer]);
 
   const handleViewResponse = (resp: any) => {
+    console.log(resp, 'ZZZZ');
+    
     setShowPreviousResponses(false);
     setSelectedResponse(resp);
     setShowResponseModal(true);
@@ -930,15 +932,12 @@ const PracticeWriteEssay: React.FC = () => {
           </div>
         )
       )}
-      {
         <InlinePreviousAttempts
           questionId={currentQuestion?.id}
           question={currentQuestion}
           onViewResponse={handleViewResponse}
           className='mt-6'
         />
-        /* FOOTER NAVIGATION */
-      }
       {!window.location.pathname.startsWith('/practiceQuestion') && (
         <div className='border-t dark:border-gray-700 px-6 py-4 flex justify-between items-center dark:bg-gray-800'>
           <button

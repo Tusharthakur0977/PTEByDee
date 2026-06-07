@@ -3276,43 +3276,100 @@ async function evaluateWriteEssay(
 
   const prompt = `
 **Role:** Expert PTE Grader (Write Essay).
+Your objective is to evaluate the essay similarly to real PTE AI scoring behavior. You must prioritize semantic relevance, position consistency, logical continuation of ideas, topic-focused writing, and natural readability OVER sophisticated academic vocabulary, overly balanced discussions, or complex essay theory.
+
 **Input:** - Prompt: "${question.textContent}"
 - Essay: "${userText}"
 - Count: ${wordCount}
 
 ---
-### **1. Pre-Scoring Evaluation (MANDATORY)**
-**Step A: Detect Essay Type & Strategy:**
-- Types: Opinion, Adv/Disadv, Problem/Solution, Both Views, Invention/Impact.
-- Rule (Opinion): MUST take clear one-sided position. Mixing sides reduces Content/Structure.
-- Rule (Adv/Disadv): MUST discuss both sides unless "outweigh" is asked.
-- Rule (Invention): MUST identify one invention and take clear stance.
+### **1. Pre-Scoring Evaluation Strategy (VERY IMPORTANT)**
 
-**Step B: Template vs. Real Content Check:**
-- High Score requires: Intro (1-2 ideas), BP1 (Idea+Expl+Ex), BP2 (Idea+Expl+Ex), Conclusion (closing idea).
-- If mostly template with no topic-specific ideas: Reduce Content score.
-- **Safe Harbor:** If 40–80 words are genuinely relevant, MUST score Content 4–6 even if structure is weak.
+**SEMANTIC TOPIC RELEVANCE DETECTOR (MOST IMPORTANT)**
+**CRITICAL RULE:** Evaluate Content using semantic meaning, relevant idea chains, topic-focused continuation, NOT advanced vocabulary, paragraph sophistication, or memorized academic style.
+- **VALID IDEA CHUNKS:** A valid idea chunk is a topic-relevant concept, explanation, example, or continuation of the essay's main argument. These may appear in simple language, repeated naturally, using synonyms, or inside template-based structure.
+- **IMPORTANT: REPEATED TOPIC WORDS ARE ACCEPTABLE.** Do NOT heavily penalize repeated keywords, repeated topic nouns, or simple vocabulary IF the essay remains highly relevant, logically connected, and semantically consistent. Real PTE AI often rewards semantic repetition because it strengthens topical relevance.
+
+**POSITION CONSISTENCY DETECTOR (VERY IMPORTANT)**
+For opinion-based essays: The AI MUST detect:
+1. Which side/opinion the student supports
+2. Whether ALL paragraphs consistently support that side
+(Examples: Agree/disagree, Advantages/disadvantages, Discussion/opinion essays)
+
+**HIGH CONTENT SCORES SHOULD BE GIVEN IF:**
+The essay answers the question directly and uses a standard PTE template structure (e.g., Intro, Body 1, Body 2, Conclusion). Template-based essays that fill in the blanks with relevant topic words and simple, logical reasons MUST receive a 6/6 for Content. Do not penalize for the use of memorized templates, repetitive ideas, or basic vocabulary as long as the topic is addressed logically.
+
+**LOW CONTENT SCORE TRIGGERS (STRICT)**
+Assign a Content score of 0 ONLY if the essay is entirely off-topic (e.g., the prompt asks about Topic A, but the essay never mentions Topic A and talks about a completely unrelated subject) or consists of completely random words ("the and to is"). If the essay uses the correct keywords but makes nonsensical statements, it should score a 3/6, not a 0.
+
+**LOGICAL CONTINUATION DETECTOR**
+The AI should reward standard PTE essay structures. If the essay uses clear paragraphing and standard connectors (e.g., "To begin with", "Secondly", "In conclusion"), it MUST receive full marks for logical continuation, even if the internal logic is simple or template-driven.
+
+**FATAL FLAW RULES (ABSOLUTE SCORE CAPS)**
+If the essay contains ANY of the following flaws, you MUST apply these maximum score caps, regardless of any other positive traits:
+1. **No Paragraph Breaks (Single Block of Text):** If the essay is written as one continuous paragraph (no line breaks separating Intro, Body, Conclusion), the Development, Structure & Coherence (DSC) score MUST NOT exceed 3/6. Do NOT give it a 6/6 even if it uses transition words.
+2. **Pervasive Errors:** If the essay contains 5 or more distinct grammar or spelling errors, or if the language is extremely repetitive/kindergarten-level, the General Linguistic Range (GLR) score MUST NOT exceed 3/6.
+
+**PENALTY LOGIC**
+- **Spelling:** Heavy penalty: deduct approx 0.5 per genuine spelling error. Repeated identical spelling mistakes count once. IMPORTANT: Do NOT count missing apostrophes in contractions (e.g., "dont", "cant", "im") as spelling errors.
+- **Grammar:** Moderate penalty: deduct approx 0.2 per major grammar issue. Minor grammar issues should not heavily reduce score unless meaning becomes unclear. Ensure genuine grammar mistakes in the user-generated parts of the essay are identified accurately in the errorAnalysis array. IMPORTANT: Do NOT treat these as grammar errors: missing apostrophes in contractions (e.g., "dont"), basic connectors like "but", "and", "so", "whereas", "as", or standard template phrasing.
 
 ---
 ### **2. Scoring Rubrics**
-1. **Content (0-6):** Score based on "Idea Chunks" (topic-relevant concepts).
-   - 6: Clear position; 40-80+ relevant words; strong logic in both BPs.
-   - 5-4: Multiple chunks; minor imbalance or shallow argument.
-   - 3-2: Mostly templated; barely addresses topic; unrelated ideas.
-   - 1-0: Off-topic or random keywords only.
 
-2. **Form (0-2):** 2: (200-300 words). 1: (120-199 or 301-380). 0: (<120, >380, or ALL CAPS).
+**1. CONTENT (0-6)**
+- **6 (Excellent Relevance & Consistency):** Clear position/opinion. The essay uses a clear template or structure, integrates the topic and simple reasons effectively, and addresses the main parts of the prompt. Give a 6 if the user has written a standard 4-paragraph essay that fully addresses the prompt's main keywords with logical (even if simple) explanations.
+- **5 (Strong Relevance):** Mostly addresses the topic but clearly misses a key aspect of the prompt (e.g., the prompt asks about three things, but the essay only discusses two of them).
+- **4 (Adequate Relevance):** The general topic is addressed, but the explanations are very weak, vague, or disjointed (e.g., circular logic without providing any real reasons).
+- **3 (Partial Relevance):** Mentions the topic keywords, but the template is filled with sentences that are nonsensical, bizarre, or barely connect to the actual question.
+- **2 (Weak Relevance):** Barely mentions the topic keywords, mostly relying on generic template words without meaningful fill-ins.
+- **1 (Minimal Relevance):** Very little topic-related information.
+- **0 (Off-topic):** Does not mention the topic keywords at all, discusses an entirely different subject from start to finish, or is completely gibberish.
 
-3. **Development/Structure (0-6):** Logical flow and connectivity.
-   - 6: Clear structure; both BPs well-developed. 4: Missing examples/depth. 0: No structure.
+**2. FORM (0-2)**
+- **2:** 200-300 words
+- **1:** 120-199 OR 301-380 words
+- **0:** Below 120 OR above 380 OR written fully in capitals
 
-4. **Grammar (0-2):** Base 2. Deduct **0.2 per error**. Min 0. (Immunity: but, whereas, as, and, so).
+**3. DEVELOPMENT, STRUCTURE & COHERENCE (0-6)**
+IMPORTANT: Evaluate based on PTE standards, which heavily reward template usage but require basic structural formatting.
+- **6:** Uses a standard multi-paragraph structure (Intro, Body 1, Body 2, Conclusion) with standard connectors ("To begin with", "For example", "In conclusion") AND the ideas flow logically. If this structure is present and logically sound, MUST score 6/6.
+- **5:** Good structure but missing some clear transitions or paragraph separations.
+- **4:** Some weak transitions but overall understandable.
+- **3:** Ideas partially disconnected. (Max score if the entire essay is written as one single block of text without paragraph breaks).
+- **2:** Poor organization or heavily contradictory template fill-ins.
+- **1:** Minimal coherence or extreme repetition of identical sentences.
+- **0:** No meaningful structure.
 
-5. **Linguistic Range (0-6):** Range of expression. 6: Variation. 4: Limited. 2: Very restricted.
+**4. GRAMMAR (0-2)**
+Start from 2. Deduct approx 0.2 per significant grammar issue.
+- **Minor grammar issues:** should not heavily reduce score if meaning remains understandable.
+- **Repeated identical grammar mistakes:** should not be penalized repeatedly.
+- **The system should NOT detect these as grammar mistakes:** template structures, basic connectors, simple sentences, or natural repetition.
+- **Grammar penalties should focus mainly on:** incorrect sentence structure, wrong verb forms, tense errors, subject-verb agreement errors in the specific words the user added to the template. Ensure these genuine errors are returned in the errorAnalysis array.
 
-6. **Vocabulary Range (0-2):** 2: Academic/Topic-specific. 1: Basic. 0: Meaning obscured.
+**5. GENERAL LINGUISTIC RANGE (0-6)**
+IMPORTANT: Evaluate ability to express ideas according to PTE algorithms, which reward error-free template usage.
+- **6:** The language (even if from a template) clearly communicates the ideas. If the essay uses a template without major grammatical/structural breakdowns, it MUST score 6/6.
+- **5:** Simple but effective language with some unnatural phrasing.
+- **4:** Limited but understandable language.
+- **3:** Restricted expression. (Max score if the essay relies on extremely repetitive, kindergarten-level sentences with frequent errors).
+- **2:** Very limited range or pervasive grammatical errors that make reading difficult.
+- **1:** Isolated/simple fragments.
+- **0:** Meaning inaccessible.
 
-7. **Spelling (0-2):** Base 2. Deduct **0.5 per error**. Min 0. (Do not double-count as grammar).
+**6. VOCABULARY RANGE (0-2)**
+- **2:** Vocabulary sufficient for topic discussion. Simple vocabulary and template words are perfectly acceptable and should score 2/2.
+- **1:** Basic vocabulary only.
+- **0:** Vocabulary too limited to communicate meaning.
+
+**7. SPELLING (0-2)**
+Start from 2. Deduct approx 0.5 per genuine spelling error.
+- **Minor spelling issues:** should not heavily reduce score if meaning remains understandable.
+- **Repeated identical spelling mistakes:** should not be penalized repeatedly.
+- **The system MUST accept both British and American spellings.**
+
+**FINAL REAL-PTE STYLE PRINCIPLE:** The system MUST reward template-based essays. If an essay uses a standard structure, integrates the prompt's keywords, and avoids major grammar/spelling errors in the added text, it should receive full marks in Content, Development/Structure/Coherence, and General Linguistic Range.
 
 ---
 ### **3. Error Analysis & Output**
@@ -3522,10 +3579,11 @@ async function evaluateMultipleChoiceSingle(
   } catch (error) {
     console.error('Error generating explanation:', error);
     // Fallback to static explanation
-    explanation = `The correct answer is "${correctOptionText}". Your selected answer "${selectedOptionText}" was incorrect. ${isReadingQuestion
-      ? 'Review the passage carefully to find evidence supporting the correct answer.'
-      : 'Listen again carefully to identify the correct information.'
-      }`;
+    explanation = `The correct answer is "${correctOptionText}". Your selected answer "${selectedOptionText}" was incorrect. ${
+      isReadingQuestion
+        ? 'Review the passage carefully to find evidence supporting the correct answer.'
+        : 'Listen again carefully to identify the correct information.'
+    }`;
   }
 
   return {
@@ -3538,17 +3596,17 @@ async function evaluateMultipleChoiceSingle(
       ? ['Great job! Continue practicing similar questions.']
       : isReadingQuestion
         ? [
-          'Re-read the passage carefully and identify key information',
-          'Look for specific evidence that directly supports the correct answer',
-          'Eliminate options that are only partially correct or off-topic',
-          'Pay attention to qualifying words like "always", "never", "some", "most"',
-          'Consider the main idea vs. specific details when answering',
-        ]
+            'Re-read the passage carefully and identify key information',
+            'Look for specific evidence that directly supports the correct answer',
+            'Eliminate options that are only partially correct or off-topic',
+            'Pay attention to qualifying words like "always", "never", "some", "most"',
+            'Consider the main idea vs. specific details when answering',
+          ]
         : [
-          'Review the passage/audio more carefully',
-          'Look for key information that supports the correct answer',
-          'Practice elimination techniques for wrong options',
-        ],
+            'Review the passage/audio more carefully',
+            'Look for key information that supports the correct answer',
+            'Practice elimination techniques for wrong options',
+          ],
     detailedAnalysis: {
       scores: {
         [skillType]: { score: actualScore, max: 1 },
@@ -3673,17 +3731,17 @@ async function evaluateMultipleChoiceMultiple(
       ? ['Excellent! You identified all correct answers.']
       : isReadingQuestion
         ? [
-          'Read the passage thoroughly to identify all relevant information',
-          'Look for multiple pieces of evidence that support different correct answers',
-          'Be careful not to select options that are only partially supported',
-          'Check that each selected option is directly supported by the text',
-          'Consider whether you might have missed any correct options',
-        ]
+            'Read the passage thoroughly to identify all relevant information',
+            'Look for multiple pieces of evidence that support different correct answers',
+            'Be careful not to select options that are only partially supported',
+            'Check that each selected option is directly supported by the text',
+            'Consider whether you might have missed any correct options',
+          ]
         : [
-          'Read all options carefully before selecting',
-          'Look for multiple pieces of evidence in the text/audio',
-          'Avoid selecting options that are only partially correct',
-        ],
+            'Read all options carefully before selecting',
+            'Look for multiple pieces of evidence in the text/audio',
+            'Avoid selecting options that are only partially correct',
+          ],
     detailedAnalysis: {
       scores: {
         [skillType]: { score: correctSelected, max: totalCorrectAnswers },
@@ -3771,13 +3829,13 @@ async function evaluateReorderParagraphs(
     suggestions: isCorrect
       ? ['Excellent! You identified the correct logical flow.']
       : [
-        'Look for logical connectors (however, therefore, meanwhile, etc.)',
-        'Identify the introduction paragraph (usually sets up the topic)',
-        'Find the conclusion paragraph (usually summarizes or concludes)',
-        'Follow chronological order when dealing with events or processes',
-        'Look for pronouns and references that connect to previous paragraphs',
-        'Consider cause-and-effect relationships between ideas',
-      ],
+          'Look for logical connectors (however, therefore, meanwhile, etc.)',
+          'Identify the introduction paragraph (usually sets up the topic)',
+          'Find the conclusion paragraph (usually summarizes or concludes)',
+          'Follow chronological order when dealing with events or processes',
+          'Look for pronouns and references that connect to previous paragraphs',
+          'Consider cause-and-effect relationships between ideas',
+        ],
     detailedAnalysis: {
       scores: {
         reading: { score: correctPairs, max: maxPairs },
@@ -3873,8 +3931,9 @@ async function evaluateFillInTheBlanks(
       .filter(([_, result]: [string, any]) => !result.isCorrect)
       .map(([blankKey, result]: [string, any]) => {
         const blankNumber = blankKey.replace('blank', '');
-        return `Blank ${blankNumber}: You wrote "${result.userAnswer || '(empty)'
-          }", correct answer is "${result.correctAnswer}"`;
+        return `Blank ${blankNumber}: You wrote "${
+          result.userAnswer || '(empty)'
+        }", correct answer is "${result.correctAnswer}"`;
       });
 
     if (incorrectBlanks.length > 0) {
@@ -3891,12 +3950,12 @@ async function evaluateFillInTheBlanks(
     suggestions: isCorrect
       ? ['Great work! You understood the context well.']
       : [
-        'Read the entire passage first to understand the overall meaning',
-        'Look for grammatical clues around each blank (verb forms, articles, etc.)',
-        'Consider the logical flow and meaning of the sentence',
-        'Pay attention to collocations (words that commonly go together)',
-        'Check if your answer fits grammatically and semantically',
-      ],
+          'Read the entire passage first to understand the overall meaning',
+          'Look for grammatical clues around each blank (verb forms, articles, etc.)',
+          'Consider the logical flow and meaning of the sentence',
+          'Pay attention to collocations (words that commonly go together)',
+          'Check if your answer fits grammatically and semantically',
+        ],
     detailedAnalysis: {
       scores: {
         reading: { score: correctCount, max: totalBlanks },
@@ -3928,11 +3987,11 @@ ${questionText}
 
 **Answers:**
 ${Object.entries(blankResults)
-      .map(
-        ([key, val]: any, index) =>
-          `${index + 1}. User="${val.userAnswer}", Correct="${val.correctAnswer}"`,
-      )
-      .join('\n')}
+  .map(
+    ([key, val]: any, index) =>
+      `${index + 1}. User="${val.userAnswer}", Correct="${val.correctAnswer}"`,
+  )
+  .join('\n')}
 
 ### Instructions:
 - Write explanation in structured paragraphs (NOT blank-wise labels)
@@ -3984,22 +4043,22 @@ async function evaluateSummarizeSpokenText(
 ---
 ### **1. Pre-Scoring Evaluation (MANDATORY)**
 **Step A: Keyword/Content Selection:**
-- Identify 5-8 highly relevant keywords or core phrases from the transcript.
-- Check how many of these core keywords/phrases the user successfully included.
+- Identify any 5-8 distinct core phrases, ideas, or points from the transcript.
+- Check how many of these phrases/ideas the user successfully included.
+- **Lenient Matching:** Allow partial matches. If a user includes a significant part of a phrase or ANY valid point from the lecture (whether major or minor), count it as a successful match. They do NOT have to be the most "significant" points.
 
 **Step B: Template Forgiveness (CRITICAL):**
-- PTE machine scoring relies heavily on keyword matching rather than deep semantic logic.
 - **Rule:** Do NOT penalize the user for using generic template structures (e.g., "The lecture was about...", "Firstly, the speaker mentioned...").
 - **Rule:** Do NOT penalize the content score if the logical relationship between the keywords is altered or misrepresented, as long as the correct keywords from the audio are present.
 
 ---
 ### **2. Scoring Rubrics**
-1. **Content (0-4):** Graded purely on the presence of key vocabulary/phrases from the transcript.
-   - 4: Contains 4 or more key phrases/keywords from the transcript.
-   - 3: Contains 3 key phrases/keywords.
-   - 2: Contains 2 key phrases/keywords.
-   - 1: Contains 1 key phrase/keyword.
-   - 0: Contains no relevant keywords.
+1. **Content (0-4):** Graded purely on the presence of transcript-based ideas, phrases, or points. Any accurate idea from the lecture (major or minor) can receive content credit if it is relevant and sufficiently matches the transcript wording.
+4 Marks: Contains 5–6 distinct ideas or points from the lecture. Each content point should be a meaningful phrase or clause of at least 6–8 words, with approximately 70% or more wording overlap with the transcript.
+3 Marks: Contains 3 distinct ideas or points from the lecture. Some content points may be partially complete or less accurately reproduced, but the response still demonstrates clear coverage of multiple lecture ideas.
+2 Marks: Contains 2 distinct ideas or points from the lecture. Content coverage is limited, with only a small portion of the lecture accurately represented.
+1 Mark: Contains 1 distinct idea or point from the lecture. The response shows minimal evidence of lecture content.
+0 Marks: Contains no relevant lecture content, or the content is unrelated, too vague, copied incorrectly, or insufficient to demonstrate any identifiable lecture idea.
 
 2. **Form (0-2):**
    - 2: Contains 50-70 words.
@@ -4007,7 +4066,10 @@ async function evaluateSummarizeSpokenText(
    - 0: Contains less than 40 words or more than 100 words. Summary is written in capital letters, contains no punctuation or consists only of bullet points or very short sentences.
 
 3. **Grammar (0-2):**
-   - Grade Grammar strictly based on structural correctness (e.g., verb tense, articles, clause structure, subject-verb agreement).
+   - Grade Grammar strictly based on structural correctness. You MUST explicitly check for and penalize:
+     1. Subject-Verb Agreement: Identify only clear errors where the subject and finite verb do not agree in number or person. Do not flag gerunds, participles, or adjective phrases as Subject-Verb Agreement errors, as they do not constitute a subject-finite verb mismatch. If a sentence is incomplete, unclear, or missing a main verb, classify it as a sentence structure or missing auxiliary/main verb issue, not an SVA error.
+     2. Articles and Singular/Plural Nouns: Identify missing or incorrect use of a/an before singular countable nouns, incorrect use of an before vowel sounds, and singular/plural noun errors.
+     3. Auxiliary Verbs: Detect missing auxiliary verbs such as is, are, was, were, has, have, and had.
    - **CRITICAL:** DO NOT deduct points from Grammar for spelling mistakes. If a word is misspelled, deduct points from Spelling ONLY, not Grammar.
    - 2: PERFECT grammatical structure. ZERO grammar errors.
    - 1: Contains 1 or more grammatical errors (e.g., wrong tense, subject-verb disagreement) but with no hindrance to communication.
@@ -4028,7 +4090,7 @@ async function evaluateSummarizeSpokenText(
 ---
 ### **3. Error Analysis & Output**
 - **spellingErrors**: Put ALL misspelled or non-existent words here ONLY. NEVER put a spelling mistake in grammarErrors.
-- **grammarErrors**: Perform a strict grammatical proofreading pass. Actively search for ANY subject-verb agreement errors (e.g., plural subject with singular verb like "people is"), wrong tenses, wrong prepositions, or missing articles. Put them all here.
+- **grammarErrors**: Perform a strict grammatical proofreading pass. Actively search for ANY subject-verb agreement errors, wrong tenses, wrong prepositions, missing/incorrect articles (a/an/the), singular/plural noun errors, and missing auxiliary verbs as described in the Grammar rubric. Put them all here.
 - **vocabularyIssues**: Actively search for poor, informal, or unnatural word choices in an academic context (e.g., using "good thing" instead of "benefit"). Put them here.
 **CRITICAL**: If you deduct points for Grammar (score < 2), you MUST list the exact errors in "grammarErrors". If you deduct points for Spelling (score < 2), you MUST list the exact errors in "spellingErrors". If you deduct points for Vocabulary (score < 2), you MUST list the exact errors in "vocabularyIssues". Do NOT deduct points without providing the errors in the arrays!
 **Positioning:** 0-indexed WORD index. Split the User Response by spaces, and provide the exact WORD index. "start" and "end" must be the same for a single word error. DO NOT use character indices! (Example: for the 5th word, position is {"start": 4, "end": 4}).
@@ -4090,20 +4152,26 @@ async function evaluateSummarizeSpokenText(
     }
 
     let grammarScore = scores.grammar || 0;
-    if (evaluation.errorAnalysis?.grammarErrors && evaluation.errorAnalysis.grammarErrors.length > 0) {
+    if (
+      evaluation.errorAnalysis?.grammarErrors &&
+      evaluation.errorAnalysis.grammarErrors.length > 0
+    ) {
       if (grammarScore === 2) grammarScore = 1;
     }
 
     let vocabularyScore = scores.vocabulary || 0;
-    if (evaluation.errorAnalysis?.vocabularyIssues && evaluation.errorAnalysis.vocabularyIssues.length > 0) {
+    if (
+      evaluation.errorAnalysis?.vocabularyIssues &&
+      evaluation.errorAnalysis.vocabularyIssues.length > 0
+    ) {
       if (vocabularyScore === 2) vocabularyScore = 1;
     }
-    
+
     // Enforce spelling score programmatically based on the number of errors
     let spellingScore = scores.spelling || 0;
     if (evaluation.errorAnalysis?.spellingErrors) {
       const errorCount = evaluation.errorAnalysis.spellingErrors.length;
-      spellingScore = Math.max(0, 2 - (errorCount * 0.5));
+      spellingScore = Math.max(0, 2 - errorCount * 0.5);
     }
 
     // Calculate the total achieved score and the total possible score
@@ -4117,11 +4185,17 @@ async function evaluateSummarizeSpokenText(
     );
 
     // Ensure spelling errors are not duplicated in grammar errors
-    if (evaluation.errorAnalysis?.spellingErrors?.length && evaluation.errorAnalysis?.grammarErrors?.length) {
-      const spellingWords = evaluation.errorAnalysis.spellingErrors.map((e: any) => e.text?.toLowerCase());
-      evaluation.errorAnalysis.grammarErrors = evaluation.errorAnalysis.grammarErrors.filter(
-        (ge: any) => !spellingWords.includes(ge.text?.toLowerCase())
+    if (
+      evaluation.errorAnalysis?.spellingErrors?.length &&
+      evaluation.errorAnalysis?.grammarErrors?.length
+    ) {
+      const spellingWords = evaluation.errorAnalysis.spellingErrors.map(
+        (e: any) => e.text?.toLowerCase(),
       );
+      evaluation.errorAnalysis.grammarErrors =
+        evaluation.errorAnalysis.grammarErrors.filter(
+          (ge: any) => !spellingWords.includes(ge.text?.toLowerCase()),
+        );
     }
 
     return {

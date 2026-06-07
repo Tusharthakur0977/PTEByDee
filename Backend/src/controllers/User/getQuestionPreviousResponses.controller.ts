@@ -48,6 +48,8 @@ export const getQuestionPreviousResponses = asyncHandler(
         select: {
           id: true,
           questionCode: true,
+          textContent: true,
+          questionStatement: true,
           questionType: {
             include: {
               pteSection: true,
@@ -144,6 +146,7 @@ export const getQuestionPreviousResponses = asyncHandler(
             questionCode: question.questionCode,
             questionType: question.questionType.name,
             sectionName: question.questionType.pteSection.name,
+            questionText: question.textContent || question.questionStatement || question.questionCode,
           },
           responses: formattedResponses,
           pagination: {

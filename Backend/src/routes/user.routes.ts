@@ -25,6 +25,7 @@ import {
 import {
   getUserResponses,
   getUserResponseStats,
+  getSharedResponse,
 } from '../controllers/User/getUserResponses.controller';
 import { submitPracticeResponse } from '../controllers/User/submitPracticeResponse.controller';
 import { submitQuestionResponse } from '../controllers/User/submitQuestionResponse.controller';
@@ -58,6 +59,7 @@ router.get(
   protect,
   getQuestionResponseStats
 );
+router.get('/shared-responses/:id', getSharedResponse);
 
 // Protected routes (User Profile Management)
 router

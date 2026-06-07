@@ -17,6 +17,14 @@ interface ScoreItem {
   max?: number;
 }
 
+const getScoreColor = (score: number, maxScore: number) => {
+  const percentage = maxScore > 0 ? (score / maxScore) * 100 : 0;
+
+  if (percentage >= 80) return 'text-emerald-400';
+  if (percentage >= 60) return 'text-amber-400';
+  return 'text-rose-400';
+};
+
 const formatDate = (dateString?: string) => {
   if (!dateString) return 'Unknown date';
 
@@ -121,6 +129,31 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
                 Review the answer, correct response, and score breakdown in one
                 place.
               </p>
+              {(() => {
+                const qCode =
+                  response.questionCode ||
+                  (response as any)?.question?.questionCode;
+                const qText =
+                  response.questionText ||
+                  (response as any)?.question?.questionText;
+                if (!qCode && !qText) return null;
+                return (
+                  <div className='mt-3 max-w-3xl rounded-xl border border-slate-200/60 bg-white/40 p-3 backdrop-blur-sm dark:border-slate-700/50 dark:bg-slate-900/40'>
+                    {qCode && (
+                      <div className='mb-1 flex items-center gap-2'>
+                        <span className='rounded bg-slate-200/50 px-2 py-0.5 text-xs font-semibold text-slate-700 dark:bg-slate-800/50 dark:text-slate-300'>
+                          {qCode}
+                        </span>
+                      </div>
+                    )}
+                    {qText && (
+                      <p className='text-sm italic leading-relaxed text-slate-700 dark:text-slate-300 line-clamp-2 hover:line-clamp-none transition-all'>
+                        "{qText}"
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
               <div className='mt-4 flex flex-wrap gap-3 text-xs'>
                 <span className='rounded-full border border-slate-200 bg-white px-3 py-1.5 text-slate-600 dark:border-white/10 dark:bg-slate-900/80 dark:text-slate-300'>
                   {questionType.replace(/_/g, ' ').toLowerCase()}
@@ -133,6 +166,27 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
                 <span className='rounded-full border border-slate-200 bg-white px-3 py-1.5 text-slate-600 dark:border-white/10 dark:bg-slate-900/80 dark:text-slate-300'>
                   {formatDate((response as any).createdAt)}
                 </span>
+              </div>
+            </div>
+
+            <div className='rounded-3xl border self-start border-slate-200 bg-white px-5 py-4 shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-slate-700/70 dark:bg-slate-900/80 dark:shadow-[0_18px_60px_rgba(15,23,42,0.24)]'>
+              <p className='text-xs uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400'>
+                Total Score
+              </p>
+              <div className='mt-2 flex items-end gap-2'>
+                <span
+                  className={`text-3xl font-semibold ${getScoreColor(
+                    totalScore,
+                    totalMax || 1,
+                  )}`}
+                >
+                  {totalScore}
+                </span>
+                {totalMax > 0 && (
+                  <span className='pb-1 text-sm text-slate-500 dark:text-slate-400'>
+                    / {totalMax}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -155,8 +209,8 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
                       Your Answer
                     </h3>
                     <p className='mt-1 text-sm text-slate-500 dark:text-slate-400'>
-                      Simple one-word or short-phrase response captured from your
-                      recording.
+                      Simple one-word or short-phrase response captured from
+                      your recording.
                     </p>
                   </div>
                 </div>
@@ -203,7 +257,10 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
                 <div className='grid grid-cols-1 gap-6'>
                   <div className='flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700/60 dark:bg-slate-950/40'>
                     <div className='relative flex h-[240px] w-full items-center justify-center'>
-                      <ResponsiveContainer width='100%' height={240}>
+                      <ResponsiveContainer
+                        width='100%'
+                        height={240}
+                      >
                         <PieChart>
                           <Pie
                             data={chartData}
@@ -217,10 +274,17 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
                             dataKey='value'
                           >
                             {chartData.map((entry) => (
-                              <Cell key={entry.name} fill={entry.fill} />
+                              <Cell
+                                key={entry.name}
+                                fill={entry.fill}
+                              />
                             ))}
                           </Pie>
-                          <Tooltip formatter={(value: number) => `${value}/${totalMax}`} />
+                          <Tooltip
+                            formatter={(value: number) =>
+                              `${value}/${totalMax}`
+                            }
+                          />
                         </PieChart>
                       </ResponsiveContainer>
 
@@ -240,8 +304,15 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
 
                   <div className='space-y-3'>
                     {scoreEntries.map((item, index) => {
-                      const palette = ['#38bdf8', '#a78bfa', '#f472b6', '#f59e0b'];
-                      const percentage = Math.round((item.score / item.max) * 100);
+                      const palette = [
+                        '#38bdf8',
+                        '#a78bfa',
+                        '#f472b6',
+                        '#f59e0b',
+                      ];
+                      const percentage = Math.round(
+                        (item.score / item.max) * 100,
+                      );
 
                       return (
                         <div
@@ -253,7 +324,8 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
                               <div
                                 className='h-3 w-3 rounded-full'
                                 style={{
-                                  backgroundColor: palette[index % palette.length],
+                                  backgroundColor:
+                                    palette[index % palette.length],
                                 }}
                               />
                               <span className='text-sm font-medium text-slate-700 dark:text-slate-200'>
@@ -269,7 +341,8 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
                               className='h-2 rounded-full'
                               style={{
                                 width: `${Math.min(100, Math.max(0, percentage))}%`,
-                                backgroundColor: palette[index % palette.length],
+                                backgroundColor:
+                                  palette[index % palette.length],
                               }}
                             />
                           </div>

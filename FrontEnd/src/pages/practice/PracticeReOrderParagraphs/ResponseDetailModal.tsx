@@ -311,14 +311,19 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
                 </div>
                 <div className="flex flex-1 flex-row justify-between gap-6">
                   <div className="space-y-3">
-                    <div>
-                      <h3 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">
-                        Reorder Paragraphs Analysis
-                      </h3>
-                      <p className="mt-1 max-w-2xl text-sm text-slate-600 dark:text-slate-400">
-                        Review your paragraph order and see how many adjacent pairs you got right.
-                      </p>
-                    </div>
+                    {(() => {
+                      const qCode = response.questionCode || (response as any)?.question?.questionCode;
+                      return (
+                        <div>
+                          <h3 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">
+                            {qCode ? qCode : "Reorder Paragraphs Analysis"}
+                          </h3>
+                          <p className="mt-1 max-w-2xl text-sm text-slate-600 dark:text-slate-400">
+                            Review your paragraph order and see how many adjacent pairs you got right.
+                          </p>
+                        </div>
+                      );
+                    })()}
                     <div className="flex flex-wrap items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
                       {typeof questionNumber === 'number' && (
                         <span className="rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-xs font-semibold text-sky-700 dark:text-sky-300">
@@ -331,7 +336,7 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
                     </div>
                   </div>
 
-                  <div className="rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-slate-700/70 dark:bg-slate-900/80 dark:shadow-[0_18px_60px_rgba(15,23,42,0.24)]">
+                  <div className="rounded-3xl self-start border border-slate-200 bg-white px-5 py-4 shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-slate-700/70 dark:bg-slate-900/80 dark:shadow-[0_18px_60px_rgba(15,23,42,0.24)]">
                     <p className="text-xs uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
                       Total Score
                     </p>

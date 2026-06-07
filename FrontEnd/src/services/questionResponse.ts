@@ -43,6 +43,9 @@ export interface PreviousResponse {
   highlightedWords?: string[];
   blanks?: { [key: string]: string };
   questionScore?: number;
+  questionText?: string;
+  questionCode?: string;
+  questionType?: string;
   isCorrect?: boolean;
   aiFeedback?: string;
   detailedAnalysis?: any;
@@ -68,6 +71,7 @@ export interface PreviousResponsesResponse {
     questionCode: string;
     questionType: string;
     sectionName: string;
+    questionText?: string;
   };
   responses: PreviousResponse[];
   pagination: {
@@ -88,6 +92,7 @@ export interface QuestionResponseResult {
     questionCode: string;
     questionType: string;
     sectionName: string;
+    questionText?: string;
   };
   timeTaken: number;
   transcribedText?: string; // For audio responses
@@ -164,7 +169,6 @@ export const getQuestionResponseStats = async (
 };
 
 /**
- * Get question response by ID
  */
 export const getQuestionResponse = async (responseId: string) => {
   const response = await api.get(`/user/questions/responses/${responseId}`);
@@ -176,5 +180,13 @@ export const getQuestionResponse = async (responseId: string) => {
  */
 export const getUserResponsesForQuestion = async (questionId: string) => {
   const response = await api.get(`/user/questions/${questionId}/responses`);
+  return response.data.data;
+};
+
+/**
+ * Get shared question response by ID (Public)
+ */
+export const getSharedQuestionResponse = async (responseId: string) => {
+  const response = await api.get(`/user/shared-responses/${responseId}`);
   return response.data.data;
 };

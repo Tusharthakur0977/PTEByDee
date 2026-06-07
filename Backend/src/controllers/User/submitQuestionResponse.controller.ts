@@ -254,6 +254,7 @@ export const submitQuestionResponse = asyncHandler(
             questionCode: question.questionCode,
             questionType: question.questionType.name,
             sectionName: question.questionType.pteSection.name,
+            questionText: question.textContent || question.questionStatement || question.questionCode,
           },
           timeTaken: timeTakenSeconds || 0,
           transcribedText: transcribedText, // Include transcribed text for frontend display
