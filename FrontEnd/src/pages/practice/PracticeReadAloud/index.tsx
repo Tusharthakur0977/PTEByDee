@@ -239,16 +239,25 @@ const PracticeReadAloud: React.FC = () => {
     wordAnalysis: WordByWordAnalysis[],
     pauseMarkers: PauseMarker[],
   ) => {
-    const spokenWords = String(spokenText || '')
-      .split(/\s+/)
-      .filter((word) => word.length > 0);
+    const analysisWords = Array.isArray(wordAnalysis) ? wordAnalysis : [];
 
-    if (!spokenWords.length && (!wordAnalysis || wordAnalysis.length === 0))
-      return null;
+    if (!analysisWords.length) {
+      const spokenWords = String(spokenText || '')
+        .split(/\s+/)
+        .filter((word) => word.length > 0);
+      if (!spokenWords.length) return null;
+
+      const result = spokenWords.map((word, index) => (
+        <span key={`spoken-${index}`}>
+          <span className='whitespace-pre-wrap'>{word}</span>
+          {index < spokenWords.length - 1 && ' '}
+        </span>
+      ));
+      return <span>{result}</span>;
+    }
 
     const pauseMap = new Map<number, PauseMarker[]>();
     const pauseWordSeverity = new Map<number, PauseMarker['severity']>();
-    const analysisWords = Array.isArray(wordAnalysis) ? wordAnalysis : [];
 
     pauseMarkers.forEach((pause) => {
       const existing = pauseMap.get(pause.afterWordIndex) || [];
@@ -273,19 +282,7 @@ const PracticeReadAloud: React.FC = () => {
     });
 
     const result: React.ReactNode[] = [];
-    const statusByIndex = new Map<number, string>();
-
-    analysisWords.forEach((entry, index) => {
-      const position = (entry as any)?.position;
-      const start =
-        typeof position?.start === 'number' ? Math.floor(position.start) : -1;
-      const status = String(entry?.status || '').toLowerCase();
-      if (start >= 0 && start < spokenWords.length) {
-        statusByIndex.set(start, status);
-      } else if (index >= 0 && index < spokenWords.length) {
-        statusByIndex.set(index, status);
-      }
-    });
+    let spokenWordIndex = -1;
 
     const pushWord = (
       word: string,
@@ -310,7 +307,7 @@ const PracticeReadAloud: React.FC = () => {
           className={`whitespace-pre-wrap ${
             !isPunctuationOnly
               ? `rounded-md px-1 py-0.5 ${getWordStatusClass(status)} ${
-                  wordSeverity
+                  wordSeverity && status !== 'omitted'
                     ? `${getPauseWordClass(wordSeverity)} font-medium`
                     : ''
                 }`
@@ -343,10 +340,22 @@ const PracticeReadAloud: React.FC = () => {
       }
     };
 
-    spokenWords.forEach((word, index) => {
-      pushWord(word, statusByIndex.get(index) || '', `spoken-${index}`, index);
+    analysisWords.forEach((entry, index) => {
+      const word = entry.word || '';
+      const status = String(entry.status || '').toLowerCase();
 
-      if (index < spokenWords.length - 1) {
+      if (status !== 'omitted') {
+        spokenWordIndex++;
+      }
+
+      pushWord(
+        word,
+        status,
+        `word-${index}`,
+        status !== 'omitted' ? spokenWordIndex : undefined,
+      );
+
+      if (index < analysisWords.length - 1) {
         result.push(
           <span
             key={`space-${index}`}
@@ -568,7 +577,9 @@ const PracticeReadAloud: React.FC = () => {
   const handleExit = () => {
     if (window.confirm('Are you sure you want to exit?')) {
       audioRecorderRef.current?.stopAndRelease();
-      window.location.pathname.startsWith('/practiceQuestion') ? navigate(-1) : navigate('/portal');
+      window.location.pathname.startsWith('/practiceQuestion')
+        ? navigate(-1)
+        : navigate('/portal');
     }
   };
 
@@ -578,7 +589,11 @@ const PracticeReadAloud: React.FC = () => {
         <div className='text-center'>
           <p className='text-red-500 text-lg mb-4'>{error}</p>
           <button
-            onClick={() => window.location.pathname.startsWith('/practiceQuestion') ? navigate(-1) : navigate('/portal')}
+            onClick={() =>
+              window.location.pathname.startsWith('/practiceQuestion')
+                ? navigate(-1)
+                : navigate('/portal')
+            }
             className='bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg'
           >
             Back to Portal
@@ -657,63 +672,65 @@ const PracticeReadAloud: React.FC = () => {
           </div>
         </div>
         {!window.location.pathname.startsWith('/practiceQuestion') && (
-        <div className='flex items-center gap-3'>
-                  <div className='relative group'>
-                    <button
-                      onClick={() => setShowDifficultyFilter(!showDifficultyFilter)}
-                      className='p-2 text-gray-300 hover:text-white'
-                      title='Filter by difficulty'
-                    >
-                      <Filter className='w-4 h-4 text-gray-400 dark:text-white' />
-                    </button>
-                    {showDifficultyFilter && (
-                      <div className='absolute right-0 mt-2 w-48 bg-gray-700 rounded-lg shadow-lg p-3 z-50'>
-                        <p className='text-xs text-gray-400 mb-2 font-semibold'>
-                          Difficulty Level
-                        </p>
-                        <div className='space-y-2'>
-                          {(['all', 'EASY', 'MEDIUM', 'HARD'] as const).map((level) => (
-                            <label
-                              key={level}
-                              className='flex items-center gap-2 cursor-pointer'
-                            >
-                              <input
-                                type='radio'
-                                name='difficulty'
-                                value={level}
-                                checked={difficultyLevel === level}
-                                onChange={(e) => {
-                                  setDifficultyLevel(e.target.value as any);
-                                  setShowDifficultyFilter(false);
-                                }}
-                                className='w-4 h-4'
-                              />
-                              <span className='text-white text-sm'>
-                                {level === 'all' ? 'All Levels' : level}
-                              </span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
+          <div className='flex items-center gap-3'>
+            <div className='relative group'>
+              <button
+                onClick={() => setShowDifficultyFilter(!showDifficultyFilter)}
+                className='p-2 text-gray-300 hover:text-white'
+                title='Filter by difficulty'
+              >
+                <Filter className='w-4 h-4 text-gray-400 dark:text-white' />
+              </button>
+              {showDifficultyFilter && (
+                <div className='absolute right-0 mt-2 w-48 bg-gray-700 rounded-lg shadow-lg p-3 z-50'>
+                  <p className='text-xs text-gray-400 mb-2 font-semibold'>
+                    Difficulty Level
+                  </p>
+                  <div className='space-y-2'>
+                    {(['all', 'EASY', 'MEDIUM', 'HARD'] as const).map(
+                      (level) => (
+                        <label
+                          key={level}
+                          className='flex items-center gap-2 cursor-pointer'
+                        >
+                          <input
+                            type='radio'
+                            name='difficulty'
+                            value={level}
+                            checked={difficultyLevel === level}
+                            onChange={(e) => {
+                              setDifficultyLevel(e.target.value as any);
+                              setShowDifficultyFilter(false);
+                            }}
+                            className='w-4 h-4'
+                          />
+                          <span className='text-white text-sm'>
+                            {level === 'all' ? 'All Levels' : level}
+                          </span>
+                        </label>
+                      ),
                     )}
                   </div>
-        
-                  <button
-                    onClick={() => setShowQuestionSidebar(true)}
-                    className='p-2 text-gray-300 hover:text-white'
-                    title='View all questions'
-                  >
-                    <BarChart3 className='w-4 h-4 text-gray-400 dark:text-white' />
-                  </button>
-                  <button
-                    onClick={() => setShowPreviousResponses(true)}
-                    className='flex items-center gap-2 p-2 text-gray-400 text-sm font-semibold'
-                    title='Previous Attempts'
-                  >
-                    <History className='w-4 h-4' />
-                  </button>
                 </div>
-      )}
+              )}
+            </div>
+
+            <button
+              onClick={() => setShowQuestionSidebar(true)}
+              className='p-2 text-gray-300 hover:text-white'
+              title='View all questions'
+            >
+              <BarChart3 className='w-4 h-4 text-gray-400 dark:text-white' />
+            </button>
+            <button
+              onClick={() => setShowPreviousResponses(true)}
+              className='flex items-center gap-2 p-2 text-gray-400 text-sm font-semibold'
+              title='Previous Attempts'
+            >
+              <History className='w-4 h-4' />
+            </button>
+          </div>
+        )}
       </div>
 
       {isLoading && (
@@ -821,7 +838,7 @@ const PracticeReadAloud: React.FC = () => {
                     disabled={
                       isSubmitting || (!isAudioReady && !uploadedAudioUrl)
                     }
-                    className='className="px-6 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 font-semibold transition dark:text-white"'
+                    className='px-6 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 font-semibold transition dark:text-white'
                   >
                     Reset
                   </button>
@@ -1092,54 +1109,60 @@ const PracticeReadAloud: React.FC = () => {
         /* FOOTER NAVIGATION */
       }
       {!window.location.pathname.startsWith('/practiceQuestion') && (
-      <div className='border-t dark:border-gray-700 px-6 py-4 flex justify-between items-center dark:bg-gray-800'>
-              <button
-                onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
-                className='flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded-lg'
-              >
-                <ChevronLeft className='w-4 h-4' />
-                Previous
-              </button>
-      
-              <span className='text-gray-400 text-sm'>
-                {currentIndex + 1} /{' '}
-                {paginationInfo
-                  ? Math.min(questions.length, paginationInfo.total)
-                  : questions.length}
-                {paginationInfo &&
-                  paginationInfo.total > questions.length &&
-                  ` (${paginationInfo.total} total)`}
-              </span>
-      
-              <button
-                onClick={async () => {
-                  const isAtEnd = currentIndex >= questions.length - 1;
-      
-                  if (isAtEnd) {
-                    const oldLength = questions.length;
-                    const loadedCount = await loadMoreQuestions();
-                    if (loadedCount > 0) {
-                      setCurrentIndex(oldLength);
-                    }
-                    return;
-                  }
-      
-                  const nextIndex = Math.min(questions.length - 1, currentIndex + 1);
-                  setCurrentIndex(nextIndex);
-      
-                  // Try to preload more if near the end
-                  if (nextIndex >= questions.length - 2 && paginationInfo?.hasNext) {
-                    await loadMoreQuestions();
-                  }
-                }}
-                disabled={isLoadingMore}
-                className='flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50'
-              >
-                {isLoadingMore ? 'Loading...' : 'Next'}
-                <ChevronRight className='w-4 h-4' />
-              </button>
-            </div>
-    )}
+        <div className='border-t dark:border-gray-700 px-6 py-4 flex justify-between items-center dark:bg-gray-800'>
+          <button
+            onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
+            className='flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded-lg'
+          >
+            <ChevronLeft className='w-4 h-4' />
+            Previous
+          </button>
+
+          <span className='text-gray-400 text-sm'>
+            {currentIndex + 1} /{' '}
+            {paginationInfo
+              ? Math.min(questions.length, paginationInfo.total)
+              : questions.length}
+            {paginationInfo &&
+              paginationInfo.total > questions.length &&
+              ` (${paginationInfo.total} total)`}
+          </span>
+
+          <button
+            onClick={async () => {
+              const isAtEnd = currentIndex >= questions.length - 1;
+
+              if (isAtEnd) {
+                const oldLength = questions.length;
+                const loadedCount = await loadMoreQuestions();
+                if (loadedCount > 0) {
+                  setCurrentIndex(oldLength);
+                }
+                return;
+              }
+
+              const nextIndex = Math.min(
+                questions.length - 1,
+                currentIndex + 1,
+              );
+              setCurrentIndex(nextIndex);
+
+              // Try to preload more if near the end
+              if (
+                nextIndex >= questions.length - 2 &&
+                paginationInfo?.hasNext
+              ) {
+                await loadMoreQuestions();
+              }
+            }}
+            disabled={isLoadingMore}
+            className='flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50'
+          >
+            {isLoadingMore ? 'Loading...' : 'Next'}
+            <ChevronRight className='w-4 h-4' />
+          </button>
+        </div>
+      )}
 
       {/* Modal for wrong word */}
       {selectedError && (

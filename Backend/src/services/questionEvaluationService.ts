@@ -594,8 +594,9 @@ function mergePauseErrorsIntoErrorAnalysis(
   );
 
   pauseErrors.forEach((pauseError) => {
-    const signature = `${String(pauseError?.text || '').toLowerCase()}::${pauseError?.position?.start
-      }`;
+    const signature = `${String(pauseError?.text || '').toLowerCase()}::${
+      pauseError?.position?.start
+    }`;
     if (!existingFluencySignature.has(signature)) {
       merged.fluencyErrors.push(pauseError);
       existingFluencySignature.add(signature);
@@ -626,8 +627,9 @@ function mergeAdditionalFluencyErrors(
   );
 
   additionalFluencyErrors.forEach((error) => {
-    const signature = `${String(error?.text || '').toLowerCase()}::${error?.position?.start
-      }`;
+    const signature = `${String(error?.text || '').toLowerCase()}::${
+      error?.position?.start
+    }`;
     if (!existingSignatures.has(signature)) {
       merged.fluencyErrors.push(error);
       existingSignatures.add(signature);
@@ -731,7 +733,8 @@ function buildRepeatSentenceFluencyFeedback(params: {
   const parts: string[] = [];
   if (fillerErrors.length > 0) {
     parts.push(
-      `Speech included ${fillerErrors.length} fluency signal${fillerErrors.length > 1 ? 's' : ''
+      `Speech included ${fillerErrors.length} fluency signal${
+        fillerErrors.length > 1 ? 's' : ''
       } such as fillers or self-corrections.`,
     );
   }
@@ -857,7 +860,7 @@ Existing Fluency Errors (if any): ${JSON.stringify(existingFluencyErrors)}
           correction: '',
           explanation: String(
             error?.explanation ||
-            'Likely hesitation or pause affecting fluency.',
+              'Likely hesitation or pause affecting fluency.',
           ).trim(),
           meta: {
             category: String(error?.meta?.category || 'hesitation'),
@@ -888,25 +891,25 @@ async function evaluateReadAloud(
     transcriptionWords.length > 0
       ? detectPauseMarkers(transcribedText, transcriptionWords)
       : {
-        pauseErrors: [] as any[],
-        speechFlow: {
-          pauseMarkers: [] as Array<{
-            afterWord: string;
-            beforeWord: string;
-            afterWordIndex: number;
-            beforeWordIndex: number;
-            durationMs: number;
-            durationSeconds: number;
-            severity: 'hesitation' | 'pause' | 'long_pause';
-          }>,
-          totalPauseCount: 0,
-          totalPausedMs: 0,
-          longestPauseMs: 0,
-          timingAvailable: false,
-          timedWordCount: 0,
-          mappedWordCount: 0,
-        },
-      };
+          pauseErrors: [] as any[],
+          speechFlow: {
+            pauseMarkers: [] as Array<{
+              afterWord: string;
+              beforeWord: string;
+              afterWordIndex: number;
+              beforeWordIndex: number;
+              durationMs: number;
+              durationSeconds: number;
+              severity: 'hesitation' | 'pause' | 'long_pause';
+            }>,
+            totalPauseCount: 0,
+            totalPausedMs: 0,
+            longestPauseMs: 0,
+            timingAvailable: false,
+            timedWordCount: 0,
+            mappedWordCount: 0,
+          },
+        };
 
   const prompt = `
     **Your Role:** You are an expert AI evaluator for the PTE Academic test. Your task is to analyze a user's "Read Aloud" speaking performance with extreme precision.
@@ -918,7 +921,12 @@ async function evaluateReadAloud(
 
       **1. Content Analysis:**
       * Compare the transcribedText to the originalText to perform a wordAnalysis.
-      * For each word, assign a status: 'correct', 'mispronounced', 'omitted', or 'inserted'.
+      * CRITICAL: Your wordAnalysis MUST include EVERY SINGLE WORD from the Original Text exactly once, even small words like "a", "the", "in". Do not skip any words from the original text.
+      * For each word in the Original Text, assign a status: 'correct', 'mispronounced', or 'omitted'.
+      * Ignore punctuation differences. If a word matches but the transcription lacks a comma or period (e.g., "Elephants," vs "Elephants"), mark it as 'correct'. Do NOT mark it as omitted or duplicate it.
+      * If a word is substituted or mispronounced (e.g., "ecosystems" read as "ecosystem"), mark the original word as 'mispronounced'. Do NOT also add the spoken word as an 'inserted' word.
+      * If a word from the Original Text is entirely missing, mark it as 'omitted' in wordAnalysis AND add it to 'contentErrors'.
+      * Only mark a word as 'inserted' if it is a truly extra word added by the user that does not replace an existing word.
       * The **Content score** should primarily reflect how much of the original text was spoken correctly in the right order.
       * If the response contains nearly all of the original text and only adds a few extra words, keep the content score high.
       * Extra inserted words should be a minor penalty when the original sentence is otherwise mostly intact.
@@ -1090,11 +1098,7 @@ async function evaluateReadAloud(
         evaluation.feedback?.summary ||
         evaluation.feedback?.content ||
         'Audio response evaluated successfully.',
-      suggestions: evaluation.feedback?.suggestions || [
-        'Practice reading aloud regularly',
-        'Focus on clear pronunciation',
-        'Maintain steady pace and rhythm',
-      ],
+      suggestions: [],
       detailedAnalysis: {
         scores: {
           content: { score: contentScore, max: maxContentScore },
@@ -1114,7 +1118,20 @@ async function evaluateReadAloud(
         correctAnswer: question.textContent || undefined,
         wordByWordAnalysis: wordAnalysis,
         errorAnalysis: correctAudioErrorPositions(
-          evaluation.errorAnalysis,
+          mergePauseErrorsIntoErrorAnalysis(
+            {
+              pronunciationErrors: [
+                ...(evaluation.errorAnalysis?.pronunciationErrors || []),
+              ],
+              fluencyErrors: [
+                ...(evaluation.errorAnalysis?.fluencyErrors || []),
+              ],
+              contentErrors: [
+                ...(evaluation.errorAnalysis?.contentErrors || []),
+              ],
+            },
+            timingAnalysis.pauseErrors,
+          ),
           transcribedText,
         ),
         speechFlow: {
@@ -1178,20 +1195,19 @@ async function evaluateRepeatSentence(
   const transcribedText = String(userResponse?.textResponse || '').trim();
   const originalSentence =
     question.textContent || question.correctAnswers?.[0] || '';
-  const enableFluencyInsights = Boolean(
-    userResponse?.evaluationOptions?.enableFluencyInsights,
-  );
+  const enableFluencyInsights =
+    userResponse?.evaluationOptions?.enableFluencyInsights !== false;
   const transcriptionWords = enableFluencyInsights
     ? getTranscriptionWordsFromResponse(userResponse)
     : [];
   const { pauseErrors, speechFlow } = enableFluencyInsights
     ? detectPauseMarkers(transcribedText, transcriptionWords)
     : {
-      pauseErrors: [] as any[],
-      speechFlow: undefined as
-        | ReturnType<typeof detectPauseMarkers>['speechFlow']
-        | undefined,
-    };
+        pauseErrors: [] as any[],
+        speechFlow: undefined as
+          | ReturnType<typeof detectPauseMarkers>['speechFlow']
+          | undefined,
+      };
 
   const prompt = `
   **Your Role:** You are an expert AI evaluator for the PTE Academic test. Your task is to analyze a user's "Repeat Sentence" speaking performance with extreme precision.
@@ -1203,7 +1219,12 @@ async function evaluateRepeatSentence(
 
   **1. Content Analysis:**
   * Compare the transcribedText to the originalText to perform a wordAnalysis.
+  * CRITICAL: Your wordAnalysis MUST include EVERY SINGLE WORD from the Original Text exactly once, even small words like "a", "the", "in". Do not skip any words from the original text.
   * For each word, assign a status: 'correct', 'mispronounced', 'omitted', or 'inserted'.
+  * Ignore punctuation differences. If a word matches but the transcription lacks a comma or period (e.g., "Elephants," vs "Elephants"), mark it as 'correct'. Do NOT mark it as omitted or duplicate it.
+  * If a word is substituted or mispronounced (e.g., "ecosystems" read as "ecosystem"), mark the original word as 'mispronounced'. Do NOT also add the spoken word as an 'inserted' word.
+  * If a word from the Original Text is entirely missing, you MUST mark it as 'omitted' in wordAnalysis AND add it to 'contentErrors'.
+  * Only mark a word as 'inserted' if it is a truly extra word added by the user that does not replace an existing word.
   * **wordAnalysis order must follow the spoken response order.** Do not move all inserted words to the end of the array. Keep inserted words inline at the point they were spoken.
   * **Important**: Hesitations, mispronounced, filled or unfilled pauses, and leading or trailing material are **not the main driver** of content reduction.
   * **Content should primarily reflect coverage of the original sentence.** If the response contains most of the original words in the correct order and only adds extra words, keep the content score relatively high.
@@ -1256,7 +1277,6 @@ async function evaluateRepeatSentence(
       "content": string,              // Specific feedback on content accuracy
       "pronunciation": string,        // Specific feedback on pronunciation
       "oralFluency": string,          // Specific feedback on fluency
-      "suggestions": [string, ...]    // Actionable improvement tips
     },
     "errorAnalysis": {
       "pronunciationErrors": [
@@ -1335,51 +1355,51 @@ async function evaluateRepeatSentence(
       : baseErrorAnalysis;
     const aiInferredFluencyErrors = enableFluencyInsights
       ? await inferFluencyFromTranscriptWithAI({
-        originalSentence,
-        transcribedText,
-        existingFluencyErrors: timestampMergedErrorAnalysis.fluencyErrors,
-      })
+          originalSentence,
+          transcribedText,
+          existingFluencyErrors: timestampMergedErrorAnalysis.fluencyErrors,
+        })
       : [];
     const mergedErrorAnalysis = enableFluencyInsights
       ? mergeAdditionalFluencyErrors(
-        timestampMergedErrorAnalysis,
-        aiInferredFluencyErrors,
-      )
+          timestampMergedErrorAnalysis,
+          aiInferredFluencyErrors,
+        )
       : timestampMergedErrorAnalysis;
     const inferredPauseMarkers =
       enableFluencyInsights && speechFlow?.pauseMarkers?.length === 0
         ? inferRepeatSentencePauseMarkersFromFluencyErrors({
-          transcribedText,
-          fluencyErrors: mergedErrorAnalysis.fluencyErrors,
-        })
+            transcribedText,
+            fluencyErrors: mergedErrorAnalysis.fluencyErrors,
+          })
         : [];
     const effectiveSpeechFlow =
       enableFluencyInsights && speechFlow
         ? {
-          ...speechFlow,
-          pauseMarkers:
-            speechFlow.pauseMarkers.length > 0
-              ? speechFlow.pauseMarkers
-              : inferredPauseMarkers,
-          totalPauseCount:
-            speechFlow.pauseMarkers.length > 0
-              ? speechFlow.totalPauseCount
-              : inferredPauseMarkers.length,
-          totalPausedMs:
-            speechFlow.pauseMarkers.length > 0
-              ? speechFlow.totalPausedMs
-              : inferredPauseMarkers.reduce(
-                (sum, marker) => sum + marker.durationMs,
-                0,
-              ),
-          longestPauseMs:
-            speechFlow.pauseMarkers.length > 0
-              ? speechFlow.longestPauseMs
-              : inferredPauseMarkers.reduce(
-                (longest, marker) => Math.max(longest, marker.durationMs),
-                0,
-              ),
-        }
+            ...speechFlow,
+            pauseMarkers:
+              speechFlow.pauseMarkers.length > 0
+                ? speechFlow.pauseMarkers
+                : inferredPauseMarkers,
+            totalPauseCount:
+              speechFlow.pauseMarkers.length > 0
+                ? speechFlow.totalPauseCount
+                : inferredPauseMarkers.length,
+            totalPausedMs:
+              speechFlow.pauseMarkers.length > 0
+                ? speechFlow.totalPausedMs
+                : inferredPauseMarkers.reduce(
+                    (sum, marker) => sum + marker.durationMs,
+                    0,
+                  ),
+            longestPauseMs:
+              speechFlow.pauseMarkers.length > 0
+                ? speechFlow.longestPauseMs
+                : inferredPauseMarkers.reduce(
+                    (longest, marker) => Math.max(longest, marker.durationMs),
+                    0,
+                  ),
+          }
         : speechFlow;
     const repeatSentenceOralFluencyFeedback =
       buildRepeatSentenceFluencyFeedback({
@@ -1429,11 +1449,11 @@ async function evaluateRepeatSentence(
         wordByWordAnalysis: wordAnalysis,
         ...(enableFluencyInsights && effectiveSpeechFlow
           ? {
-            speechFlow: {
-              ...effectiveSpeechFlow,
-              aiInferredFluencyCount: aiInferredFluencyErrors.length,
-            },
-          }
+              speechFlow: {
+                ...effectiveSpeechFlow,
+                aiInferredFluencyCount: aiInferredFluencyErrors.length,
+              },
+            }
           : {}),
         errorAnalysis: correctAudioErrorPositions(
           mergedErrorAnalysis,
@@ -1461,11 +1481,11 @@ async function evaluateRepeatSentence(
         wordByWordAnalysis: [],
         ...(enableFluencyInsights && speechFlow
           ? {
-            speechFlow: {
-              ...speechFlow,
-              aiInferredFluencyCount: 0,
-            },
-          }
+              speechFlow: {
+                ...speechFlow,
+                aiInferredFluencyCount: 0,
+              },
+            }
           : {}),
         errorAnalysis: {
           pronunciationErrors: [],
@@ -1646,25 +1666,25 @@ async function evaluateDescribeImage(
       transcriptionWords.length > 0
         ? detectPauseMarkers(transcribedText, transcriptionWords)
         : {
-          pauseErrors: [] as any[],
-          speechFlow: {
-            pauseMarkers: [] as Array<{
-              afterWord: string;
-              beforeWord: string;
-              afterWordIndex: number;
-              beforeWordIndex: number;
-              durationMs: number;
-              durationSeconds: number;
-              severity: 'hesitation' | 'pause' | 'long_pause';
-            }>,
-            totalPauseCount: 0,
-            totalPausedMs: 0,
-            longestPauseMs: 0,
-            timingAvailable: false,
-            timedWordCount: 0,
-            mappedWordCount: 0,
-          },
-        };
+            pauseErrors: [] as any[],
+            speechFlow: {
+              pauseMarkers: [] as Array<{
+                afterWord: string;
+                beforeWord: string;
+                afterWordIndex: number;
+                beforeWordIndex: number;
+                durationMs: number;
+                durationSeconds: number;
+                severity: 'hesitation' | 'pause' | 'long_pause';
+              }>,
+              totalPauseCount: 0,
+              totalPausedMs: 0,
+              longestPauseMs: 0,
+              timingAvailable: false,
+              timedWordCount: 0,
+              mappedWordCount: 0,
+            },
+          };
 
     const mergedErrorAnalysis = mergePauseErrorsIntoErrorAnalysis(
       {
@@ -2382,29 +2402,29 @@ async function evaluateRespondToASituation(
   const timingAnalysis =
     transcriptionWords.length > 0
       ? detectPauseMarkers(transcribedText, transcriptionWords, {
-        pauseSeconds: 1,
-        longPauseSeconds: 1.6,
-      })
+          pauseSeconds: 1,
+          longPauseSeconds: 1.6,
+        })
       : {
-        pauseErrors: [] as any[],
-        speechFlow: {
-          pauseMarkers: [] as Array<{
-            afterWord: string;
-            beforeWord: string;
-            afterWordIndex: number;
-            beforeWordIndex: number;
-            durationMs: number;
-            durationSeconds: number;
-            severity: 'hesitation' | 'pause' | 'long_pause';
-          }>,
-          totalPauseCount: 0,
-          totalPausedMs: 0,
-          longestPauseMs: 0,
-          timingAvailable: false,
-          timedWordCount: 0,
-          mappedWordCount: 0,
-        },
-      };
+          pauseErrors: [] as any[],
+          speechFlow: {
+            pauseMarkers: [] as Array<{
+              afterWord: string;
+              beforeWord: string;
+              afterWordIndex: number;
+              beforeWordIndex: number;
+              durationMs: number;
+              durationSeconds: number;
+              severity: 'hesitation' | 'pause' | 'long_pause';
+            }>,
+            totalPauseCount: 0,
+            totalPausedMs: 0,
+            longestPauseMs: 0,
+            timingAvailable: false,
+            timedWordCount: 0,
+            mappedWordCount: 0,
+          },
+        };
   const prompt = `
     **Your Role:** You are an expert AI evaluator for the PTE Academic test. Your task is to analyze a user's "Respond to a Situation" speaking performance with extreme precision.
 
@@ -2740,8 +2760,9 @@ function evaluateAnswerShortQuestion(
         type: 'content',
         position: { start: 0, end: 1 },
         correction: correctAnswers?.[0] || 'Expected answer',
-        explanation: `Incorrect answer. Expected one of: ${correctAnswers?.join(', ') || 'correct answer'
-          }`,
+        explanation: `Incorrect answer. Expected one of: ${
+          correctAnswers?.join(', ') || 'correct answer'
+        }`,
       });
     }
 
@@ -2968,16 +2989,14 @@ Return ONLY a single, minified JSON object. No markdown wrapping. No trailing te
       maxContentScore + maxFormScore + maxGrammarScore + maxVocabularyScore;
 
     const overallScore = Math.max(0, totalAchievedScore - copyPastePenalty);
-    const percentageScore = Math.round(
-      (overallScore / totalMaxScore) * 100,
-    );
+    const percentageScore = Math.round((overallScore / totalMaxScore) * 100);
 
     if (copyPastePenalty > 0) {
       if (!evaluation.suggestions) {
         evaluation.suggestions = [];
       }
       evaluation.suggestions.push(
-        "Note: 1 mark was deducted for directly copy-pasting phrases from the text. Try to use your own words (at least 3-4 synonyms per phrase).",
+        'Note: 1 mark was deducted for directly copy-pasting phrases from the text. Try to use your own words (at least 3-4 synonyms per phrase).',
       );
     }
 
@@ -4290,12 +4309,12 @@ async function evaluateHighlightIncorrectWords(
   const mappingInfo =
     wordMapping.length > 0
       ? wordMapping.map((mapping: any) => ({
-        correct: mapping.correct,
-        incorrect: mapping.incorrect,
-        wasHighlighted: cleanedHighlighted.includes(
-          cleanWord(mapping.incorrect),
-        ),
-      }))
+          correct: mapping.correct,
+          incorrect: mapping.incorrect,
+          wasHighlighted: cleanedHighlighted.includes(
+            cleanWord(mapping.incorrect),
+          ),
+        }))
       : [];
 
   // Use correct/total format like Fill in the Blanks
@@ -4511,22 +4530,26 @@ async function evaluateWriteFromDictation(
     isCorrect,
     feedback:
       correctWordCount === correctWords.length &&
-        extraWordsInResponse.length === 0 &&
-        spellingMistakes.length === 0
+      extraWordsInResponse.length === 0 &&
+      spellingMistakes.length === 0
         ? `Perfect! You typed all ${correctWords.length} words correctly.`
-        : `You typed ${correctWordCount} out of ${correctWords.length
-        } words correctly.${spellingMistakes.length > 0
-          ? ` Spelling mistakes: ${spellingMistakes
-            .map((m) => `"${m.userWord}" → "${m.correctWord}"`)
-            .join(', ')}.`
-          : ''
-        }${missingWords.length > 0
-          ? ` Missing: ${missingWords.join(', ')}.`
-          : ''
-        }${extraWordsInResponse.length > 0
-          ? ` Extra words: ${extraWordsInResponse.join(', ')}.`
-          : ''
-        } `,
+        : `You typed ${correctWordCount} out of ${
+            correctWords.length
+          } words correctly.${
+            spellingMistakes.length > 0
+              ? ` Spelling mistakes: ${spellingMistakes
+                  .map((m) => `"${m.userWord}" → "${m.correctWord}"`)
+                  .join(', ')}.`
+              : ''
+          }${
+            missingWords.length > 0
+              ? ` Missing: ${missingWords.join(', ')}.`
+              : ''
+          }${
+            extraWordsInResponse.length > 0
+              ? ` Extra words: ${extraWordsInResponse.join(', ')}.`
+              : ''
+          } `,
     suggestions: [
       'Focus on spelling accuracy',
       'Listen for punctuation cues in the audio',
@@ -4540,8 +4563,8 @@ async function evaluateWriteFromDictation(
       feedback: {
         summary:
           correctWordCount === correctWords.length &&
-            extraWordsInResponse.length === 0 &&
-            spellingMistakes.length === 0
+          extraWordsInResponse.length === 0 &&
+          spellingMistakes.length === 0
             ? `Perfect! You typed all ${correctWords.length} words correctly.`
             : `You typed ${correctWordCount} out of ${correctWords.length} words correctly.`,
       },
@@ -4615,10 +4638,10 @@ async function evaluateHighlightCorrectSummary(
     suggestions: isCorrect
       ? ['Excellent listening comprehension!']
       : [
-        'Focus on main ideas rather than details',
-        'Listen for the overall theme and purpose',
-        'Practice identifying key information in audio content',
-      ],
+          'Focus on main ideas rather than details',
+          'Listen for the overall theme and purpose',
+          'Practice identifying key information in audio content',
+        ],
     detailedAnalysis: {
       scores: {
         listening: { score, max: 1 },
@@ -4691,10 +4714,10 @@ async function evaluateSelectMissingWord(
     suggestions: isCorrect
       ? ['Great listening skills!']
       : [
-        'Pay attention to context and meaning',
-        'Listen for grammatical clues',
-        'Consider the logical flow of the sentence',
-      ],
+          'Pay attention to context and meaning',
+          'Listen for grammatical clues',
+          'Consider the logical flow of the sentence',
+        ],
     detailedAnalysis: {
       scores: {
         listening: { score, max: 1 },
@@ -4837,8 +4860,9 @@ async function evaluateListeningFillInTheBlanks(
         type: 'spelling',
         position: { start: 0, end: 1 },
         correction: correctAnswer,
-        explanation: `Incorrect word for blank ${index + 1
-          }. Expected: "${correctAnswer}"`,
+        explanation: `Incorrect word for blank ${
+          index + 1
+        }. Expected: "${correctAnswer}"`,
       });
     }
   });
@@ -4939,8 +4963,9 @@ async function generateListeningFillInTheBlanksAIFeedback(
     feedback += '\n\nSpecific areas to focus on:\n';
     incorrectBlanks.forEach(([blankKey, result]: [string, any]) => {
       const blankNumber = blankKey.replace('blank', '');
-      feedback += `• Blank ${blankNumber}: You wrote "${result.userAnswer || '(empty)'
-        }", but the correct answer is "${result.correctAnswer} "\n`;
+      feedback += `• Blank ${blankNumber}: You wrote "${
+        result.userAnswer || '(empty)'
+      }", but the correct answer is "${result.correctAnswer} "\n`;
     });
   }
 
@@ -4982,10 +5007,11 @@ ${textContent || 'No passage provided'}
 ${questionStatement || 'No specific question statement'}
 
 **All Answer Options:**
-${allOptions
-        ? allOptions.map((opt: any) => `• ${opt.text}`).join('\n')
-        : 'Options not available'
-      }
+${
+  allOptions
+    ? allOptions.map((opt: any) => `• ${opt.text}`).join('\n')
+    : 'Options not available'
+}
 
 **Your Answer:** ${selectedAnswer}
 **Correct Answer:** ${correctAnswer}
@@ -4993,9 +5019,10 @@ ${allOptions
 ${isCorrect ? "The user's answer is CORRECT." : "The user's answer is INCORRECT."}
 
 Provide a brief explanation (2-3 lines maximum):
-${!isCorrect &&
-      `Explain why the correct answer is right with evidence from the passage, and explain why their selected answer was wrong or what they missed.`
-      }
+${
+  !isCorrect &&
+  `Explain why the correct answer is right with evidence from the passage, and explain why their selected answer was wrong or what they missed.`
+}
 
 IMPORTANT RULES:
 - Always refer to the user in **second person** only.
@@ -5073,17 +5100,20 @@ ${textContent || 'No passage provided'}
 ${questionStatement || 'No specific question statement'}
 
 **All Answer Options:**
-${allOptions
-        ? allOptions.map((opt: any) => `• ${opt.text}`).join('\n')
-        : 'Options not available'
-      }
+${
+  allOptions
+    ? allOptions.map((opt: any) => `• ${opt.text}`).join('\n')
+    : 'Options not available'
+}
 
 **Your Selected Answers:** ${selectedAnswers.join(', ')}
 **Correct Answers:** ${correctAnswers.join(', ')}
-**Incorrectly Selected:** ${incorrectlySelected.length > 0 ? incorrectlySelected.join(', ') : 'None'
-      }
-**Answers You Missed:** ${missedCorrect.length > 0 ? missedCorrect.join(', ') : 'None'
-      }
+**Incorrectly Selected:** ${
+      incorrectlySelected.length > 0 ? incorrectlySelected.join(', ') : 'None'
+    }
+**Answers You Missed:** ${
+      missedCorrect.length > 0 ? missedCorrect.join(', ') : 'None'
+    }
 
 Provide a brief explanation (3-4 lines maximum) that:
 1. Explains why each correct answer is right with specific evidence from the passage
@@ -5247,10 +5277,11 @@ ${questionStatement || 'No specific question statement'}
 ${audioTranscript || 'Transcript not available'}
 
 **All Answer Options:**
-${allOptions
-        ? allOptions.map((opt: any) => `• ${opt.text}`).join('\n')
-        : 'Options not available'
-      }
+${
+  allOptions
+    ? allOptions.map((opt: any) => `• ${opt.text}`).join('\n')
+    : 'Options not available'
+}
 
 **Your Answer:** ${selectedAnswer}
 **Correct Answer:** ${correctAnswer}
@@ -5258,21 +5289,23 @@ ${allOptions
 ${isCorrect ? "The user's answer is CORRECT." : "The user's answer is INCORRECT."}
 
 Provide a brief explanation (2-3 lines maximum):
-${isCorrect
-        ? `Congratulate them on their correct answer and explain why this answer is right with evidence from the audio.`
-        : `Explain why the correct answer is right with evidence from the audio, and explain why their selected answer was wrong or what they missed.`
-      }
+${
+  isCorrect
+    ? `Congratulate them on their correct answer and explain why this answer is right with evidence from the audio.`
+    : `Explain why the correct answer is right with evidence from the audio, and explain why their selected answer was wrong or what they missed.`
+}
 
 IMPORTANT RULES:
 - Always refer to the user in **second person** only.
-${isCorrect
-        ? `- Use encouraging phrases like:
+${
+  isCorrect
+    ? `- Use encouraging phrases like:
   - "Correct! You selected the right answer because..."
   - "Well done! The correct answer is..."`
-        : `- Use phrases like:
+    : `- Use phrases like:
   - "Your answer was incorrect because..."
   - "Your selection was incomplete because..."`
-      }
+}
 - NEVER use:
   - "My answer"
   - "I selected"
@@ -5333,11 +5366,11 @@ async function generateDynamicExplanationListeningFillBlanks(params: {
     const incorrectBlanksText =
       allIncorrectBlanks && allIncorrectBlanks.length > 1
         ? `\n\nOther incorrect answers:\n${allIncorrectBlanks
-          .map(
-            (b: any) =>
-              `• You wrote: "${b.userAnswer}", Correct: "${b.correctAnswer}"`,
-          )
-          .join('\n')}`
+            .map(
+              (b: any) =>
+                `• You wrote: "${b.userAnswer}", Correct: "${b.correctAnswer}"`,
+            )
+            .join('\n')}`
         : '';
 
     const prompt = `
@@ -5441,29 +5474,32 @@ ${questionStatement || 'No specific question statement'}
 ${audioTranscript || 'Transcript not available'}
 
 **All Answer Options:**
-${allOptions
-        ? allOptions.map((opt: any) => `• ${opt.text}`).join('\n')
-        : 'Options not available'
-      }
+${
+  allOptions
+    ? allOptions.map((opt: any) => `• ${opt.text}`).join('\n')
+    : 'Options not available'
+}
 
 **Correct Answers:** ${correctAnswers
-        .map((ans: string) => `"${ans}"`)
-        .join(', ')}
+      .map((ans: string) => `"${ans}"`)
+      .join(', ')}
 **Your Selected Answers:** ${selectedAnswers
+      .map((ans: string) => `"${ans}"`)
+      .join(', ')}
+${
+  incorrectlySelected && incorrectlySelected.length > 0
+    ? `**Incorrectly Selected:** ${incorrectlySelected
         .map((ans: string) => `"${ans}"`)
-        .join(', ')}
-${incorrectlySelected && incorrectlySelected.length > 0
-        ? `**Incorrectly Selected:** ${incorrectlySelected
-          .map((ans: string) => `"${ans}"`)
-          .join(', ')}`
-        : ''
-      }
-${missedCorrect && missedCorrect.length > 0
-        ? `**Answers You Missed:** ${missedCorrect
-          .map((ans: string) => `"${ans}"`)
-          .join(', ')}`
-        : ''
-      }
+        .join(', ')}`
+    : ''
+}
+${
+  missedCorrect && missedCorrect.length > 0
+    ? `**Answers You Missed:** ${missedCorrect
+        .map((ans: string) => `"${ans}"`)
+        .join(', ')}`
+    : ''
+}
 
 Provide a brief explanation (2-3 lines maximum) that:
 1. Clearly states which answers are correct and why with evidence from the audio

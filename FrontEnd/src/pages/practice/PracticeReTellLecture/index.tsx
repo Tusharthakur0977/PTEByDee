@@ -383,6 +383,26 @@ const PracticeReTellLecture: React.FC = () => {
     return 'text-red-600 dark:text-red-400';
   };
 
+  const fluencySignals = Array.from(
+    new Map(
+      (
+        evaluationResult?.evaluation?.detailedAnalysis?.errorAnalysis
+          ?.fluencyErrors || []
+      )
+        .filter((error: any) => error?.text || error?.explanation)
+        .map((error: any) => [
+          `${String(error?.text || '').toLowerCase()}::${String(
+            error?.explanation || '',
+          ).toLowerCase()}`,
+          {
+            text: String(error?.text || '').trim(),
+            explanation: String(error?.explanation || '').trim(),
+            type: String(error?.type || 'fluency'),
+          },
+        ]),
+    ).values(),
+  );
+
   return (
     <div className='min-h-[calc(100vh-65px)] bg-gradient-to-br dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex flex-col'>
       {/* HEADER */}
@@ -753,6 +773,34 @@ const PracticeReTellLecture: React.FC = () => {
                           <p className='mt-3 text-sm text-gray-500 dark:text-gray-400'>
                             No pause gaps were detected for this attempt.
                           </p>
+                        )}
+
+                        {fluencySignals.length > 0 && (
+                          <div className='rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-900/50 mt-3'>
+                            <p className='mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400'>
+                              Fluency signals
+                            </p>
+                            <div className='space-y-2'>
+                              {fluencySignals.map((signal: any, index: number) => (
+                                <div
+                                  key={`${signal.text}-${index}`}
+                                  className='flex items-start gap-2 text-xs text-slate-700 dark:text-slate-300'
+                                >
+                                  <span className='mt-1 h-2 w-2 rounded-full bg-yellow-500 flex-none' />
+                                  <div>
+                                    <span className='font-semibold'>
+                                      {signal.text || 'Fluency note'}
+                                    </span>
+                                    {signal.explanation ? (
+                                      <span className='ml-1 text-slate-500 dark:text-slate-400'>
+                                        - {signal.explanation}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                         )}
                       </div>
                     </div>
