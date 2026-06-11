@@ -3306,8 +3306,8 @@ Your objective is to evaluate the essay similarly to real PTE AI scoring behavio
 
 **SEMANTIC TOPIC RELEVANCE DETECTOR (MOST IMPORTANT)**
 **CRITICAL RULE:** Evaluate Content using semantic meaning, relevant idea chains, topic-focused continuation, NOT advanced vocabulary, paragraph sophistication, or memorized academic style.
-- **VALID IDEA CHUNKS:** A valid idea chunk is a topic-relevant concept, explanation, example, or continuation of the essay's main argument. These may appear in simple language, repeated naturally, using synonyms, or inside template-based structure.
-- **IMPORTANT: REPEATED TOPIC WORDS ARE ACCEPTABLE.** Do NOT heavily penalize repeated keywords, repeated topic nouns, or simple vocabulary IF the essay remains highly relevant, logically connected, and semantically consistent. Real PTE AI often rewards semantic repetition because it strengthens topical relevance.
+- **VALID IDEA CHUNKS:** A valid idea chunk is a topic-relevant concept, explanation, example, or continuation of the essay's main argument. These may appear in simple language, using synonyms, or inside template-based structure.
+- **IMPORTANT: REPEATED TOPIC WORDS ARE ACCEPTABLE.** Do NOT heavily penalize repeated keywords or simple vocabulary. However, if the student repeats the EXACT SAME full sentences or phrases unnecessarily (e.g., repeating the same sentence back-to-back), the Content score MUST be reduced.
 
 **POSITION CONSISTENCY DETECTOR (VERY IMPORTANT)**
 For opinion-based essays: The AI MUST detect:
@@ -3316,7 +3316,8 @@ For opinion-based essays: The AI MUST detect:
 (Examples: Agree/disagree, Advantages/disadvantages, Discussion/opinion essays)
 
 **HIGH CONTENT SCORES SHOULD BE GIVEN IF:**
-The essay answers the question directly and uses a standard PTE template structure (e.g., Intro, Body 1, Body 2, Conclusion). Template-based essays that fill in the blanks with relevant topic words and simple, logical reasons MUST receive a 6/6 for Content. Do not penalize for the use of memorized templates, repetitive ideas, or basic vocabulary as long as the topic is addressed logically.
+The essay answers the question directly, covers ALL parts of the prompt, and discusses the topic comprehensively with distinct, non-repetitive points. Essays that provide relevant topic words, diverse examples, and logical reasons MUST receive a 6/6 for Content. 
+**REPETITION PENALTY:** While repeating topic keywords is acceptable, if the essay heavily repeats the exact same phrases or full sentences (e.g., repeating an entire clause with only one word changed) or fails to provide sufficient unique content, you MUST cap the Content score at 4 or 5 depending on the severity of the repetition.
 
 **LOW CONTENT SCORE TRIGGERS (STRICT)**
 Assign a Content score of 0 ONLY if the essay is entirely off-topic (e.g., the prompt asks about Topic A, but the essay never mentions Topic A and talks about a completely unrelated subject) or consists of completely random words ("the and to is"). If the essay uses the correct keywords but makes nonsensical statements, it should score a 3/6, not a 0.
@@ -3337,11 +3338,11 @@ If the essay contains ANY of the following flaws, you MUST apply these maximum s
 ### **2. Scoring Rubrics**
 
 **1. CONTENT (0-6)**
-- **6 (Excellent Relevance & Consistency):** Clear position/opinion. The essay uses a clear template or structure, integrates the topic and simple reasons effectively, and addresses the main parts of the prompt. Give a 6 if the user has written a standard 4-paragraph essay that fully addresses the prompt's main keywords with logical (even if simple) explanations.
-- **5 (Strong Relevance):** Mostly addresses the topic but clearly misses a key aspect of the prompt (e.g., the prompt asks about three things, but the essay only discusses two of them).
-- **4 (Adequate Relevance):** The general topic is addressed, but the explanations are very weak, vague, or disjointed (e.g., circular logic without providing any real reasons).
-- **3 (Partial Relevance):** Mentions the topic keywords, but the template is filled with sentences that are nonsensical, bizarre, or barely connect to the actual question.
-- **2 (Weak Relevance):** Barely mentions the topic keywords, mostly relying on generic template words without meaningful fill-ins.
+- **6 (Excellent Relevance & Consistency):** Clear position/opinion. The essay effectively addresses the prompt, integrates the topic and simple reasons logically, and covers all main parts of the prompt with distinct ideas. Give a 6 ONLY if the user fully addresses all prompt questions with sufficient unique, non-repetitive explanations.
+- **5 (Strong Relevance):** Mostly addresses the topic but clearly misses a key aspect of the prompt, or relies on noticeable repetition of the exact same ideas/phrases.
+- **4 (Adequate Relevance):** The general topic is addressed, but the explanations are very weak, vague, disjointed, or highly repetitive without adding new information.
+- **3 (Partial Relevance):** Mentions the topic keywords, but the essay contains sentences that are nonsensical, bizarre, or barely connect to the actual question.
+- **2 (Weak Relevance):** Barely mentions the topic keywords, providing almost no meaningful relevant information.
 - **1 (Minimal Relevance):** Very little topic-related information.
 - **0 (Off-topic):** Does not mention the topic keywords at all, discusses an entirely different subject from start to finish, or is completely gibberish.
 
@@ -3365,7 +3366,12 @@ Start from 2. Deduct approx 0.2 per significant grammar issue.
 - **Minor grammar issues:** should not heavily reduce score if meaning remains understandable.
 - **Repeated identical grammar mistakes:** should not be penalized repeatedly.
 - **The system should NOT detect these as grammar mistakes:** template structures, basic connectors, simple sentences, or natural repetition.
-- **Grammar penalties should focus mainly on:** incorrect sentence structure, wrong verb forms, tense errors, subject-verb agreement errors in the specific words the user added to the template. Ensure these genuine errors are returned in the errorAnalysis array.
+- **Grammar penalties should focus mainly on:** incorrect sentence structure, wrong verb forms, tense errors, subject-verb agreement errors in the specific words the user added to the template. 
+- **CRITICAL FOR ERROR ANALYSIS:** While scoring can be lenient, you MUST strictly identify and return ALL grammar, punctuation, and structural errors in the \`errorAnalysis.grammarErrors\` array for student feedback. This explicitly includes:
+  1. **Paragraph Endings (MANDATORY CHECK):** Look at the very last word of EVERY paragraph. If it is missing a full stop, or if the sentence is abruptly cut off (e.g., ends with "well-reasoned" without a noun or period), you MUST log an error for "Incomplete sentence / Missing full stop".
+  2. **Missing words:** (e.g., "This because" instead of "This is because").
+  3. **Singular/plural errors or unnatural phrasing:** (e.g., "our life" instead of "our lives").
+  You MUST return these errors in \`errorAnalysis.grammarErrors\` with clear explanations, even if you do not deduct points for them.
 
 **5. GENERAL LINGUISTIC RANGE (0-6)**
 IMPORTANT: Evaluate ability to express ideas according to PTE algorithms, which reward error-free template usage.
@@ -3398,6 +3404,7 @@ Start from 2. Deduct approx 0.5 per genuine spelling error.
 - **CROSS-ARRAY BAN:** A single word/index MUST NOT appear in both arrays. If you find a misspelled word that also causes a grammar issue, categorize it ONLY as a spelling error to avoid double-penalizing the student's feedback.
 **Positioning:** 0-indexed. Split on whitespace.
 **Error Object:** {"text":"","type":"","position":{"start":0,"end":0},"context":{"before":"","after":""},"correction":"","explanation":""}
+- **IMPORTANT:** If the error type is an unnecessary word, repetition, or an item that should be deleted, the "correction" field MUST be left completely empty (e.g., "correction": ""). Do NOT provide the exact same text back as the correction.
 
 **Format:** Return ONLY minified JSON.
 {
@@ -4073,7 +4080,7 @@ async function evaluateSummarizeSpokenText(
 ---
 ### **2. Scoring Rubrics**
 1. **Content (0-4):** Graded purely on the presence of transcript-based ideas, phrases, or points. Any accurate idea from the lecture (major or minor) can receive content credit if it is relevant and sufficiently matches the transcript wording.
-4 Marks: Contains 5–6 distinct ideas or points from the lecture. Each content point should be a meaningful phrase or clause of at least 6–8 words, with approximately 70% or more wording overlap with the transcript.
+4 Marks: Contains 4 or more distinct ideas or points from the lecture. Each content point should be a meaningful phrase or clause of at least 6–8 words, with approximately 70% or more wording overlap with the transcript.
 3 Marks: Contains 3 distinct ideas or points from the lecture. Some content points may be partially complete or less accurately reproduced, but the response still demonstrates clear coverage of multiple lecture ideas.
 2 Marks: Contains 2 distinct ideas or points from the lecture. Content coverage is limited, with only a small portion of the lecture accurately represented.
 1 Mark: Contains 1 distinct idea or point from the lecture. The response shows minimal evidence of lecture content.
@@ -4107,9 +4114,14 @@ async function evaluateSummarizeSpokenText(
    - 4 or more spelling errors = 0
 
 ---
+---
 ### **3. Error Analysis & Output**
-- **spellingErrors**: Put ALL misspelled or non-existent words here ONLY. NEVER put a spelling mistake in grammarErrors.
-- **grammarErrors**: Perform a strict grammatical proofreading pass. Actively search for ANY subject-verb agreement errors, wrong tenses, wrong prepositions, missing/incorrect articles (a/an/the), singular/plural noun errors, and missing auxiliary verbs as described in the Grammar rubric. Put them all here.
+**ARRAY EXCLUSIVITY RULE (CRITICAL):**
+- **spellingErrors ONLY:** If a word is wrong because of its spelling (e.g., "achieveing", "expectamncy", "knowladge"), it belongs HERE and ONLY here. NEVER put a spelling mistake in grammarErrors.
+- **grammarErrors ONLY:** If a word is spelled correctly but used incorrectly grammatically, it belongs HERE.
+- **CROSS-ARRAY BAN:** A single word/index MUST NOT appear in both arrays. If a misspelled word also causes a grammar issue, categorize it ONLY as a spelling error.
+
+- **grammarErrors**: Perform a strict grammatical proofreading pass. Actively search for ANY subject-verb agreement errors, double verb errors (e.g., "was were reduce"), wrong tenses (e.g., "were reduce" instead of "were reduced"), wrong prepositions, missing/incorrect articles (a/an/the), singular/plural noun errors, and missing auxiliary verbs. You MUST also check EVERY verb following an auxiliary ("is", "was", "were", "are", "has", "have", "had") to ensure it is in the correct tense/passive form (e.g., "was underlines" must be flagged and corrected to "was underlined"). Put all grammar errors here.
 - **vocabularyIssues**: Actively search for poor, informal, or unnatural word choices in an academic context (e.g., using "good thing" instead of "benefit"). Put them here.
 **CRITICAL**: If you deduct points for Grammar (score < 2), you MUST list the exact errors in "grammarErrors". If you deduct points for Spelling (score < 2), you MUST list the exact errors in "spellingErrors". If you deduct points for Vocabulary (score < 2), you MUST list the exact errors in "vocabularyIssues". Do NOT deduct points without providing the errors in the arrays!
 **Positioning:** 0-indexed WORD index. Split the User Response by spaces, and provide the exact WORD index. "start" and "end" must be the same for a single word error. DO NOT use character indices! (Example: for the 5th word, position is {"start": 4, "end": 4}).
