@@ -3317,7 +3317,7 @@ For opinion-based essays: The AI MUST detect:
 
 **HIGH CONTENT SCORES SHOULD BE GIVEN IF:**
 The essay answers the question directly, covers ALL parts of the prompt, and discusses the topic comprehensively with distinct, non-repetitive points. Essays that provide relevant topic words, diverse examples, and logical reasons MUST receive a 6/6 for Content. 
-**REPETITION PENALTY:** While repeating topic keywords is acceptable, if the essay heavily repeats the exact same phrases or full sentences (e.g., repeating an entire clause with only one word changed) or fails to provide sufficient unique content, you MUST cap the Content score at 4 or 5 depending on the severity of the repetition.
+**REPETITION & TEMPLATE PENALTY:** While repeating topic keywords or using templates is acceptable, the user MUST explicitly state their opinion (if asked) and address the core topic. If they use a template but fail to address all parts of the prompt, or if the original content is logically flawed, you MUST cap the Content score at 2 or 3 depending on severity. If the essay heavily repeats the exact same phrases, cap the Content score at 4 or 5.
 
 **LOW CONTENT SCORE TRIGGERS (STRICT)**
 Assign a Content score of 0 ONLY if the essay is entirely off-topic (e.g., the prompt asks about Topic A, but the essay never mentions Topic A and talks about a completely unrelated subject) or consists of completely random words ("the and to is"). If the essay uses the correct keywords but makes nonsensical statements, it should score a 3/6, not a 0.
@@ -3370,22 +3370,26 @@ Start from 2. Deduct approx 0.2 per significant grammar issue.
 - **CRITICAL FOR ERROR ANALYSIS:** While scoring can be lenient, you MUST strictly identify and return ALL grammar, punctuation, and structural errors in the \`errorAnalysis.grammarErrors\` array for student feedback. This explicitly includes:
   1. **Paragraph Endings (MANDATORY CHECK):** Look at the very last word of EVERY paragraph. If it is missing a full stop, or if the sentence is abruptly cut off (e.g., ends with "well-reasoned" without a noun or period), you MUST log an error for "Incomplete sentence / Missing full stop".
   2. **Missing words:** (e.g., "This because" instead of "This is because").
-  3. **Singular/plural errors or unnatural phrasing:** (e.g., "our life" instead of "our lives").
+  3. **Singular/plural errors:** (e.g., "our life" instead of "our lives").
+  4. **Punctuation & Spacing formatting:** There MUST be exactly one space after every comma and full stop. There MUST NOT be missing spaces between words or punctuation (e.g., "word,word" or "word.Word" should be flagged). There MUST NOT be multiple consecutive spaces between words. Flag any violations as a grammar/punctuation error.
+  5. **NO STYLISTIC FIXES:** Do NOT flag text purely for "awkward phrasing", wordiness, or stylistic choices if the grammar itself is valid. Only flag genuine grammatical or punctuation errors.
+  6. **HALLUCINATION PREVENTION (CRITICAL):** Before logging ANY error, you MUST double-check the student's actual text. Do NOT flag a word as missing if it is already present in the sentence (e.g., do not say 'the' is missing before 'Internet' if the text already says 'on the Internet'). Do NOT invent errors that do not exist.
   You MUST return these errors in \`errorAnalysis.grammarErrors\` with clear explanations, even if you do not deduct points for them.
 
 **5. GENERAL LINGUISTIC RANGE (0-6)**
-IMPORTANT: Evaluate ability to express ideas according to PTE algorithms, which reward error-free template usage.
-- **6:** The language (even if from a template) clearly communicates the ideas. If the essay uses a template without major grammatical/structural breakdowns, it MUST score 6/6.
-- **5:** Simple but effective language with some unnatural phrasing.
+IMPORTANT: Evaluate ability to express ideas. You should expect a mix of simple and complex sentences.
+- **6:** The language clearly communicates complex ideas. If using a template, the user's original added sentences must also show good linguistic range and connect logically.
+- **5:** Effective language but with some unnatural phrasing.
 - **4:** Limited but understandable language.
-- **3:** Restricted expression. (Max score if the essay relies on extremely repetitive, kindergarten-level sentences with frequent errors).
+- **3:** Restricted expression. (If the user relies entirely on complex templates but their original added sentences are very basic, clunky, or flawed, cap the score at 2 or 3).
 - **2:** Very limited range or pervasive grammatical errors that make reading difficult.
 - **1:** Isolated/simple fragments.
 - **0:** Meaning inaccessible.
 
 **6. VOCABULARY RANGE (0-2)**
-- **2:** Vocabulary sufficient for topic discussion. Simple vocabulary and template words are perfectly acceptable and should score 2/2.
-- **1:** Basic vocabulary only.
+- **2:** Vocabulary shows adequate lexical variety relevant to the topic (e.g., uses a few topic-specific words or synonyms rather than repeating basic terms).
+- **1.5:** Vocabulary is accurate but relies entirely on very basic/common words with little to no variety.
+- **1:** Vocabulary is too basic or frequently used incorrectly.
 - **0:** Vocabulary too limited to communicate meaning.
 
 **7. SPELLING (0-2)**
@@ -3394,7 +3398,7 @@ Start from 2. Deduct approx 0.5 per genuine spelling error.
 - **Repeated identical spelling mistakes:** should not be penalized repeatedly.
 - **The system MUST accept both British and American spellings.**
 
-**FINAL REAL-PTE STYLE PRINCIPLE:** The system MUST reward template-based essays. If an essay uses a standard structure, integrates the prompt's keywords, and avoids major grammar/spelling errors in the added text, it should receive full marks in Content, Development/Structure/Coherence, and General Linguistic Range.
+**FINAL REAL-PTE STYLE PRINCIPLE:** The system acknowledges template-based essays. If an essay uses a standard structure, integrates the prompt's keywords, and avoids major grammar/spelling errors, it should receive good marks in Development/Structure/Coherence. However, Content, General Linguistic Range, and Vocabulary MUST be evaluated strictly based on the user's original additions, actual adherence to the prompt, and the complexity of their own sentences. Do NOT automatically give full marks just for using a template.
 
 ---
 ### **3. Error Analysis & Output**
@@ -3404,7 +3408,8 @@ Start from 2. Deduct approx 0.5 per genuine spelling error.
 - **CROSS-ARRAY BAN:** A single word/index MUST NOT appear in both arrays. If you find a misspelled word that also causes a grammar issue, categorize it ONLY as a spelling error to avoid double-penalizing the student's feedback.
 **Positioning:** 0-indexed. Split on whitespace.
 **Error Object:** {"text":"","type":"","position":{"start":0,"end":0},"context":{"before":"","after":""},"correction":"","explanation":""}
-- **IMPORTANT:** If the error type is an unnecessary word, repetition, or an item that should be deleted, the "correction" field MUST be left completely empty (e.g., "correction": ""). Do NOT provide the exact same text back as the correction.
+- **IMPORTANT DELETION RULE:** If the error type is an unnecessary word or item that should be deleted, the "correction" field MUST be left completely empty (e.g., "correction": ""). 
+- **IDENTICAL TEXT BAN (CRITICAL):** If your "correction" is exactly identical to the original "text" (e.g. text: "the Internet", correction: "the Internet"), then it is NOT an error. You MUST NOT include it in the array. An error MUST have a correction that is tangibly different from the original text.
 
 **Format:** Return ONLY minified JSON.
 {
@@ -3432,10 +3437,38 @@ Start from 2. Deduct approx 0.5 per genuine spelling error.
         { role: 'user', content: prompt },
       ],
       response_format: { type: 'json_object' },
-      temperature: 0.3,
+      temperature: 0.0,
     });
 
     const evaluation = JSON.parse(response.choices[0].message.content || '{}');
+
+    // Filter out hallucinations where the AI proposes the exact same text as the correction
+    if (
+      evaluation.errorAnalysis &&
+      Array.isArray(evaluation.errorAnalysis.grammarErrors)
+    ) {
+      const originalCount = evaluation.errorAnalysis.grammarErrors.length;
+      evaluation.errorAnalysis.grammarErrors =
+        evaluation.errorAnalysis.grammarErrors.filter((err: any) => {
+          const text = String(err.text || '').trim();
+          const correction = String(err.correction || '').trim();
+          return text !== correction;
+        });
+
+      const newCount = evaluation.errorAnalysis.grammarErrors.length;
+      const filteredOutCount = originalCount - newCount;
+
+      // Add back 0.2 points to the grammar score for every hallucinated error we deleted
+      if (
+        filteredOutCount > 0 &&
+        evaluation.scores &&
+        typeof evaluation.scores.grammar === 'number'
+      ) {
+        let adjustedScore = evaluation.scores.grammar + filteredOutCount * 0.2;
+        if (adjustedScore > 2) adjustedScore = 2; // Cap at max score
+        evaluation.scores.grammar = Math.round(adjustedScore * 10) / 10;
+      }
+    }
 
     // Extract individual scores for each trait
     const scores = evaluation.scores || {};
