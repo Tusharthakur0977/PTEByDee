@@ -2942,6 +2942,35 @@ Return ONLY a single, minified JSON object. No markdown wrapping. No trailing te
       response.choices?.[0]?.message?.content || '{}',
     );
 
+    // Filter out hallucinations where the AI proposes the exact same text as the correction
+    if (
+      evaluation.errorAnalysis &&
+      Array.isArray(evaluation.errorAnalysis.grammarErrors)
+    ) {
+      const originalCount = evaluation.errorAnalysis.grammarErrors.length;
+      evaluation.errorAnalysis.grammarErrors =
+        evaluation.errorAnalysis.grammarErrors.filter((err: any) => {
+          const text = String(err.text || '').trim();
+          const correction = String(err.correction || '').trim();
+          return text !== correction;
+        });
+
+      const newCount = evaluation.errorAnalysis.grammarErrors.length;
+      const filteredOutCount = originalCount - newCount;
+
+      // Add back 0.2 points to the grammar score for every hallucinated error we deleted
+      if (
+        filteredOutCount > 0 &&
+        evaluation.scores &&
+        typeof evaluation.scores.grammar === 'number'
+      ) {
+        evaluation.scores.grammar = Math.min(
+          2, // Max grammar score
+          evaluation.scores.grammar + filteredOutCount * 0.2,
+        );
+      }
+    }
+
     const normalizeErrors = (rawErrors: any[], textWordCount: number) => {
       if (!Array.isArray(rawErrors)) return [];
 
@@ -3310,10 +3339,25 @@ Your objective is to evaluate the essay similarly to real PTE AI scoring behavio
 - **IMPORTANT: REPEATED TOPIC WORDS ARE ACCEPTABLE.** Do NOT heavily penalize repeated keywords or simple vocabulary. However, if the student repeats the EXACT SAME full sentences or phrases unnecessarily (e.g., repeating the same sentence back-to-back), the Content score MUST be reduced.
 
 **POSITION CONSISTENCY DETECTOR (VERY IMPORTANT)**
-For opinion-based essays: The AI MUST detect:
-1. Which side/opinion the student supports
-2. Whether ALL paragraphs consistently support that side
-(Examples: Agree/disagree, Advantages/disadvantages, Discussion/opinion essays)
+**Opinion-Based Essay Detection:**
+If the prompt contains phrases such as:
+- What do you think?
+- What is your opinion?
+- Do you agree or disagree?
+- To what extent do you agree or disagree?
+- To what extent do you think…?
+- Give your opinion.
+Then classify the essay as Opinion-Based.
+
+For opinion-based essays, the AI MUST detect:
+1. Which side/opinion the student supports.
+2. Whether the paragraphs consistently support that side.
+
+**Content Rule for Opinion-Based Essays:**
+- Accept both one-sided and two-sided responses.
+- Do not reduce content marks simply because the writer discusses only one viewpoint.
+- Award full content if the essay takes a clear position and supports it with relevant reasons, explanations, or examples.
+- Reduce content only when the essay fails to address the main question, provides irrelevant ideas, or lacks sufficient support for the stated opinion.
 
 **HIGH CONTENT SCORES SHOULD BE GIVEN IF:**
 The essay answers the question directly, covers ALL parts of the prompt, and discusses the topic comprehensively with distinct, non-repetitive points. Essays that provide relevant topic words, diverse examples, and logical reasons MUST receive a 6/6 for Content. 
@@ -4184,6 +4228,35 @@ async function evaluateSummarizeSpokenText(
     });
 
     const evaluation = JSON.parse(response.choices[0].message.content || '{}');
+
+    // Filter out hallucinations where the AI proposes the exact same text as the correction
+    if (
+      evaluation.errorAnalysis &&
+      Array.isArray(evaluation.errorAnalysis.grammarErrors)
+    ) {
+      const originalCount = evaluation.errorAnalysis.grammarErrors.length;
+      evaluation.errorAnalysis.grammarErrors =
+        evaluation.errorAnalysis.grammarErrors.filter((err: any) => {
+          const text = String(err.text || '').trim();
+          const correction = String(err.correction || '').trim();
+          return text !== correction;
+        });
+
+      const newCount = evaluation.errorAnalysis.grammarErrors.length;
+      const filteredOutCount = originalCount - newCount;
+
+      // Add back 0.2 points to the grammar score for every hallucinated error we deleted
+      if (
+        filteredOutCount > 0 &&
+        evaluation.scores &&
+        typeof evaluation.scores.grammar === 'number'
+      ) {
+        evaluation.scores.grammar = Math.min(
+          2, // Max grammar score
+          evaluation.scores.grammar + filteredOutCount * 0.2,
+        );
+      }
+    }
 
     // Extract individual scores for each trait
     const scores = evaluation.scores || {};
