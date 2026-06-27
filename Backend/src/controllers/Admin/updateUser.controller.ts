@@ -11,7 +11,7 @@ import { UserRole } from '@prisma/client';
  * @access  Private/Admin
  */
 export const updateUser = asyncHandler(async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params.id as string;
   const { name, email, role, isVerified } = req.body;
 
   try {

@@ -14,7 +14,7 @@ import { SecureUrlService } from '../../services/secureUrlService';
 export const getQuestionPreviousResponses = asyncHandler(
   async (req: CustomRequest, res: Response) => {
     const userId = req.user?.id;
-    const { questionId } = req.params;
+    const questionId = req.params.questionId as string;
     const {
       page = 1,
       limit = 10,
@@ -180,7 +180,7 @@ export const getQuestionPreviousResponses = asyncHandler(
 export const getQuestionResponseStats = asyncHandler(
   async (req: CustomRequest, res: Response) => {
     const userId = req.user?.id;
-    const { questionId } = req.params;
+    const questionId = req.params.questionId as string;
 
     try {
       if (!userId) {
@@ -247,9 +247,9 @@ export const getQuestionResponseStats = asyncHandler(
           correctAttempts,
           accuracy:
             totalAttempts > 0 ? (correctAttempts / totalAttempts) * 100 : 0,
-          averageScore: averageScore._avg.questionScore || 0,
-          bestScore: bestScore._max.questionScore || 0,
-          averageTimeSeconds: averageTime._avg.timeTakenSeconds || 0,
+          averageScore: averageScore._avg?.questionScore || 0,
+          bestScore: bestScore._max?.questionScore || 0,
+          averageTimeSeconds: averageTime._avg?.timeTakenSeconds || 0,
           firstAttemptDate: firstAttempt?.createdAt,
           lastAttemptDate: lastAttempt?.createdAt,
         },

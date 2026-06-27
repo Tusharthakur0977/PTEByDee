@@ -12,7 +12,7 @@ import { CustomRequest } from '../../types';
  */
 export const getUserProgress = asyncHandler(
   async (req: CustomRequest, res: Response) => {
-    const { courseId } = req.params;
+    const courseId = req.params.courseId as string;
     const userId = req.user?.id;
 
     try {

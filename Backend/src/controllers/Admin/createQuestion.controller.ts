@@ -513,6 +513,16 @@ export const createQuestion = asyncHandler(
         finalQuestionStatement = audioTranscript || manualTranscript || textContent || finalQuestionStatement;
       }
 
+      // Ensure WRITE_FROM_DICTATION has text content
+      if (questionType.name === 'WRITE_FROM_DICTATION' && (!finalTextContent || finalTextContent.trim() === '')) {
+        return sendResponse(
+          res,
+          STATUS_CODES.BAD_REQUEST,
+          null,
+          'Transcription failed. Please provide the Text Content manually or ensure the audio is clear.',
+        );
+      }
+
       // Create the question
       const question = await prisma.question.create({
         data: {

@@ -34,14 +34,8 @@ interface TranscriptionResult {
  */
 async function downloadAudioFromSecureUrl(audioKey: string): Promise<string> {
   try {
-    
-
     // Generate secure URL for the audio file
     const secureUrlResponse = generateAudioSignedUrl(audioKey, 5);
-
-    
-
-    
 
     // Create temporary file path
     const tempDir = path.join(process.cwd(), 'temp');
@@ -89,22 +83,19 @@ async function downloadAudioFromSecureUrl(audioKey: string): Promise<string> {
       });
     });
 
-    
     return tempFilePath;
   } catch (error: any) {
-    
-
     // Provide specific error messages based on error type
     if (error.message?.includes('CloudFront')) {
       throw new Error(
-        'CloudFront configuration error: Unable to generate secure URL for audio file.'
+        'CloudFront configuration error: Unable to generate secure URL for audio file.',
       );
     } else if (
       error.message?.includes('403') ||
       error.message?.includes('Access')
     ) {
       throw new Error(
-        'Access denied: Unable to access audio file. Please check permissions.'
+        'Access denied: Unable to access audio file. Please check permissions.',
       );
     } else if (
       error.message?.includes('404') ||
@@ -128,7 +119,6 @@ async function cleanupTempFile(filePath: string): Promise<void> {
       await promisify(fs.unlink)(filePath);
     }
   } catch (error) {
-    
     // Don't throw error for cleanup failures
   }
 }
@@ -136,7 +126,9 @@ async function cleanupTempFile(filePath: string): Promise<void> {
 /**
  * Transcribe audio using OpenAI Whisper API
  */
-export async function transcribeAudio(audioKey: string): Promise<TranscriptionResult> {
+export async function transcribeAudio(
+  audioKey: string,
+): Promise<TranscriptionResult> {
   try {
     const secureUrl = generateAudioSignedUrl(audioKey, 5);
 
@@ -158,9 +150,6 @@ export async function transcribeAudio(audioKey: string): Promise<TranscriptionRe
     // 4. Construct a File object with the data and metadata.
     const audioFile = new File([audioData], fileName, { type: contentType });
 
-    
-    
-
     // 5. Pass the newly created File object to the OpenAI SDK.
     const transcription = await openai.audio.transcriptions.create({
       file: audioFile,
@@ -176,11 +165,11 @@ export async function transcribeAudio(audioKey: string): Promise<TranscriptionRe
     } as any);
 
     console.log(
-      `Transcription completed. Text length: ${transcription.text.length} characters`
+      `Transcription completed. Text length: ${transcription.text.length} characters`,
     );
 
     const parsedWords: TranscriptionWord[] = Array.isArray(
-      (transcription as any).words
+      (transcription as any).words,
     )
       ? (transcription as any).words
           .map((word: any) => ({
@@ -188,26 +177,31 @@ export async function transcribeAudio(audioKey: string): Promise<TranscriptionRe
             start: Number(word?.start),
             end: Number(word?.end),
             confidence:
-              typeof word?.confidence === 'number' ? word.confidence : undefined,
+              typeof word?.confidence === 'number'
+                ? word.confidence
+                : undefined,
           }))
           .filter(
             (word: TranscriptionWord) =>
               word.word.length > 0 &&
               Number.isFinite(word.start) &&
               Number.isFinite(word.end) &&
-              word.end >= word.start
+              word.end >= word.start,
           )
       : [];
 
     const parsedSegments: TranscriptionSegment[] = Array.isArray(
-      (transcription as any).segments
+      (transcription as any).segments,
     )
       ? (transcription as any).segments.map((segment: any) => ({
           text:
             typeof segment?.text === 'string' ? segment.text.trim() : undefined,
           start:
-            typeof segment?.start === 'number' ? Number(segment.start) : undefined,
-          end: typeof segment?.end === 'number' ? Number(segment.end) : undefined,
+            typeof segment?.start === 'number'
+              ? Number(segment.start)
+              : undefined,
+          end:
+            typeof segment?.end === 'number' ? Number(segment.end) : undefined,
           confidence:
             typeof segment?.confidence === 'number'
               ? segment.confidence
@@ -218,7 +212,10 @@ export async function transcribeAudio(audioKey: string): Promise<TranscriptionRe
     // Clean up common Whisper hallucinations
     let cleanedText = transcription.text.trim();
     cleanedText = cleanedText.replace(/(?:\s*Thank you\.?)+\s*$/i, '');
-    cleanedText = cleanedText.replace(/(?:\s*Thanks for watching\.?)+\s*$/i, '');
+    cleanedText = cleanedText.replace(
+      /(?:\s*Thanks for watching\.?)+\s*$/i,
+      '',
+    );
 
     return {
       text: cleanedText,
@@ -228,10 +225,9 @@ export async function transcribeAudio(audioKey: string): Promise<TranscriptionRe
       segments: parsedSegments,
     };
   } catch (error: any) {
-    
     // Your existing error handling logic remains valid
     throw new Error(
-      `Failed to transcribe audio: ${error.message || 'Unknown error'}`
+      `Failed to transcribe audio: ${error.message || 'Unknown error'}`,
     );
   }
 }
@@ -241,7 +237,7 @@ export async function transcribeAudio(audioKey: string): Promise<TranscriptionRe
  */
 export async function transcribeAudioWithRetry(
   audioKey: string,
-  maxRetries: number = 3
+  maxRetries: number = 3,
 ): Promise<TranscriptionResult> {
   let lastError: Error | null = null;
 
@@ -250,7 +246,6 @@ export async function transcribeAudioWithRetry(
       return await transcribeAudio(audioKey);
     } catch (error: any) {
       lastError = error;
-      
 
       // Don't retry for certain types of errors
       if (
@@ -276,35 +271,28 @@ export async function transcribeAudioWithRetry(
  * Validate audio file before transcription
  */
 export function validateAudioFile(audioKey: string): boolean {
-  
-
   // Check if audio key has valid format
   if (!audioKey || typeof audioKey !== 'string') {
-    
     return false;
   }
 
   // Check if it's in the expected S3 path
   if (!audioKey.startsWith('audio/user-recordings/')) {
     console.log(
-      'Validation failed: audioKey does not start with "audio/user-recordings/"'
+      'Validation failed: audioKey does not start with "audio/user-recordings/"',
     );
-    
+
     return false;
   }
 
   // Check file extension
   const validExtensions = ['.webm', '.mp3', '.wav', '.m4a', '.ogg'];
   const hasValidExtension = validExtensions.some((ext) =>
-    audioKey.toLowerCase().endsWith(ext)
+    audioKey.toLowerCase().endsWith(ext),
   );
 
   if (!hasValidExtension) {
-    
-    
-    
   }
 
-  
   return hasValidExtension;
 }

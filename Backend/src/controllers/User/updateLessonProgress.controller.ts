@@ -12,7 +12,7 @@ import { CustomRequest } from '../../types';
  */
 export const updateLessonProgress = asyncHandler(
   async (req: CustomRequest, res: Response) => {
-    const { lessonId } = req.params;
+    const lessonId = req.params.lessonId as string;
     const userId = req.user?.id;
     const { isCompleted, watchedDuration } = req.body;
 

@@ -11,7 +11,7 @@ import { sendResponse } from '../../utils/helpers';
  */
 export const updateCategory = asyncHandler(
   async (req: Request, res: Response) => {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { name, slug, description } = req.body;
 
     try {

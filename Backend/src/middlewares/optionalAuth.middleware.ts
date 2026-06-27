@@ -3,7 +3,7 @@ import { NextFunction, Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import jwt from 'jsonwebtoken';
 import prisma from '../config/prismaInstance';
-import { CustomRequest } from 'src/types';
+import { CustomRequest } from '../types';
 
 interface JwtPayload {
   id: string;
@@ -29,7 +29,7 @@ export const optionalAuth = asyncHandler(
           throw new Error('JWT_SECRET is not defined.');
         }
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET) as JwtPayload;
+        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as unknown as JwtPayload;
 
         // Find user by ID using Prisma Client
         const user = await prisma.user.findUnique({

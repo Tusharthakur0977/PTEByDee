@@ -27,6 +27,81 @@ interface Question {
   };
 }
 
+const normalizeWordForLcs = (value: string) =>
+  String(value || '')
+    .toLowerCase()
+    .replace(/^[^\w]+|[^\w]+$/g, '');
+
+function buildLcsOperations(
+  originalWords: string[],
+  spokenWords: string[],
+): Array<
+  | { type: 'matched'; originalIndex: number; spokenIndex: number }
+  | { type: 'omitted'; originalIndex: number }
+  | { type: 'inserted'; spokenIndex: number }
+> {
+  const originalLength = originalWords.length;
+  const spokenLength = spokenWords.length;
+
+  const dp: number[][] = Array.from({ length: originalLength + 1 }, () =>
+    Array(spokenLength + 1).fill(0),
+  );
+
+  for (let i = originalLength - 1; i >= 0; i -= 1) {
+    for (let j = spokenLength - 1; j >= 0; j -= 1) {
+      if (normalizeWordForLcs(originalWords[i]) === normalizeWordForLcs(spokenWords[j])) {
+        dp[i][j] = 1 + dp[i + 1][j + 1];
+      } else {
+        dp[i][j] = Math.max(dp[i + 1][j], dp[i][j + 1]);
+      }
+    }
+  }
+
+  const ops: Array<
+    | { type: 'matched'; originalIndex: number; spokenIndex: number }
+    | { type: 'omitted'; originalIndex: number }
+    | { type: 'inserted'; spokenIndex: number }
+  > = [];
+
+  let i = 0;
+  let j = 0;
+
+  while (i < originalLength || j < spokenLength) {
+    if (
+      i < originalLength &&
+      j < spokenLength &&
+      normalizeWordForLcs(originalWords[i]) === normalizeWordForLcs(spokenWords[j])
+    ) {
+      ops.push({ type: 'matched', originalIndex: i, spokenIndex: j });
+      i += 1;
+      j += 1;
+      continue;
+    }
+
+    if (i >= originalLength) {
+      ops.push({ type: 'inserted', spokenIndex: j });
+      j += 1;
+      continue;
+    }
+
+    if (j >= spokenLength) {
+      ops.push({ type: 'omitted', originalIndex: i });
+      i += 1;
+      continue;
+    }
+
+    if (dp[i + 1][j] >= dp[i][j + 1]) {
+      ops.push({ type: 'omitted', originalIndex: i });
+      i += 1;
+    } else {
+      ops.push({ type: 'inserted', spokenIndex: j });
+      j += 1;
+    }
+  }
+
+  return ops;
+}
+
 /**
  * Main function to evaluate question responses using OpenAI
  */
@@ -465,8 +540,8 @@ function detectPauseMarkers(
     longPauseSeconds?: number;
   },
 ) {
-  const PAUSE_SECONDS = options?.pauseSeconds ?? 1.3;
-  const LONG_PAUSE_SECONDS = options?.longPauseSeconds ?? 1.8;
+  const PAUSE_SECONDS = options?.pauseSeconds ?? 0.8; // Decreased from 1.3
+  const LONG_PAUSE_SECONDS = options?.longPauseSeconds ?? 1.3; // Decreased from 1.8
 
   const transcriptWords = transcribedText
     .split(/\s+/)
@@ -1337,17 +1412,71 @@ async function evaluateRepeatSentence(
 
     // Parse the actual OpenAI response format
     // Handle the actual response structure from OpenAI
-    const contentScore = evaluation.evaluation?.content?.score || 0;
+    let contentScore = evaluation.evaluation?.content?.score || 0;
     const maxContentScore = evaluation.evaluation?.content?.maxScore || 3;
     const pronunciationScore = evaluation.evaluation?.pronunciation?.score || 0;
     const fluencyScore = evaluation.evaluation?.oralFluency?.score || 0;
-    const wordAnalysis = evaluation.evaluation?.content?.wordAnalysis || [];
+    
+    // Deterministic omitted word detection via LCS to augment OpenAI's sometimes flaky wordAnalysis
+    const originalWords = originalSentence.split(/\s+/).filter((w: string) => w.length > 0);
+    const spokenWords = transcribedText.split(/\s+/).filter((w: string) => w.length > 0);
+    const lcsOps = buildLcsOperations(originalWords, spokenWords);
+    
+    const wordAnalysis: any[] = [];
+    const augmentedContentErrors: any[] = [...(evaluation.errorAnalysis?.contentErrors || [])];
+    
+    // Track omitted count for potential score adjustment
+    let actualOmittedCount = 0;
+    
+    // Keep OpenAI's mispronounced markers
+    const mispronouncedNorms = new Set<string>();
+    (evaluation.evaluation?.content?.wordAnalysis || []).forEach((wa: any) => {
+      if (String(wa.status).toLowerCase() === 'mispronounced') {
+        mispronouncedNorms.add(normalizeWordForLcs(wa.word));
+      }
+    });
+
+    lcsOps.forEach(op => {
+      if (op.type === 'matched') {
+        const word = originalWords[op.originalIndex];
+        const status = mispronouncedNorms.has(normalizeWordForLcs(word)) ? 'mispronounced' : 'correct';
+        wordAnalysis.push({ word, status });
+      } else if (op.type === 'inserted') {
+        wordAnalysis.push({ word: spokenWords[op.spokenIndex], status: 'inserted' });
+      } else if (op.type === 'omitted') {
+        const word = originalWords[op.originalIndex];
+        wordAnalysis.push({ word, status: 'omitted' });
+        actualOmittedCount++;
+        
+        // Ensure it is in contentErrors
+        const alreadyInErrors = augmentedContentErrors.some(e => 
+          normalizeWordForLcs(e.text) === normalizeWordForLcs(word)
+        );
+        if (!alreadyInErrors) {
+          augmentedContentErrors.push({
+            text: word,
+            type: 'content',
+            correction: word,
+            explanation: 'You omitted this word from the original sentence.'
+          });
+        }
+      }
+    });
+
+    // Auto-adjust content score based on actual omitted ratio if OpenAI missed them
+    if (originalWords.length > 0) {
+      const omittedRatio = actualOmittedCount / originalWords.length;
+      if (omittedRatio >= 0.8) contentScore = 0;
+      else if (omittedRatio >= 0.5) contentScore = Math.min(contentScore, 1);
+      else if (omittedRatio >= 0.2) contentScore = Math.min(contentScore, 2);
+    }
+
     const baseErrorAnalysis = {
       pronunciationErrors: [
         ...(evaluation.errorAnalysis?.pronunciationErrors || []),
       ],
       fluencyErrors: [...(evaluation.errorAnalysis?.fluencyErrors || [])],
-      contentErrors: [...(evaluation.errorAnalysis?.contentErrors || [])],
+      contentErrors: augmentedContentErrors,
     };
 
     const timestampMergedErrorAnalysis = enableFluencyInsights
@@ -3335,9 +3464,8 @@ Your objective is to evaluate the essay similarly to real PTE AI scoring behavio
 
 **SEMANTIC TOPIC RELEVANCE DETECTOR (MOST IMPORTANT)**
 **CRITICAL RULE:** Evaluate Content using semantic meaning, relevant idea chains, topic-focused continuation, NOT advanced vocabulary, paragraph sophistication, or memorized academic style.
-- **VALID IDEA CHUNKS:** A valid idea chunk is a topic-relevant concept, explanation, example, or continuation of the essay's main argument. These may appear in simple language, using synonyms, or inside template-based structure.
-- **IMPORTANT: REPEATED TOPIC WORDS ARE ACCEPTABLE.** Do NOT heavily penalize repeated keywords or simple vocabulary. However, if the student repeats the EXACT SAME full sentences or phrases unnecessarily (e.g., repeating the same sentence back-to-back), the Content score MUST be reduced.
-
+- **VALID IDEA CHUNKS:** A valid idea chunk is a distinct topic-relevant concept, explanation, or example. A copied prompt sentence is NOT a valid idea.
+- **REPETITION PENALTY:** If the student repeats the EXACT SAME full sentences or phrases unnecessarily, or uses generic template sentences without distinct ideas, the Content score MUST be strictly capped at 3 or below according to the rubric.
 **POSITION CONSISTENCY DETECTOR (VERY IMPORTANT)**
 **Opinion-Based Essay Detection:**
 If the prompt contains phrases such as:
@@ -3360,14 +3488,16 @@ For opinion-based essays, the AI MUST detect:
 - Reduce content only when the essay fails to address the main question, provides irrelevant ideas, or lacks sufficient support for the stated opinion.
 
 **HIGH CONTENT SCORES SHOULD BE GIVEN IF:**
-The essay answers the question directly, covers ALL parts of the prompt, and discusses the topic comprehensively with distinct, non-repetitive points. Essays that provide relevant topic words, diverse examples, and logical reasons MUST receive a 6/6 for Content. 
-**REPETITION & TEMPLATE PENALTY:** While repeating topic keywords or using templates is acceptable, the user MUST explicitly state their opinion (if asked) and address the core topic. If they use a template but fail to address all parts of the prompt, or if the original content is logically flawed, you MUST cap the Content score at 2 or 3 depending on severity. If the essay heavily repeats the exact same phrases, cap the Content score at 4 or 5.
+The essay answers the question directly, covers ALL parts of the prompt, and discusses the topic comprehensively with distinct, non-repetitive points.
+
+**REPETITION & TEMPLATE PENALTY (CRITICAL):**
+While using templates is acceptable, the user MUST present the required number of distinct ideas to achieve high scores. Do NOT bypass the idea-count requirement in the rubric. If an essay heavily relies on templates, repeats the same phrases, or fails to present at least 3 distinct ideas with logical connectors, it MUST NOT score higher than a 3, regardless of how well it flows.
 
 **LOW CONTENT SCORE TRIGGERS (STRICT)**
-Assign a Content score of 0 ONLY if the essay is entirely off-topic (e.g., the prompt asks about Topic A, but the essay never mentions Topic A and talks about a completely unrelated subject) or consists of completely random words ("the and to is"). If the essay uses the correct keywords but makes nonsensical statements, it should score a 3/6, not a 0.
+Assign a Content score of 0 ONLY if the essay is entirely off-topic. If the essay uses the correct keywords but only provides 1 or 2 weak ideas, or makes generic statements, strictly enforce the rubric and cap the score at 2 or 3.
 
-**LOGICAL CONTINUATION DETECTOR**
-The AI should reward standard PTE essay structures. If the essay uses clear paragraphing and standard connectors (e.g., "To begin with", "Secondly", "In conclusion"), it MUST receive full marks for logical continuation, even if the internal logic is simple or template-driven.
+**LOGICAL CONTINUATION & STRUCTURE RULE (CRITICAL)**
+Do NOT automatically award full marks for simple template connectors (e.g., "To begin with"). You must evaluate if the argument is actually cohesive and developed systematically at length according to the Structure rubric.
 
 **FATAL FLAW RULES (ABSOLUTE SCORE CAPS)**
 If the essay contains ANY of the following flaws, you MUST apply these maximum score caps, regardless of any other positive traits:
@@ -3382,13 +3512,13 @@ If the essay contains ANY of the following flaws, you MUST apply these maximum s
 ### **2. Scoring Rubrics**
 
 **1. CONTENT (0-6)**
-- **6 (Excellent Relevance & Consistency):** Clear position/opinion. The essay effectively addresses the prompt, integrates the topic and simple reasons logically, and covers all main parts of the prompt with distinct ideas. Give a 6 ONLY if the user fully addresses all prompt questions with sufficient unique, non-repetitive explanations.
-- **5 (Strong Relevance):** Mostly addresses the topic but clearly misses a key aspect of the prompt, or relies on noticeable repetition of the exact same ideas/phrases.
-- **4 (Adequate Relevance):** The general topic is addressed, but the explanations are very weak, vague, disjointed, or highly repetitive without adding new information.
-- **3 (Partial Relevance):** Mentions the topic keywords, but the essay contains sentences that are nonsensical, bizarre, or barely connect to the actual question.
-- **2 (Weak Relevance):** Barely mentions the topic keywords, providing almost no meaningful relevant information.
-- **1 (Minimal Relevance):** Very little topic-related information.
-- **0 (Off-topic):** Does not mention the topic keywords at all, discusses an entirely different subject from start to finish, or is completely gibberish.
+- **6 (Excellent Relevance & Development):** Presents 4-5 distinct, relevant ideas that are logically connected. Each idea is developed with a reason or explanation using connectors such as because, as, so, which, or contrast words such as whereas, while, although, however. Ideas flow naturally with little or no repetition.
+- **5 (Strong Relevance):** Presents 4 distinct, relevant ideas with logical development. All ideas are supported by reasons or explanations using logical connectors (e.g., because, as, so, which, whereas, while). Most ideas include supporting reasons or explanations. Minor repetition or one underdeveloped idea is acceptable.
+- **4 (Adequate Relevance):** Presents 3 distinct, relevant ideas, using logical connectors (e.g., because, as, so, which, whereas, while). The essay is mostly relevant but lacks sufficient idea development for a higher score.
+- **3 (Partial Relevance):** Presents only one or two weak ideas, or repeatedly restates the same idea. Uses mostly short, isolated sentences with little or no logical connection. Rarely or never provides reasons using connectors such as because, as, so, which, whereas, while. Frequent repetition or poor idea progression limits the content score to 3 or below.
+- **2 (Weak Relevance):** Uses only short or incomplete sentences, repeats the same idea, or merely mentions topic-related keywords with almost no meaningful explanation or logical development.
+- **1 (Minimal Relevance):** Very little relevant information. Only isolated topic words or an unsupported opinion.
+- **0 (Off-topic):** Does not address the assigned topic.
 
 **2. FORM (0-2)**
 - **2:** 200-300 words
@@ -3396,14 +3526,14 @@ If the essay contains ANY of the following flaws, you MUST apply these maximum s
 - **0:** Below 120 OR above 380 OR written fully in capitals
 
 **3. DEVELOPMENT, STRUCTURE & COHERENCE (0-6)**
-IMPORTANT: Evaluate based on PTE standards, which heavily reward template usage but require basic structural formatting.
-- **6:** Uses a standard multi-paragraph structure (Intro, Body 1, Body 2, Conclusion) with standard connectors ("To begin with", "For example", "In conclusion") AND the ideas flow logically. If this structure is present and logically sound, MUST score 6/6.
-- **5:** Good structure but missing some clear transitions or paragraph separations.
-- **4:** Some weak transitions but overall understandable.
-- **3:** Ideas partially disconnected. (Max score if the entire essay is written as one single block of text without paragraph breaks).
-- **2:** Poor organization or heavily contradictory template fill-ins.
-- **1:** Minimal coherence or extreme repetition of identical sentences.
-- **0:** No meaningful structure.
+- **6:** The essay has an effective logical structure, flows smoothly, and can be followed with ease. An argument is clear and cohesive, developed systematically at length. A well-developed introduction and conclusion are present. Ideas are organised cohesively into paragraphs, and paragraphs are clear and logically sequenced. The essay uses a variety of connective devices effectively and consistently to convey relationships between ideas.
+- **5:** The essay has a conventional and appropriate structure that follows logically, if not always smoothly. An argument is clear, with some points developed at length. Introduction, conclusion and logical paragraphs are present. The essay uses connective devices to link utterances into clear, coherent discourse, though there may be some gaps or abrupt transitions between one idea to the next.
+- **4:** Conventional structure is mostly present, but some elements may be missing, requiring some effort to follow. An argument is present but lacks development of some elements or may be difficult to follow. Simple paragraph breaks are present, but they are not always effective, and some elements or paragraphs are poorly linked. The ideas in the response are not well connected. The lack of connection might come from an ordering of the ideas which is difficult to grasp, or a lack of language establishing coherence among ideas.
+- **3:** Traces of the conventional structure are present, but the essay is composed of simple points or disconnected ideas. A position/opinion is present, although it is not sufficiently developed into a logical argument and often lacks clarity. Essay does not make effective use of paragraphs or lacks paragraphs but presents ideas with some coherence and logical sequencing. The response consists mainly of unconnected ideas, with little organizational structure evident, and requires significant effort to follow. The most frequently occurring connective devices link simple sentences and larger elements linearly, but more complex relationships are not expressed clearly or appropriately.
+- **2:** There is little recognisable structure. Ideas are presented in a disorganised manner and are difficult to follow. A position/opinion may be present but lacks development or clarity. The essay lacks coherence, and mainly consists of disconnected elements. Can link groups of words with simple connective devices (e.g., "and", "but" and "because").
+- **1:** Response consists of disconnected ideas. There is no hierarchy of ideas or coherence among points. No clear position/opinion can be identified. Words and short statements are linked with very basic linear connective devices(e.g., "and" or "then").
+- **0:** There is no recognisable structure.
+**Suggestion to provide in feedback if score < 6:** "Each paragraph should revolve around only one main idea. Avoid writing discursively."
 
 **4. GRAMMAR (0-2)**
 Start from 2. Deduct approx 0.2 per significant grammar issue.
@@ -3421,14 +3551,15 @@ Start from 2. Deduct approx 0.2 per significant grammar issue.
   You MUST return these errors in \`errorAnalysis.grammarErrors\` with clear explanations, even if you do not deduct points for them.
 
 **5. GENERAL LINGUISTIC RANGE (0-6)**
-IMPORTANT: Evaluate ability to express ideas. You should expect a mix of simple and complex sentences.
-- **6:** The language clearly communicates complex ideas. If using a template, the user's original added sentences must also show good linguistic range and connect logically.
-- **5:** Effective language but with some unnatural phrasing.
-- **4:** Limited but understandable language.
-- **3:** Restricted expression. (If the user relies entirely on complex templates but their original added sentences are very basic, clunky, or flawed, cap the score at 2 or 3).
-- **2:** Very limited range or pervasive grammatical errors that make reading difficult.
-- **1:** Isolated/simple fragments.
-- **0:** Meaning inaccessible.
+IMPORTANT: Evaluate the student's *original* ability to express ideas. If the user relies entirely on complex templates but their original added sentences are very basic, clunky, or flawed, you MUST cap the score at 3 or below. 
+- **6:** A variety of expressions and vocabulary are used appropriately throughout the response. Ideas are expressed clearly without much sign of restriction. Occasional errors in language use are present, but the meaning is clear.
+- **5:** The range of expression and vocabulary is sufficient to articulate basic ideas. Most ideas are clear, but limitations are evident when conveying complex / abstract ideas, causing repetition, circumlocution, and difficulty with formulation at times. Errors in language use cause occasional lapses in clarity, but the main idea can still be followed.
+- **4:** The range of expression and vocabulary is narrow and simple expressions are used repeatedly. Communication is restricted to simple ideas that can be articulated through basic language. Errors in language use cause some disruptions for the reader.
+- **3:** Limited vocabulary and simple expressions dominate the response. Communication is compromised and some ideas are unclear. Basic errors in language use are common, causing frequent breakdowns and misunderstanding.
+- **2:** Vocabulary and linguistic expression are highly restricted. There are significant limitations in communication and ideas are generally unclear. Errors in language use are pervasive and impede meaning.
+- **1:** Meaning is very difficult to access or severely compromised.
+- **0:** Meaning is completely inaccessible.
+**Suggestion to provide in feedback if score < 6:** "Use a variety of expressions and sentence structures."
 
 **6. VOCABULARY RANGE (0-2)**
 - **2:** Vocabulary shows adequate lexical variety relevant to the topic (e.g., uses a few topic-specific words or synonyms rather than repeating basic terms).

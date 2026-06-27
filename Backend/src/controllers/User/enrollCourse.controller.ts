@@ -12,7 +12,7 @@ import { CustomRequest } from '../../types';
  */
 export const enrollCourse = asyncHandler(
   async (req: CustomRequest, res: Response) => {
-    const { id: courseId } = req.params;
+    const courseId = req.params.id as string;
     const userId = req.user?.id;
 
     try {

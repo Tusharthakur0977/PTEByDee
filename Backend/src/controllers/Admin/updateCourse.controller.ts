@@ -13,7 +13,7 @@ import { sendResponse } from '../../utils/helpers';
  */
 export const updateCourse = asyncHandler(
   async (req: CustomRequest, res: Response) => {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const {
       title,
       description,

@@ -245,7 +245,7 @@ export const getPaymentStats = asyncHandler(
  */
 export const getTransactionById = asyncHandler(
   async (req: Request, res: Response) => {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     try {
       // Validate ObjectId format
@@ -330,7 +330,7 @@ export const getTransactionById = asyncHandler(
  */
 export const refundTransaction = asyncHandler(
   async (req: Request, res: Response) => {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { reason } = req.body;
 
     try {

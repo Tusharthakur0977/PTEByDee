@@ -1041,6 +1041,59 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
           </div>
         );
 
+      case 'WRITE_FROM_DICTATION':
+        return (
+          <div className='space-y-6'>
+            {/* Auto-generation notice */}
+            <div className='bg-blue-50 border border-blue-200 rounded-xl p-4 dark:bg-blue-950/20 dark:border-blue-900/40'>
+              <div className='flex items-start space-x-3'>
+                <div className='flex-shrink-0'>
+                  <svg
+                    className='w-5 h-5 text-blue-400 dark:text-blue-500'
+                    fill='currentColor'
+                    viewBox='0 0 20 20'
+                  >
+                    <path
+                      fillRule='evenodd'
+                      d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z'
+                      clipRule='evenodd'
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <h4 className='text-sm font-medium text-blue-800 dark:text-blue-400'>
+                    Auto-Generated Content
+                  </h4>
+                  <p className='text-sm text-blue-700 dark:text-blue-300 mt-1'>
+                    For Write From Dictation questions, the text content
+                    will be automatically transcribed from your uploaded
+                    audio file.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Optional text content override */}
+            <div className='mb-6'>
+              <label className='block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2'>
+                Text Content Override (Optional)
+              </label>
+              <textarea
+                value={formData.textContent}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    textContent: e.target.value,
+                  }))
+                }
+                className='w-full px-4 py-3 border border-slate-200 bg-white rounded-xl text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100'
+                rows={4}
+                placeholder='Leave empty to auto-generate transcript from audio, or enter custom text to override the AI...'
+              />
+            </div>
+          </div>
+        );
+
       default:
         return null;
     }

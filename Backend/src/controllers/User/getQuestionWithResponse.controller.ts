@@ -13,7 +13,7 @@ import jwt from 'jsonwebtoken';
  */
 export const getQuestionWithResponses = asyncHandler(
   async (req: Request, res: Response) => {
-    const { questionId } = req.params;
+    const questionId = req.params.questionId as string;
 
     try {
       if (!questionId || questionId.length !== 24) {

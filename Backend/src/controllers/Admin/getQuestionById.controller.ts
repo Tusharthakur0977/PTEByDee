@@ -12,7 +12,7 @@ import { SecureUrlService } from '../../services/secureUrlService';
  */
 export const getQuestionById = asyncHandler(
   async (req: Request, res: Response) => {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     try {
       // Validate ObjectId format

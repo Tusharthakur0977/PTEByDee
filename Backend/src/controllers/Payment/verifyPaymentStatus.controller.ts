@@ -13,7 +13,7 @@ import { sendResponse } from '../../utils/helpers';
  */
 export const verifyPaymentStatus = asyncHandler(
   async (req: CustomRequest, res: Response) => {
-    const { sessionId } = req.params;
+    const sessionId = req.params.sessionId as string;
     const userId = req.user?.id;
 
     try {

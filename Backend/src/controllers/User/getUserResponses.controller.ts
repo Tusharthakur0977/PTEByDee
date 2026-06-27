@@ -4,6 +4,7 @@ import prisma from '../../config/prismaInstance';
 import { STATUS_CODES } from '../../utils/constants';
 import { sendResponse } from '../../utils/helpers';
 import { CustomRequest } from '../../types';
+import { SecureUrlService } from '../../services/secureUrlService';
 
 /**
  * @desc    Get user's question responses with pagination and filtering
@@ -218,7 +219,7 @@ export const getUserResponseStats = asyncHandler(
  */
 export const getSharedResponse = asyncHandler(
   async (req: Request, res: Response) => {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     try {
       const response = await prisma.userResponse.findUnique({
@@ -245,6 +246,20 @@ export const getSharedResponse = asyncHandler(
         );
       }
 
+      // Generate secure URLs for audio responses if they exist
+      let secureAudioUrl = null;
+      if (response.audioResponseUrl) {
+        try {
+          const secureUrlResponse = await SecureUrlService.generateSecureAudioUrl(
+            response.audioResponseUrl,
+            { expirationHours: 24 }
+          );
+          secureAudioUrl = secureUrlResponse.signedUrl;
+        } catch (error) {
+          console.error('Error generating secure audio URL:', error);
+        }
+      }
+
       // Format response data to match what the frontend expects
       const formattedResponse = {
         id: response.id,
@@ -254,7 +269,7 @@ export const getSharedResponse = asyncHandler(
         sectionName: response.question.questionType.pteSection.name,
         questionText: response.question.textContent || response.question.questionStatement || response.question.questionCode,
         textResponse: response.textResponse,
-        audioResponseUrl: response.audioResponseUrl,
+        audioResponseUrl: secureAudioUrl,
         selectedOptions: response.selectedOptions,
         orderedItems: response.orderedItems,
         highlightedWords: response.highlightedWords,

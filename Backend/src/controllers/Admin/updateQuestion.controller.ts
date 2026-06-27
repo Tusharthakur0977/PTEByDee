@@ -26,7 +26,7 @@ const getCorrectOptionTexts = (options: any): string[] => {
  */
 export const updateQuestion = asyncHandler(
   async (req: CustomRequest, res: Response) => {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const {
       questionCode,
       questionTypeId,

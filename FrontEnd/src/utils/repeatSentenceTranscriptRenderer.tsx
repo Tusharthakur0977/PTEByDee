@@ -168,105 +168,21 @@ export function renderRepeatSentenceTranscriptAligned(params: {
     pauseMap.set(pause.afterWordIndex, existing);
   });
 
-  const referenceStatuses = (Array.isArray(params.wordAnalysis) ? params.wordAnalysis : [])
-    .filter((word) => String(word?.status || '').toLowerCase() !== 'inserted')
-    .map((word) => String(word?.status || 'correct').toLowerCase());
+  // Create a map to find mispronounced words from OpenAI's wordAnalysis
+  const mispronouncedWords = new Set<string>();
+  (Array.isArray(params.wordAnalysis) ? params.wordAnalysis : []).forEach((entry) => {
+    if (String(entry?.status || '').toLowerCase() === 'mispronounced') {
+      mispronouncedWords.add(normalizeWord(entry.word));
+    }
+  });
 
   const result: React.ReactNode[] = [];
-
-  if (spokenWords.length > 0) {
-    const analysisWords = Array.isArray(params.wordAnalysis) ? params.wordAnalysis : [];
-    if (analysisWords.length > 0) {
-      const spokenSequence = analysisWords.map((entry) => ({
-        word: String(entry?.word || ''),
-        status: String(entry?.status || 'correct').toLowerCase(),
-      }));
-      const originalSequence = originalWords.map((word) => normalizeWord(word));
-
-      let spokenIndex = 0;
-      let originalIndex = 0;
-
-      const pushWord = (word: string, status: string, keyPrefix: string, pauseIndex?: number) => {
-        const pauseList = pauseIndex !== undefined ? pauseMap.get(pauseIndex) || [] : [];
-        const pause =
-          pauseList.length > 0
-            ? [...pauseList].sort((a, b) => b.durationMs - a.durationMs)[0]
-            : null;
-
-        result.push(
-          React.createElement(
-            'span',
-            {
-              key: keyPrefix,
-              className: `whitespace-pre-wrap rounded-md px-1 py-0.5 ${getStatusClass(status)}`,
-            },
-            word,
-          ),
-        );
-
-        if (pause) {
-          result.push(renderPause(pause, keyPrefix));
-        }
-      };
-
-      while (spokenIndex < spokenSequence.length || originalIndex < originalSequence.length) {
-        const spoken = spokenSequence[spokenIndex];
-        const original = originalWords[originalIndex];
-        const originalNorm = originalSequence[originalIndex] || '';
-        const spokenNorm = normalizeWord(spoken?.word || '');
-
-        if (spoken && spoken.status === 'inserted') {
-          pushWord(spoken.word, 'inserted', `inserted-${spokenIndex}`, spokenIndex);
-          spokenIndex += 1;
-          continue;
-        }
-
-        if (
-          spoken &&
-          original &&
-          spokenNorm &&
-          spokenNorm === originalNorm
-        ) {
-          const status =
-            spoken.status === 'correct' || spoken.status === 'mispronounced'
-              ? spoken.status
-              : 'correct';
-          pushWord(spoken.word || original, status, `spoken-${spokenIndex}`, spokenIndex);
-          spokenIndex += 1;
-          originalIndex += 1;
-          continue;
-        }
-
-        if (originalIndex < originalWords.length) {
-          pushWord(
-            originalWords[originalIndex] || '',
-            'omitted',
-            `omitted-${originalIndex}`,
-            spokenIndex > 0 ? spokenIndex - 1 : undefined,
-          );
-          originalIndex += 1;
-          continue;
-        }
-
-        if (spoken) {
-          pushWord(spoken.word, spoken.status, `tail-${spokenIndex}`, spokenIndex);
-          spokenIndex += 1;
-          continue;
-        }
-
-        break;
-      }
-
-      return React.createElement('span', null, result);
-    }
-  }
-
   const operations = buildLcsOperations(originalWords, spokenWords);
   let spokenRenderIndex = 0;
   operations.forEach((op, opIndex) => {
     if (op.type === 'matched') {
       const spokenWord = spokenWords[op.spokenIndex] || originalWords[op.originalIndex] || '';
-      const status = referenceStatuses[op.originalIndex] || 'correct';
+      const status = mispronouncedWords.has(normalizeWord(spokenWord)) ? 'mispronounced' : 'correct';
       const pauseList = pauseMap.get(spokenRenderIndex) || [];
       const pause =
         pauseList.length > 0

@@ -12,7 +12,7 @@ import jwt from 'jsonwebtoken';
  */
 export const getQuestionList = asyncHandler(
   async (req: Request, res: Response) => {
-    const { questionType } = req.params;
+    const questionType = req.params.questionType as string;
   const { difficultyLevel, practiceStatus, searchTerm } = req.query;
     try {
       if (!questionType) {

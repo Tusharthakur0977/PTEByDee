@@ -12,7 +12,7 @@ import { deleteFileFromS3 } from '../../config/s3Config';
  */
 export const deleteQuestion = asyncHandler(
   async (req: Request, res: Response) => {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     try {
       // Validate ObjectId format

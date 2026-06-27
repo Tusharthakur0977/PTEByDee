@@ -15,7 +15,7 @@ import jwt from 'jsonwebtoken';
  */
 export const getCourseById = asyncHandler(
   async (req: Request, res: Response) => {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     // Try to get user ID from token if provided (optional authentication)
     let userId: string | undefined;

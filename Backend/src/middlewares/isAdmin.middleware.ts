@@ -1,7 +1,7 @@
 // src/middlewares/isAdmin.middleware.ts
 import { UserRole } from '@prisma/client';
 import { NextFunction, Response } from 'express';
-import { CustomRequest } from 'src/types';
+import { CustomRequest } from '../types';
 
 export const isAdmin = (
   req: CustomRequest,

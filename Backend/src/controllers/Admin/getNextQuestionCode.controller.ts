@@ -15,7 +15,7 @@ import {
  */
 export const getNextQuestionCode = asyncHandler(
   async (req: Request, res: Response) => {
-    const { questionTypeId } = req.params;
+    const questionTypeId = req.params.questionTypeId as string;
 
     try {
       // Validate ObjectId format

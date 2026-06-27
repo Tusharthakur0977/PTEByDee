@@ -137,7 +137,7 @@ interface GetCourseContentUrlsRequest extends Request {
  */
 export const getCourseContentUrls = asyncHandler(
   async (req: GetCourseContentUrlsRequest, res: Response) => {
-    const { courseId } = req.params;
+    const courseId = req.params.courseId as string;
     const { expirationHours = 24 } = req.body;
 
     if (!courseId) {

@@ -13,7 +13,7 @@ import jwt from 'jsonwebtoken';
  */
 export const getQuestionById = asyncHandler(
   async (req: Request, res: Response) => {
-    const { questionId } = req.params;
+    const questionId = req.params.questionId as string;
     const authHeader = req.headers.authorization;
     let userId: string | undefined;
 

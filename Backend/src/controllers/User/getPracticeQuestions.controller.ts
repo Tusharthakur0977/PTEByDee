@@ -13,7 +13,7 @@ import jwt from 'jsonwebtoken';
  */
 export const getPracticeQuestions = asyncHandler(
   async (req: Request, res: Response) => {
-    const { questionType } = req.params;
+    const questionType = req.params.questionType as string;
       const {
         limit = '10',
         random = 'true',

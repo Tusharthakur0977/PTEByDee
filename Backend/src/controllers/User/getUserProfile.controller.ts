@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
-import { CustomRequest } from 'src/types';
+import { CustomRequest } from '../../types';
 import prisma from '../../config/prismaInstance';
 import { STATUS_CODES } from '../../utils/constants';
 import { sendResponse } from '../../utils/helpers';

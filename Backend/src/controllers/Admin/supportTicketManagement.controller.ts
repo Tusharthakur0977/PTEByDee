@@ -136,7 +136,7 @@ export const getAllSupportTickets = asyncHandler(
 
 export const getSupportTicketById = asyncHandler(
   async (req: Request, res: Response) => {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     try {
       if (!id || id.length !== 24) {
@@ -192,7 +192,7 @@ export const getSupportTicketById = asyncHandler(
 
 export const updateSupportTicketStatus = asyncHandler(
   async (req: Request, res: Response) => {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { status } = req.body as { status?: SupportTicketStatus };
 
     try {
